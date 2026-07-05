@@ -40,26 +40,21 @@ class PluginInit {
     }
 
     private static function runBasicWaf(): void {
-        try {
-            $configFile     = DPXL_SHIELD_PATH . 'data/early-config.php';
-            $blockedIpsFile = DPXL_SHIELD_PATH . 'data/blocked-ips.php';
+        $configFile    = DPXL_SHIELD_PATH . 'data/early-config.php';
+        $blockedIpsFile = DPXL_SHIELD_PATH . 'data/blocked-ips.php';
 
-            $request = new Request();
-            $engine  = new FirewallEngine($configFile, $blockedIpsFile);
-            $result  = $engine->evaluate($request);
+        $request = new Request();
+        $engine  = new FirewallEngine($configFile, $blockedIpsFile);
+        $result  = $engine->evaluate($request);
 
-            TrafficLogger::setWafResult($result);
+        TrafficLogger::setWafResult($result);
 
-            if ($result->decision->value === 'block') {
-                wp_die(
-                    esc_html__('Your request has been blocked by DPXL Shield.', 'dpxl-shield'),
-                    esc_html__('403 Forbidden', 'dpxl-shield'),
-                    ['response' => 403]
-                );
-            }
-        } catch (\Throwable $e) {
-            // WAF boot failure must never prevent WordPress from loading.
-            error_log('[DPXL Shield] WAF boot error: ' . $e->getMessage());
+        if ($result->decision->value === 'block') {
+            wp_die(
+                esc_html__('Your request has been blocked by DPXL Shield.', 'dpxl-shield'),
+                esc_html__('403 Forbidden', 'dpxl-shield'),
+                ['response' => 403]
+            );
         }
     }
 

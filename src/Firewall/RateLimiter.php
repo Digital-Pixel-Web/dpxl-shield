@@ -69,6 +69,14 @@ class RateLimiter {
         $table       = $wpdb->prefix . 'dpxl_shield_rate_buckets';
         $windowStart = gmdate('Y-m-d H:i:s', (int) floor(time() / self::WINDOW_SECONDS) * self::WINDOW_SECONDS);
 
+        $prev        = $wpdb->suppress_errors(true);
+        $tableExists = (string) $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table;
+
+        if (!$tableExists) {
+            $wpdb->suppress_errors($prev);
+            return 0;
+        }
+
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         $wpdb->query(
             $wpdb->prepare(
@@ -84,12 +92,16 @@ class RateLimiter {
             )
         );
 
-        return (int) $wpdb->get_var(
+        $count = (int) $wpdb->get_var(
             $wpdb->prepare(
                 "SELECT count FROM `{$table}` WHERE bucket_key = %s",
                 $key
             )
         );
+
+        $wpdb->suppress_errors($prev);
+
+        return $count;
     }
 
     public static function updateLimit(string $endpoint, int $limit): void {

@@ -149,12 +149,21 @@ class IpBlocklist {
 
         global $wpdb;
 
-        $rows = $wpdb->get_results(
-            "SELECT ip, cidr FROM {$wpdb->prefix}dpxl_shield_blocked_ips
-             WHERE (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
-             ORDER BY id ASC",
-            ARRAY_A
-        );
+        $table = $wpdb->prefix . 'dpxl_shield_blocked_ips';
+        $prev  = $wpdb->suppress_errors(true);
+
+        $tableExists = (string) $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table;
+
+        $rows = $tableExists
+            ? $wpdb->get_results(
+                "SELECT ip, cidr FROM {$table}
+                 WHERE (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
+                 ORDER BY id ASC",
+                ARRAY_A
+            )
+            : null;
+
+        $wpdb->suppress_errors($prev);
 
         $list = ['exact' => [], 'cidr' => []];
 

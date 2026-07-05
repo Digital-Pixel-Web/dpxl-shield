@@ -80,8 +80,24 @@ class FirewallEngine {
         $result = $this->ruleEngine->evaluate($request);
 
         if ($result->decision === Decision::BLOCK) {
-            // Auto-add to blocklist for 1 hour on WAF rule hit.
-            IpBlocklist::blockIp($request->ip, $result->reason, 'auto_waf', 3600);
+            // Never auto-add admin IPs to the blocklist.
+            //
+            // Two contexts:
+            // A) Extended Protection (pre-WordPress, auto_prepend_file):
+            //    current_user_can() doesn't exist yet. Admin requests are already
+            //    bypassed in Loader::handleEarlyRequest() via URI check, so any
+            //    request reaching here is not from /wp-admin. IpBlocklist::blockIp()
+            //    has its own $wpdb null-guard as a safety net.
+            //
+            // B) Basic WAF (inside WordPress, plugins_loaded):
+            //    current_user_can() is available. Use it to protect admins whose
+            //    cookie session is active (e.g. REST / admin-ajax calls not bypassed
+            //    by the cookie check).
+            $isAdmin = function_exists('current_user_can') && current_user_can('manage_options');
+
+            if (!$isAdmin) {
+                IpBlocklist::blockIp($request->ip, $result->reason, 'auto_waf', 3600);
+            }
         }
 
         return $result;

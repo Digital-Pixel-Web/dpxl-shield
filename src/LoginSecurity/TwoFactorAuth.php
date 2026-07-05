@@ -56,14 +56,19 @@ class TwoFactorAuth {
 
     /**
      * Runs on `wp_authenticate_user` (priority 20).
-     * If 2FA is required for this user, initiates the challenge flow.
+     * If 2FA is configured AND enabled for this user, initiates the challenge flow.
+     * Users whose role requires 2FA but who haven't configured it yet are allowed
+     * in and prompted to set it up from their profile — they are never hard-blocked.
      */
     public function interceptLogin(\WP_User|\WP_Error $user): \WP_User|\WP_Error {
         if (is_wp_error($user)) {
             return $user;
         }
 
-        if (!$this->isRequired($user)) {
+        // Only intercept when the user has actually configured 2FA.
+        // Role-based enforcement (isRequired) is advisory; blocking login
+        // before setup is done would permanently lock out administrators.
+        if (!$this->isEnabled($user->ID)) {
             return $user;
         }
 

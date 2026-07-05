@@ -38,9 +38,25 @@ class TamperDetector {
         $this->store->save($checksums);
     }
 
-    /** Called on plugins_loaded (priority -10) on every request. */
+    /**
+     * Called on plugins_loaded (priority -10) on every request.
+     * Also re-records the baseline when the plugin version changes (e.g. after
+     * an update), preventing false-positive tamper alerts on legitimate upgrades.
+     */
     public static function verifyIntegrity(): void {
-        (new self())->runVerification();
+        $instance = new self();
+
+        // Auto-update baseline when the plugin version advances.
+        $storedVersion  = get_option('dpxl_shield_integrity_version', '');
+        $currentVersion = defined('DPXL_SHIELD_VERSION') ? DPXL_SHIELD_VERSION : '';
+
+        if ($storedVersion !== $currentVersion && $currentVersion !== '') {
+            $instance->recordBaseline();
+            update_option('dpxl_shield_integrity_version', $currentVersion, false);
+            return; // Baseline just recorded — nothing to compare against yet.
+        }
+
+        $instance->runVerification();
     }
 
     // ── Internal ───────────────────────────────────────────────────────────

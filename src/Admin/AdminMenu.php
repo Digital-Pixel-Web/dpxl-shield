@@ -70,9 +70,19 @@ class AdminMenu {
         echo '</h1>';
     }
 
-    public function translatePluginStrings(string $translated, string $text, string $domain): string {
-        if ($domain !== 'dpxl-shield') {
-            return $translated;
+    /**
+     * PHP 8.1: passing null to a typed string parameter throws TypeError even from
+     * non-strict callers. WordPress/Elementor can pass null to the gettext filter
+     * (e.g. __( $variable ) where $variable is null). Accepting mixed + null-guarding
+     * prevents the fatal 500 on any admin page.
+     */
+    public function translatePluginStrings(mixed $translated, mixed $text, mixed $domain): string {
+        if (!is_string($domain) || $domain !== 'dpxl-shield') {
+            return is_string($translated) ? $translated : (string) ($translated ?? '');
+        }
+
+        if (!is_string($text)) {
+            return is_string($translated) ? $translated : (string) ($translated ?? '');
         }
 
         static $map = [
@@ -412,7 +422,8 @@ class AdminMenu {
             'Scan post content for malicious links' => 'Verificar conteúdo em busca de links maliciosos',
         ];
 
-        return $map[$text] ?? $translated;
+        $fallback = is_string($translated) ? $translated : (string) ($translated ?? '');
+        return $map[$text] ?? $fallback;
     }
 
     public function enqueueAssets(string $hookSuffix): void {

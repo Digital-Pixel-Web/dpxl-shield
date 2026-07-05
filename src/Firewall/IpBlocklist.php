@@ -37,6 +37,13 @@ class IpBlocklist {
     ): bool {
         global $wpdb;
 
+        // $wpdb is NULL when running in Extended Protection context (auto_prepend_file)
+        // before WordPress loads. Guard here to prevent a fatal "call to member function
+        // on null" when the WAF blocks a request pre-WordPress.
+        if (!$wpdb instanceof \wpdb) {
+            return false;
+        }
+
         $expiresAt = $durationSeconds !== null
             ? gmdate('Y-m-d H:i:s', time() + $durationSeconds)
             : null;

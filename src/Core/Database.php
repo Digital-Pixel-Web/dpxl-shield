@@ -24,6 +24,21 @@ class Database {
         update_option(self::SCHEMA_VERSION_OPTION, self::SCHEMA_VERSION);
     }
 
+    /**
+     * Self-healing: creates tables if they don't exist.
+     * Called on every boot to handle zip-based plugin upgrades that bypass
+     * the activation hook (which is the only place createTables() normally runs).
+     */
+    public static function maybeCreateTables(): void {
+        $stored = get_option(self::SCHEMA_VERSION_OPTION, '');
+
+        if ($stored === self::SCHEMA_VERSION) {
+            return; // Tables already at current schema — nothing to do.
+        }
+
+        self::createTables();
+    }
+
     public static function dropAllTables(): void {
         global $wpdb;
 
@@ -80,7 +95,7 @@ class Database {
                 ip           VARCHAR(45)     NOT NULL,
                 cidr         VARCHAR(50),
                 reason       VARCHAR(255)    NOT NULL,
-                source       ENUM('manual','auto_waf','auto_brute','auto_rate','auto_honeypot','auto_country') NOT NULL,
+                source       ENUM('manual','auto_waf','auto_brute','auto_rate','auto_honeypot','auto_country','auto_anomaly') NOT NULL,
                 blocked_at   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 expires_at   DATETIME,
                 is_permanent TINYINT(1)      NOT NULL DEFAULT 0,

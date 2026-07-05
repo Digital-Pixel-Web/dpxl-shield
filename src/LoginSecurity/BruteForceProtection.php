@@ -69,8 +69,9 @@ class BruteForceProtection {
             );
         }
 
-        // Block immediately if username is "admin" and option is set.
-        if (Options::get('brute_force_block_admin_username', true) && strtolower($username) === 'admin') {
+        // Block immediately if username is "admin" and option is explicitly enabled.
+        // Default is false to avoid locking out sites that legitimately use "admin".
+        if (Options::get('brute_force_block_admin_username', false) && strtolower($username) === 'admin') {
             $this->incrementFailures($ip);
             $this->audit->recordBlocked($username, $ip);
 

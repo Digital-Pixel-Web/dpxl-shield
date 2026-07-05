@@ -22,6 +22,34 @@ class Loader {
             return;
         }
 
+        $uri = $_SERVER['REQUEST_URI'] ?? '';
+
+        // ── Admin bypass ───────────────────────────────────────────────────
+        // wp-admin and wp-login.php must never be WAF-filtered in the pre-
+        // WordPress context. Page builders (Elementor, Gutenberg) POST raw
+        // HTML/CSS that triggers XSS/SQLi rules; WordPress itself handles
+        // admin authentication. is_admin() is unavailable here, so we check
+        // the URI directly.
+        if (str_contains($uri, '/wp-admin/') || str_contains($uri, '/wp-login.php')) {
+            return;
+        }
+
+        // ── Authenticated REST / admin-ajax bypass ─────────────────────────
+        // REST API and admin-ajax requests from logged-in users must bypass
+        // the WAF. We cannot validate WP auth cookies pre-WordPress, but we
+        // trust their presence: WordPress sets wordpress_logged_in_<hash>
+        // cookies only after a successful login.
+        $isAuthEndpoint = str_contains($uri, '/wp-json/') || str_contains($uri, 'admin-ajax.php');
+
+        if ($isAuthEndpoint) {
+            foreach (array_keys($_COOKIE) as $cookieName) {
+                if (str_starts_with((string) $cookieName, 'wordpress_logged_in_')) {
+                    return; // Logged-in user — skip WAF entirely.
+                }
+            }
+        }
+
+        // ── WAF evaluation (unauthenticated public requests only) ──────────
         $configFile = self::locateConfig();
 
         if ($configFile === null || !self::isFirewallEnabled($configFile)) {

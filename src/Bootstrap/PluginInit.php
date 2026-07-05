@@ -18,6 +18,7 @@ use DPXL\Shield\SelfProtection\DeactivationGuard;
 use DPXL\Shield\Alerts\AlertManager;
 use DPXL\Shield\Admin\AdminMenu;
 use DPXL\Shield\Admin\RestApi;
+use DPXL\Shield\Core\Database;
 
 /**
  * Normal plugin boot — runs on plugins_loaded after WordPress is available.
@@ -25,6 +26,9 @@ use DPXL\Shield\Admin\RestApi;
 class PluginInit {
 
     public static function boot(): void {
+        // Ensure DB tables exist — handles zip-based upgrades that skip the activation hook.
+        Database::maybeCreateTables();
+
         $firewallEnabled = (bool) Options::get('firewall_enabled', true);
 
         // Run WAF in basic mode (inside WordPress) only when the firewall is enabled
@@ -40,7 +44,29 @@ class PluginInit {
     }
 
     private static function runBasicWaf(): void {
-        $configFile    = DPXL_SHIELD_PATH . 'data/early-config.php';
+        $uri = $_SERVER['REQUEST_URI'] ?? '';
+
+        // Bypass WAF for all wp-admin requests.
+        // Page builders (Elementor, Gutenberg) POST HTML/CSS/JS that triggers XSS/SQLi
+        // rules, causing false-positive blocks and auto-adding the admin's IP to the
+        // blocklist. is_admin() is a cheap constant check (WP_ADMIN is defined early).
+        if (is_admin()) {
+            return;
+        }
+
+        // Bypass WAF for REST API and admin-ajax requests that carry a WordPress
+        // auth cookie. We check the cookie directly rather than calling
+        // is_user_logged_in() because at plugins_loaded priority -10 the user is not
+        // yet fully initialized for REST requests (REST nonce auth runs at rest_api_init).
+        // LOGGED_IN_COOKIE is defined by wp_cookie_constants() before plugins_loaded.
+        $loggedInCookie = defined('LOGGED_IN_COOKIE') ? LOGGED_IN_COOKIE : 'wordpress_logged_in';
+        $isAuthRequest  = str_contains($uri, '/wp-json/') || str_contains($uri, 'admin-ajax.php');
+
+        if ($isAuthRequest && !empty($_COOKIE[$loggedInCookie] ?? '')) {
+            return;
+        }
+
+        $configFile     = DPXL_SHIELD_PATH . 'data/early-config.php';
         $blockedIpsFile = DPXL_SHIELD_PATH . 'data/blocked-ips.php';
 
         $request = new Request();

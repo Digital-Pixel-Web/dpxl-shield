@@ -30,7 +30,29 @@ class RestApi {
     private const PERM = 'manage_options';
 
     public function registerHooks(): void {
+        // Priority -999: clean any PHP notices/warnings that accumulated during
+        // plugins_loaded before the REST server begins. When WP_DEBUG_DISPLAY is
+        // On, PHP notices emitted before WordPress's REST handler runs are buffered
+        // and prepended to the JSON response, breaking JSON.parse() in the browser.
+        add_action('rest_api_init', [$this, 'cleanRestOutputBuffer'], -999);
+
         add_action('rest_api_init', [$this, 'registerRoutes']);
+    }
+
+    /**
+     * Cleans any buffered PHP notices/warnings before the REST response is sent.
+     * Suppressed content is forwarded to error_log when WP_DEBUG is active so
+     * the root-cause notice can still be identified and fixed.
+     */
+    public function cleanRestOutputBuffer(): void {
+        if (ob_get_level() > 0 && ob_get_length() > 0) {
+            $stray = ob_get_contents();
+            ob_clean();
+
+            if ($stray && defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('[DPXL Shield] REST pre-response output suppressed: ' . substr(wp_strip_all_tags((string) $stray), 0, 500));
+            }
+        }
     }
 
     public function registerRoutes(): void {

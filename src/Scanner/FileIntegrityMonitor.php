@@ -72,35 +72,21 @@ class FileIntegrityMonitor {
             // null means no baseline yet — silent until first baseline is recorded.
         }
 
-        $this->checkPluginIntegrity();
-    }
-
-    private function checkPluginIntegrity(): void {
-        $criticalPluginFiles = [
-            DPXL_SHIELD_PATH . 'dpxl-shield.php',
-            DPXL_SHIELD_PATH . 'dpxl-shield-waf.php',
-            DPXL_SHIELD_PATH . 'src/Firewall/FirewallEngine.php',
-            DPXL_SHIELD_PATH . 'src/Bootstrap/Loader.php',
-        ];
-
-        foreach ($criticalPluginFiles as $absolute) {
-            if (!file_exists($absolute)) {
-                continue;
-            }
-
-            $status = $this->verifier->verify($absolute);
-
-            if ($status === false) {
-                $relative = ltrim(str_replace(WP_PLUGIN_DIR, '', $absolute), '/\\');
-
-                do_action('dpxl_shield_integrity_violation', $absolute, $relative);
-            }
-        }
     }
 
     // ── Violation Handler ──────────────────────────────────────────────────
 
     public function handleViolation(string $absolutePath, string $relativePath): void {
+        // Alert at most once per hour per modified file to prevent flooding on every request.
+        // The admin sees the alert once and can review; repeated alerts serve no purpose.
+        $transientKey = 'dpxl_integrity_alerted_' . md5($absolutePath);
+
+        if (get_transient($transientKey)) {
+            return;
+        }
+
+        set_transient($transientKey, true, HOUR_IN_SECONDS);
+
         Logger::error("Integrity violation: {$absolutePath}");
 
         do_action('dpxl_shield_alert', [
@@ -112,10 +98,6 @@ class FileIntegrityMonitor {
                 'timestamp' => current_time('mysql', true),
             ],
         ]);
-
-        // Update baseline so we don't flood alerts on the same change.
-        // The admin must review and acknowledge the change in the scan results.
-        // We only alert once per modified file until the baseline is re-recorded.
     }
 
     // ── Baseline Management ────────────────────────────────────────────────

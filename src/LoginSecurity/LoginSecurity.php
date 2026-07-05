@@ -47,7 +47,7 @@ class LoginSecurity {
      * After a `dpxl_2fa_required` WP_Error, redirect to the 2FA entry page.
      */
     public function maybe2faRedirect(string $redirect, string $requestedRedirect, \WP_User|\WP_Error $user): string {
-        if (!is_wp_error($user) || !$user->has('dpxl_2fa_required')) {
+        if (!is_wp_error($user) || !$user->has_errors() || !array_key_exists('dpxl_2fa_required', $user->errors)) {
             return $redirect;
         }
 

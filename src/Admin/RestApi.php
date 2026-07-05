@@ -111,34 +111,75 @@ class RestApi {
         return current_user_can(self::PERM);
     }
 
+    // ── Helpers ────────────────────────────────────────────────────────────
+
+    /**
+     * Suppresses wpdb error output so DB errors never corrupt the REST JSON
+     * body. Returns the previous suppression state so it can be restored.
+     */
+    private function suppressDbErrors(): bool {
+        global $wpdb;
+        return $wpdb->suppress_errors(true);
+    }
+
+    private function restoreDbErrors(bool $prev): void {
+        global $wpdb;
+        $wpdb->suppress_errors($prev);
+    }
+
+    private function tableExists(string $table): bool {
+        global $wpdb;
+        return (string) $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table;
+    }
+
     // ── Dashboard ──────────────────────────────────────────────────────────
 
     public function getDashboard(): \WP_REST_Response {
         global $wpdb;
 
+        $prev       = $this->suppressDbErrors();
         $logTable   = $wpdb->prefix . 'dpxl_shield_traffic_log';
         $loginTable = $wpdb->prefix . 'dpxl_shield_login_events';
         $scanTable  = $wpdb->prefix . 'dpxl_shield_scan_results';
 
-        $now      = current_time('mysql', true);
-        $day      = date('Y-m-d H:i:s', strtotime('-24 hours'));
-        $week     = date('Y-m-d H:i:s', strtotime('-7 days'));
-        $month    = date('Y-m-d H:i:s', strtotime('-30 days'));
+        $safeDefaults = [
+            'attacks'       => ['today' => 0, 'week' => 0, 'month' => 0],
+            'scan_issues'   => ['total' => 0, 'critical' => 0],
+            'recent_logins' => [],
+            'attack_chart'  => [],
+            'extended_mode' => defined('DPXL_SHIELD_EXTENDED_ACTIVE'),
+            'firewall_ok'   => (bool) Options::get('firewall_enabled', true),
+            'scan_ok'       => true,
+            'login_ok'      => (bool) Options::get('brute_force_enabled', true),
+        ];
+
+        if (!$this->tableExists($logTable)) {
+            $this->restoreDbErrors($prev);
+            return rest_ensure_response($safeDefaults);
+        }
+
+        $day   = gmdate('Y-m-d H:i:s', strtotime('-24 hours'));
+        $week  = gmdate('Y-m-d H:i:s', strtotime('-7 days'));
+        $month = gmdate('Y-m-d H:i:s', strtotime('-30 days'));
 
         $attacksToday = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$logTable} WHERE waf_action='block' AND timestamp >= %s", $day));
         $attacksWeek  = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$logTable} WHERE waf_action='block' AND timestamp >= %s", $week));
         $attacksMonth = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$logTable} WHERE waf_action='block' AND timestamp >= %s", $month));
 
-        $openIssues = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$scanTable} WHERE status='new'");
-        $criticalIssues = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$scanTable} WHERE status='new' AND severity='critical'");
+        $openIssues     = $this->tableExists($scanTable)
+            ? (int) $wpdb->get_var("SELECT COUNT(*) FROM {$scanTable} WHERE status='new'")
+            : 0;
+        $criticalIssues = $this->tableExists($scanTable)
+            ? (int) $wpdb->get_var("SELECT COUNT(*) FROM {$scanTable} WHERE status='new' AND severity='critical'")
+            : 0;
 
-        // Recent logins (last 10).
-        $recentLogins = $wpdb->get_results(
-            $wpdb->prepare("SELECT user_login, ip, result, timestamp FROM {$loginTable} ORDER BY timestamp DESC LIMIT %d", 10),
-            ARRAY_A
-        ) ?? [];
+        $recentLogins = $this->tableExists($loginTable)
+            ? ($wpdb->get_results(
+                $wpdb->prepare("SELECT user_login, ip, result, timestamp FROM {$loginTable} ORDER BY timestamp DESC LIMIT %d", 10),
+                ARRAY_A
+            ) ?? [])
+            : [];
 
-        // Hourly attack counts for the last 24h chart.
         $attackChart = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT DATE_FORMAT(timestamp, '%%Y-%%m-%%d %%H:00:00') as hour, COUNT(*) as count
@@ -149,13 +190,15 @@ class RestApi {
             ARRAY_A
         ) ?? [];
 
+        $this->restoreDbErrors($prev);
+
         return rest_ensure_response([
             'attacks'       => ['today' => $attacksToday, 'week' => $attacksWeek, 'month' => $attacksMonth],
             'scan_issues'   => ['total' => $openIssues, 'critical' => $criticalIssues],
             'recent_logins' => $recentLogins,
             'attack_chart'  => $attackChart,
             'extended_mode' => defined('DPXL_SHIELD_EXTENDED_ACTIVE'),
-            'firewall_ok'   => Options::get('firewall_enabled', true),
+            'firewall_ok'   => (bool) Options::get('firewall_enabled', true),
             'scan_ok'       => $criticalIssues === 0,
             'login_ok'      => (bool) Options::get('brute_force_enabled', true),
         ]);
@@ -167,6 +210,7 @@ class RestApi {
     public function getFirewallStatus(): \WP_REST_Response {
         global $wpdb;
 
+        $prev         = $this->suppressDbErrors();
         $blockedTable = $wpdb->prefix . 'dpxl_shield_blocked_ips';
         $rulesFile    = defined('DPXL_SHIELD_PATH') ? DPXL_SHIELD_PATH . 'rules/waf-rules.json' : '';
         $rulesCount   = 0;
@@ -176,13 +220,17 @@ class RestApi {
             $rulesCount = is_array($json['rules'] ?? null) ? count($json['rules']) : 0;
         }
 
-        $blockedCount = (int) $wpdb->get_var(
-            "SELECT COUNT(*) FROM {$blockedTable}
-             WHERE (expires_at IS NULL OR expires_at > UTC_TIMESTAMP() OR is_permanent = 1)"
-        );
+        $blockedCount = $this->tableExists($blockedTable)
+            ? (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$blockedTable}
+                 WHERE (expires_at IS NULL OR expires_at > UTC_TIMESTAMP() OR is_permanent = 1)"
+            )
+            : 0;
 
         $autoPrepend   = new AutoPrepend();
         $extendedState = $autoPrepend->getStatus();
+
+        $this->restoreDbErrors($prev);
 
         return rest_ensure_response(array_merge([
             'waf_enabled'      => (bool) Options::get('firewall_enabled', true),
@@ -262,18 +310,30 @@ class RestApi {
         if ($ip)  { $where[] = 'ip = %s'; $values[] = $ip; }
         if ($url) { $where[] = 'uri LIKE %s'; $values[] = '%' . $wpdb->esc_like($url) . '%'; }
 
-        $wc  = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-        $tbl = $wpdb->prefix . 'dpxl_shield_traffic_log';
+        $wc          = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+        $tbl         = $wpdb->prefix . 'dpxl_shield_traffic_log';
+        $countValues = $values; // Filter values only (no limit/offset yet).
 
         $values[] = $limit;
         $values[] = $offset;
 
-        $rows = $wpdb->get_results(
-            $wpdb->prepare("SELECT * FROM {$tbl} {$wc} ORDER BY id DESC LIMIT %d OFFSET %d", ...$values),
-            ARRAY_A
-        ) ?? [];
+        $prev = $this->suppressDbErrors();
 
-        $total = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$tbl} {$wc}");
+        $rows = $this->tableExists($tbl)
+            ? ($wpdb->get_results(
+                $wpdb->prepare("SELECT * FROM {$tbl} {$wc} ORDER BY id DESC LIMIT %d OFFSET %d", ...$values),
+                ARRAY_A
+            ) ?? [])
+            : [];
+
+        // COUNT must bind the same filter values but not limit/offset.
+        $total = $this->tableExists($tbl)
+            ? ($countValues
+                ? (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$tbl} {$wc}", ...$countValues))
+                : (int) $wpdb->get_var("SELECT COUNT(*) FROM {$tbl}" . ($wc ? " {$wc}" : '')))
+            : 0;
+
+        $this->restoreDbErrors($prev);
 
         return rest_ensure_response(['items' => $rows, 'total' => $total]);
     }

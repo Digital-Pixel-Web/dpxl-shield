@@ -1,0 +1,34 @@
+# Composer
+/vendor/
+
+# Node (caso use build tools futuramente)
+/node_modules/
+
+# Dados de runtime gerados pelo plugin (não versionados)
+/data/blocked-ips.php
+/data/early-config.php
+
+# Arquivos de IDE e sistema
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# PHPUnit cache
+.phpunit.cache/
+.phpunit.result.cache
+
+# Logs locais
+*.log
+
+# Arquivos de build e distribuição
+/dist/
+*.zip
+
+# Arquivos sensíveis
+.env
+.env.*
+
+# Claude settings (local apenas)
+.claude/

@@ -1,5 +1,5 @@
 # DPXL Shield — Blueprint Técnico de Arquitetura
-**Versão:** 1.3 — Corrigido: REST output buffer, TamperDetector version-aware, login fixes (v1.0.14)  
+**Versão:** 1.4 — Extended Protection bypass + $wpdb null-guard (v1.0.19)  
 **Data:** 2026-07-05
 
 ---
@@ -115,6 +115,35 @@ if (!defined('ABSPATH')) {
 }
 ```
 
+**Bypass obrigatório pré-WordPress (v1.0.19):**
+
+`handleEarlyRequest()` roda _antes_ do WordPress. `is_admin()` e `current_user_can()` não existem neste contexto. Sem bypass, page builders como Elementor fazem POST com HTML/CSS que dispara regras XSS, o WAF tenta chamar `IpBlocklist::blockIp()`, que precisa de `$wpdb` — que ainda é `null` — resultando em erro fatal 500.
+
+Regras de bypass (sem nenhuma função WordPress):
+
+```php
+$uri = $_SERVER['REQUEST_URI'] ?? '';
+
+// 1. wp-admin e wp-login.php: WordPress gerencia auth internamente.
+if (str_contains($uri, '/wp-admin/') || str_contains($uri, '/wp-login.php')) {
+    return;
+}
+
+// 2. REST API / admin-ajax com cookie de sessão WordPress.
+//    Não é possível validar o cookie pré-WP, mas a presença de
+//    wordpress_logged_in_* indica que o usuário está logado.
+$isAuthEndpoint = str_contains($uri, '/wp-json/') || str_contains($uri, 'admin-ajax.php');
+if ($isAuthEndpoint) {
+    foreach (array_keys($_COOKIE) as $cookieName) {
+        if (str_starts_with((string) $cookieName, 'wordpress_logged_in_')) {
+            return;
+        }
+    }
+}
+```
+
+O WAF Extended Protection processa apenas requisições públicas não autenticadas.
+
 ### 3.2 FirewallEngine
 **Arquivo:** `src/Firewall/FirewallEngine.php`
 
@@ -224,6 +253,22 @@ Fontes:
 - Lista de reputação (feed externo de IPs maliciosos conhecidos)
 - Suporte a CIDR notation (`192.168.1.0/24`)
 - Cache em memória (APCu se disponível, fallback para transient WordPress)
+
+**Contexto pré-WordPress — `$wpdb` null-guard (v1.0.19):**
+
+`blockIp()` usa `$wpdb` para persistir o bloqueio no banco. Em Extended Protection (`auto_prepend_file`), `$wpdb` é `null` antes do WordPress carregar. Guard obrigatório no início do método:
+
+```php
+public static function blockIp(...): bool {
+    global $wpdb;
+    if (!$wpdb instanceof \wpdb) {
+        return false; // pré-WordPress — não trava, apenas não persiste
+    }
+    // ...
+}
+```
+
+`isBlocked()` já tem fallback correto: quando `get_transient` não existe (pré-WP), lê o flat-file `data/blocked-ips.php` em vez de consultar o banco.
 
 ### 3.4b CountryBlocker
 **Arquivo:** `src/Firewall/CountryBlocker.php`
@@ -748,7 +793,7 @@ CREATE TABLE {prefix}dpxl_shield_blocked_ips (
     ip           VARCHAR(45)     NOT NULL,
     cidr         VARCHAR(50),
     reason       VARCHAR(255)    NOT NULL,
-    source       ENUM('manual','auto_waf','auto_brute','auto_rate','auto_honeypot','auto_country') NOT NULL,
+    source       ENUM('manual','auto_waf','auto_brute','auto_rate','auto_honeypot','auto_country','auto_anomaly') NOT NULL,
     blocked_at   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     expires_at   DATETIME,
     is_permanent TINYINT(1)      NOT NULL DEFAULT 0,
@@ -1155,9 +1200,9 @@ Configurável em: All Options > Firewall Options > Allowlisted URLs
 
 | Módulo | Arquivo | Status |
 |---|---|---|
-| Bootstrap / Loader | `src/Bootstrap/` | ✅ Implementado |
+| Bootstrap / Loader | `src/Bootstrap/` | ✅ Implementado (bypass wp-admin/REST v1.0.19) |
 | FirewallEngine + RuleEngine | `src/Firewall/` | ✅ Implementado |
-| IpBlocklist + RateLimiter | `src/Firewall/` | ✅ Implementado |
+| IpBlocklist + RateLimiter | `src/Firewall/` | ✅ Implementado ($wpdb null-guard v1.0.19) |
 | CountryBlocker (MaxMind) | `src/Firewall/CountryBlocker.php` | ✅ Implementado (requer mmdb) |
 | CustomPatternBlocker | `src/Firewall/CustomPatternBlocker.php` | ✅ Implementado |
 | AllowlistManager | `src/Firewall/AllowlistManager.php` | ✅ Implementado |
@@ -1182,6 +1227,14 @@ Configurável em: All Options > Firewall Options > Allowlisted URLs
 | Admin REST API | `src/Admin/RestApi.php` | ✅ Implementado |
 | Testes unitários (PHPUnit) | `tests/Unit/` | ✅ Parcial (4 suites) |
 
+### Correções v1.0.19
+
+| Bug | Causa | Fix |
+|---|---|---|
+| HTTP 500 fatal em `wp-admin/post.php` e no save do Elementor | Extended Protection ativo (`auto_prepend_file`): `Loader::handleEarlyRequest()` executava o WAF em _todas_ as requisições sem bypass para wp-admin. HTML/CSS do Elementor disparava regra XSS → `FirewallEngine` chamava `IpBlocklist::blockIp()` → `$wpdb->get_var()` em `null` pré-WordPress → `Error: Call to member function get_var() on null` | Bypass URI-based em `Loader::handleEarlyRequest()` para `/wp-admin/` e `/wp-login.php`; bypass cookie-based para `/wp-json/` e `admin-ajax.php` com cookie `wordpress_logged_in_*` |
+| Mesmo 500 poderia ocorrer em qualquer requisição pública bloqueada | `IpBlocklist::blockIp()` usava `global $wpdb` sem verificar se estava disponível | Guard `if (!$wpdb instanceof \wpdb) { return false; }` no início de `blockIp()` |
+| `auto_anomaly` rejeitado pelo MySQL na tabela `dpxl_shield_blocked_ips` | ENUM da coluna `source` não incluía `'auto_anomaly'`; `AnomalyDetector` passava esse valor | `'auto_anomaly'` adicionado ao ENUM. `Database::maybeCreateTables()` adicionado ao boot para auto-healing sem depender do activation hook |
+
 ### Correções v1.0.14
 
 | Bug | Causa | Fix |
@@ -1191,4 +1244,4 @@ Configurável em: All Options > Firewall Options > Allowlisted URLs
 | Login bloqueado para todos os admins | `TwoFactorAuth::interceptLogin()` chamava `isRequired()` que retorna `true` para qualquer administrator (mesmo sem 2FA configurada), gerando `WP_Error('dpxl_2fa_required')` → mascarado como "credenciais incorretas" por `login_hide_errors` | `interceptLogin()` agora chama `isEnabled($user->ID)` — só bloqueia se 2FA foi efetivamente configurada |
 | Login bloqueado para username "admin" | `brute_force_block_admin_username` ausente de `Options::$defaults`; `Options::get()` retornava fallback hardcoded `true` | Default alterado para `false` — bloquear username "admin" requer opt-in explícito do admin |
 
-*Documento atualizado em 2026-07-05 — versão 1.3.*
+*Documento atualizado em 2026-07-05 — versão 1.4.*

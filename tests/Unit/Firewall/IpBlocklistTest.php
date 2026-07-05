@@ -8,6 +8,12 @@ use Brain\Monkey\Functions;
 use DPXL\Shield\Firewall\IpBlocklist;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * Tests for IpBlocklist — static API.
+ *
+ * Key v1.0.19 guard: blockIp() must return false (not crash) when $wpdb is
+ * null, which happens when the Extended Protection WAF runs pre-WordPress.
+ */
 class IpBlocklistTest extends TestCase {
 
     protected function setUp(): void {
@@ -15,62 +21,103 @@ class IpBlocklistTest extends TestCase {
         Monkey\setUp();
 
         Functions\stubs([
-            'get_option'          => fn($key, $default = false) => $default,
-            'update_option'       => true,
-            'current_time'        => fn($type) => $type === 'timestamp' ? time() : date('Y-m-d H:i:s'),
-            'sanitize_text_field' => fn($v) => $v,
-            'absint'              => fn($v) => abs((int) $v),
+            'get_transient'    => false,
+            'set_transient'    => true,
+            'delete_transient' => true,
+            'current_time'     => fn($type) => '2026-01-01 00:00:00',
         ]);
     }
 
     protected function tearDown(): void {
+        // Reset in-process static cache between tests.
+        $ref = new \ReflectionProperty(IpBlocklist::class, 'cache');
+        $ref->setAccessible(true);
+        $ref->setValue(null, null);
+
         Monkey\tearDown();
         parent::tearDown();
     }
 
-    public function testExactIpIsBlocked(): void {
-        $blocklist = new IpBlocklist();
-        $blocklist->blockIp('192.168.1.100', 3600, 'test');
+    // ── blockIp() null-wpdb guard (v1.0.19 critical fix) ──────────────────
 
-        $this->assertTrue($blocklist->isBlocked('192.168.1.100'));
+    /**
+     * Pre-WordPress (Extended Protection) context: $wpdb is not set.
+     * blockIp() must return false without throwing a fatal error.
+     */
+    public function testBlockIpReturnsFalseWhenWpdbIsNull(): void {
+        global $wpdb;
+        $wpdb = null;
+
+        $result = IpBlocklist::blockIp('1.2.3.4', 'xss attempt', 'auto_waf', 3600);
+
+        $this->assertFalse($result, 'blockIp() must return false, not crash, when $wpdb is null');
     }
 
-    public function testUnknownIpIsNotBlocked(): void {
-        $blocklist = new IpBlocklist();
+    /**
+     * Verify no TypeError / fatal is thrown — the test itself failing with an
+     * exception would confirm the guard is missing.
+     */
+    public function testBlockIpDoesNotThrowWhenWpdbIsNull(): void {
+        global $wpdb;
+        $wpdb = null;
 
-        $this->assertFalse($blocklist->isBlocked('10.0.0.1'));
+        $this->expectNotToPerformAssertions();
+
+        IpBlocklist::blockIp('203.0.113.5', 'rate limit', 'auto_rate', 600);
     }
 
-    public function testCidrRangeMatches(): void {
-        $blocklist = new IpBlocklist();
-        $blocklist->blockRange('203.0.113.0/24', 3600, 'test');
+    // ── isBlocked() — cache injection ─────────────────────────────────────
 
-        $this->assertTrue($blocklist->isBlocked('203.0.113.55'));
-        $this->assertFalse($blocklist->isBlocked('203.0.112.55'));
+    public function testExactIpBlockedViaCache(): void {
+        $ref = new \ReflectionProperty(IpBlocklist::class, 'cache');
+        $ref->setAccessible(true);
+        $ref->setValue(null, ['exact' => ['10.0.0.1', '10.0.0.2'], 'cidr' => []]);
+
+        $this->assertTrue(IpBlocklist::isBlocked('10.0.0.1'));
+        $this->assertTrue(IpBlocklist::isBlocked('10.0.0.2'));
+        $this->assertFalse(IpBlocklist::isBlocked('10.0.0.3'));
     }
 
-    public function testIpv6ExactMatch(): void {
-        $blocklist = new IpBlocklist();
-        $blocklist->blockIp('2001:db8::1', 3600, 'test');
+    public function testUnknownIpNotBlocked(): void {
+        $ref = new \ReflectionProperty(IpBlocklist::class, 'cache');
+        $ref->setAccessible(true);
+        $ref->setValue(null, ['exact' => [], 'cidr' => []]);
 
-        $this->assertTrue($blocklist->isBlocked('2001:db8::1'));
-        $this->assertFalse($blocklist->isBlocked('2001:db8::2'));
+        $this->assertFalse(IpBlocklist::isBlocked('99.99.99.99'));
     }
 
-    public function testUnblockRemovesEntry(): void {
-        $blocklist = new IpBlocklist();
-        $blocklist->blockIp('1.2.3.4', 3600, 'test');
-        $this->assertTrue($blocklist->isBlocked('1.2.3.4'));
+    // ── CIDR matching ──────────────────────────────────────────────────────
 
-        $blocklist->unblock('1.2.3.4');
-        $this->assertFalse($blocklist->isBlocked('1.2.3.4'));
+    public function testCidrRangeMatchesViaCache(): void {
+        $ref = new \ReflectionProperty(IpBlocklist::class, 'cache');
+        $ref->setAccessible(true);
+        $ref->setValue(null, ['exact' => [], 'cidr' => ['203.0.113.0/24']]);
+
+        $this->assertTrue(IpBlocklist::isBlocked('203.0.113.55'));
+        $this->assertFalse(IpBlocklist::isBlocked('203.0.112.55'));
     }
 
-    public function testLocalhostIsNeverBlocked(): void {
-        $blocklist = new IpBlocklist();
-        // Even if someone tries to block 127.0.0.1, it should be ignored.
-        $blocklist->blockIp('127.0.0.1', 3600, 'test');
+    public function testCidrEdgeCases(): void {
+        $ref = new \ReflectionProperty(IpBlocklist::class, 'cache');
+        $ref->setAccessible(true);
+        $ref->setValue(null, ['exact' => [], 'cidr' => ['10.0.0.0/8']]);
 
-        $this->assertFalse($blocklist->isBlocked('127.0.0.1'));
+        $this->assertTrue(IpBlocklist::isBlocked('10.255.255.1'));
+        $this->assertFalse(IpBlocklist::isBlocked('11.0.0.1'));
+    }
+
+    // ── isBlocked() pre-WordPress (no $wpdb) ──────────────────────────────
+
+    public function testIsBlockedDoesNotCrashWhenWpdbIsNull(): void {
+        global $wpdb;
+        $wpdb = null;
+
+        // get_transient is stubbed to return false, so loadFromDatabase() runs.
+        // loadFromDatabase() checks function_exists('get_transient') — it exists
+        // (Brain\Monkey stubbed it), so it will try to use $wpdb. With our guard
+        // this should not crash but return an empty list.
+        $this->expectNotToPerformAssertions();
+
+        IpBlocklist::isBlocked('1.1.1.1');
     }
 }

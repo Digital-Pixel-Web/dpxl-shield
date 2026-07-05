@@ -5,9 +5,10 @@ namespace DPXL\Shield\Tests\Unit\Firewall;
 
 use Brain\Monkey;
 use Brain\Monkey\Functions;
+use DPXL\Shield\Firewall\Decision;
 use DPXL\Shield\Firewall\FirewallEngine;
+use DPXL\Shield\Firewall\IpBlocklist;
 use DPXL\Shield\Firewall\Request;
-use DPXL\Shield\Firewall\RuleDecision;
 use PHPUnit\Framework\TestCase;
 
 class FirewallEngineTest extends TestCase {
@@ -18,14 +19,28 @@ class FirewallEngineTest extends TestCase {
 
         // Stub WordPress functions used inside FirewallEngine / pipeline steps.
         Functions\stubs([
-            'get_option'         => false,
-            'absint'             => fn($v) => abs((int) $v),
+            'get_option'          => false,
+            'absint'              => fn($v) => abs((int) $v),
             'sanitize_text_field' => fn($v) => $v,
-            'apply_filters'      => fn($tag, $value, ...$args) => $value,
+            'apply_filters'       => fn($tag, $value, ...$args) => $value,
+            'get_transient'       => false,
+            'set_transient'       => true,
+            'delete_transient'    => true,
+            'current_time'        => fn($type) => '2026-01-01 00:00:00',
         ]);
+
+        // Ensure $wpdb is null — simulates pre-WordPress (Extended Protection) context.
+        // IpBlocklist::blockIp() must handle this gracefully.
+        global $wpdb;
+        $wpdb = null;
     }
 
     protected function tearDown(): void {
+        // Reset IpBlocklist in-process cache between tests.
+        $ref = new \ReflectionProperty(IpBlocklist::class, 'cache');
+        $ref->setAccessible(true);
+        $ref->setValue(null, null);
+
         Monkey\tearDown();
         parent::tearDown();
     }
@@ -53,7 +68,7 @@ class FirewallEngineTest extends TestCase {
         $request = $this->makeRequest(['ip' => '10.0.0.1', 'uri' => '/']);
         $result  = $engine->evaluate($request);
 
-        $this->assertSame(RuleDecision::PASS, $result->decision);
+        $this->assertSame(Decision::PASS, $result->decision);
     }
 
     public function testSqlInjectionInUriBlocked(): void {
@@ -61,7 +76,7 @@ class FirewallEngineTest extends TestCase {
         $request = $this->makeRequest(['uri' => "/?id=1' UNION SELECT 1,2,3--"]);
         $result  = $engine->evaluate($request);
 
-        $this->assertSame(RuleDecision::BLOCK, $result->decision);
+        $this->assertSame(Decision::BLOCK, $result->decision);
     }
 
     public function testXssInQueryStringBlocked(): void {
@@ -69,7 +84,7 @@ class FirewallEngineTest extends TestCase {
         $request = $this->makeRequest(['uri' => '/?s=<script>alert(1)</script>']);
         $result  = $engine->evaluate($request);
 
-        $this->assertSame(RuleDecision::BLOCK, $result->decision);
+        $this->assertSame(Decision::BLOCK, $result->decision);
     }
 
     public function testPathTraversalBlocked(): void {
@@ -77,7 +92,7 @@ class FirewallEngineTest extends TestCase {
         $request = $this->makeRequest(['uri' => '/../../etc/passwd']);
         $result  = $engine->evaluate($request);
 
-        $this->assertSame(RuleDecision::BLOCK, $result->decision);
+        $this->assertSame(Decision::BLOCK, $result->decision);
     }
 
     public function testAdminUriPassesWithoutCredentials(): void {
@@ -86,6 +101,21 @@ class FirewallEngineTest extends TestCase {
         $result  = $engine->evaluate($request);
 
         // Admin URIs are not blocked by the WAF rules themselves (brute force is a separate module).
-        $this->assertSame(RuleDecision::PASS, $result->decision);
+        $this->assertSame(Decision::PASS, $result->decision);
+    }
+
+    /**
+     * v1.0.19 regression: when the rule engine blocks a request pre-WordPress
+     * ($wpdb = null), IpBlocklist::blockIp() must not throw a fatal error.
+     * The block decision must still be returned — only the auto-block write is skipped.
+     */
+    public function testXssBlockDoesNotCrashWhenWpdbIsNull(): void {
+        // $wpdb = null is set in setUp() — simulates Extended Protection context.
+        $engine  = $this->makeEngine();
+        $request = $this->makeRequest(['uri' => '/?s=<script>alert(document.cookie)</script>']);
+        $result  = $engine->evaluate($request);
+
+        // The rule engine must still return BLOCK (WAF works).
+        $this->assertSame(Decision::BLOCK, $result->decision);
     }
 }

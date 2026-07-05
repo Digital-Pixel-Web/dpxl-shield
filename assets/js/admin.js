@@ -1136,18 +1136,36 @@
     }
 
     async function performWhois() {
-        const ip = document.getElementById('whois-ip-input')?.value?.trim();
-        if (!ip) return;
+        const query = document.getElementById('whois-ip-input')?.value?.trim();
+        if (!query) return;
 
         document.getElementById('whois-result')?.classList.add('dpxl-hidden');
         document.getElementById('whois-error')?.classList.add('dpxl-hidden');
         document.getElementById('whois-loading')?.classList.remove('dpxl-hidden');
 
         try {
-            const data = await api.get('whois/' + encodeURIComponent(ip));
+            const data = await api.get('whois/' + encodeURIComponent(query));
             document.getElementById('whois-loading')?.classList.add('dpxl-hidden');
 
-            document.getElementById('whois-result-ip').textContent = data.ip;
+            // If the backend returned an error field, show it instead of a blank table.
+            if (data.error || data.source === 'lookup_failed' || data.source === 'invalid_ip') {
+                const errEl = document.getElementById('whois-error');
+                if (errEl) {
+                    errEl.textContent = data.error || 'Consulta falhou. Verifique o IP/domínio e tente novamente.';
+                    errEl.classList.remove('dpxl-hidden');
+                }
+                return;
+            }
+
+            // Show resolved IP (may differ from query when a hostname was entered).
+            const displayIp = data.ip || query;
+            const resultIpEl = document.getElementById('whois-result-ip');
+            if (resultIpEl) {
+                resultIpEl.textContent = displayIp;
+                if (data.input && data.input !== displayIp) {
+                    resultIpEl.textContent += ` (${data.input})`;
+                }
+            }
 
             const table = document.getElementById('whois-detail-table');
             if (table) {
@@ -1162,11 +1180,11 @@
             }
 
             const rawEl = document.getElementById('whois-raw-output');
-            if (rawEl) rawEl.textContent = data.raw || 'No raw data';
+            if (rawEl) rawEl.textContent = data.raw || 'Sem dados brutos (resultado obtido via API).';
 
             document.getElementById('whois-btn-block')?.addEventListener('click', () => {
-                api.post('blocked-ips', { ip: data.ip, reason: 'Bloqueado pela consulta Whois', duration: 0 })
-                    .then(() => showNotice(`${data.ip} bloqueado.`))
+                api.post('blocked-ips', { ip: displayIp, reason: 'Bloqueado pela consulta Whois', duration: 0 })
+                    .then(() => showNotice(`${displayIp} bloqueado.`))
                     .catch(e => showNotice(e.message, 'error'));
             }, { once: true });
 

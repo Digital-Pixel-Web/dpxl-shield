@@ -4,16 +4,18 @@ declare(strict_types=1);
 namespace DPXL\Shield\Tools;
 
 /**
- * Performs WHOIS lookups for any IP address.
+ * Performs WHOIS lookups for any IP address or hostname.
  *
  * Strategy:
- *   1. Direct TCP socket to the appropriate WHOIS server (no API key needed).
- *   2. Fallback: ip-api.com JSON endpoint (free, no key, 45 req/min limit).
+ *   1. If input is a hostname, resolve it to an IP first.
+ *   2. Direct TCP socket to the appropriate WHOIS server (no API key needed).
+ *   3. Fallback: ipinfo.io JSON endpoint (free tier, HTTPS, no key required).
  *
  * Results are cached for 1 hour per IP in transients to avoid hammering WHOIS servers.
  *
  * @return array{
  *   ip: string,
+ *   input: string,
  *   org: string,
  *   asn: string,
  *   country: string,
@@ -22,12 +24,13 @@ namespace DPXL\Shield\Tools;
  *   abuse: string,
  *   raw: string,
  *   source: string,
+ *   error?: string,
  * }
  */
 class WhoisLookup {
 
-    private const CACHE_TTL   = 3600;
-    private const SOCK_TIMEOUT = 8;
+    private const CACHE_TTL    = 3600;
+    private const SOCK_TIMEOUT = 4; // Reduced: port 43 is blocked on most shared hosts; fail fast.
 
     // WHOIS server by IP range (simplified — ARIN covers the rest).
     private const WHOIS_SERVERS = [
@@ -41,30 +44,52 @@ class WhoisLookup {
     /**
      * @return array<string,string>
      */
-    public function lookup(string $ip): array {
-        if (!filter_var($ip, FILTER_VALIDATE_IP)) {
-            return $this->empty($ip, 'invalid_ip');
+    public function lookup(string $input): array {
+        $input = trim($input);
+
+        // Resolve hostname to IP if needed.
+        if (filter_var($input, FILTER_VALIDATE_IP)) {
+            $ip = $input;
+        } else {
+            // Strip scheme/path in case user pastes a URL.
+            $host = (string) parse_url(
+                str_contains($input, '://') ? $input : 'http://' . $input,
+                PHP_URL_HOST
+            );
+            $host = $host ?: $input;
+
+            // gethostbyname returns the original string unchanged on failure.
+            $resolved = gethostbyname($host);
+
+            if ($resolved === $host || !filter_var($resolved, FILTER_VALIDATE_IP)) {
+                return $this->error($input, $input, 'invalid_ip', "Cannot resolve \"{$input}\" to an IP address.");
+            }
+
+            $ip = $resolved;
         }
 
         $cacheKey = 'dpxl_whois_' . md5($ip);
         $cached   = get_transient($cacheKey);
 
         if (is_array($cached)) {
+            // Preserve the original input even on cache hit.
+            $cached['input'] = $input;
             return $cached;
         }
 
-        // Try direct WHOIS first.
+        // Try direct WHOIS socket first.
         $result = $this->socketLookup($ip);
 
         if ($result === null) {
-            // Fallback to ip-api.com.
-            $result = $this->ipApiLookup($ip);
+            // Fallback to ipinfo.io (free, HTTPS).
+            $result = $this->ipinfoLookup($ip);
         }
 
         if ($result === null) {
-            $result = $this->empty($ip, 'lookup_failed');
+            $result = $this->error($ip, $input, 'lookup_failed', 'Both WHOIS socket and ipinfo.io lookup failed. Check outbound connectivity.');
         }
 
+        $result['input'] = $input;
         set_transient($cacheKey, $result, self::CACHE_TTL);
 
         return $result;
@@ -141,13 +166,13 @@ class WhoisLookup {
         return $response !== '' ? $response : null;
     }
 
-    // ── ip-api.com fallback ────────────────────────────────────────────────
+    // ── ipinfo.io fallback (free tier, HTTPS, no API key required) ────────
 
     /** @return array<string,string>|null */
-    private function ipApiLookup(string $ip): ?array {
+    private function ipinfoLookup(string $ip): ?array {
         $response = wp_remote_get(
-            "http://ip-api.com/json/{$ip}?fields=status,message,country,countryCode,org,as,query",
-            ['timeout' => 6]
+            "https://ipinfo.io/{$ip}/json",
+            ['timeout' => 6, 'user-agent' => 'DPXL-Shield/1.0 (WordPress security plugin)']
         );
 
         if (is_wp_error($response)) {
@@ -156,20 +181,29 @@ class WhoisLookup {
 
         $body = json_decode(wp_remote_retrieve_body($response), true);
 
-        if (!is_array($body) || ($body['status'] ?? '') !== 'success') {
+        if (!is_array($body) || isset($body['error'])) {
             return null;
+        }
+
+        // ipinfo.io returns: ip, hostname, city, region, country, loc, org, postal, timezone
+        $org = (string) ($body['org'] ?? '');
+        // org field is like "AS13335 Cloudflare, Inc." — split ASN and name
+        $asn = '';
+        if (preg_match('/^(AS\d+)\s+(.+)$/', $org, $m)) {
+            $asn = $m[1];
+            $org = $m[2];
         }
 
         return [
             'ip'           => $ip,
-            'org'          => (string) ($body['org']         ?? ''),
-            'asn'          => (string) ($body['as']          ?? ''),
-            'country'      => (string) ($body['country']     ?? ''),
-            'country_code' => strtoupper((string) ($body['countryCode'] ?? '')),
+            'org'          => $org,
+            'asn'          => $asn,
+            'country'      => (string) ($body['country'] ?? ''),
+            'country_code' => strtoupper((string) ($body['country'] ?? '')),
             'range'        => '',
             'abuse'        => '',
             'raw'          => '',
-            'source'       => 'ip-api',
+            'source'       => 'ipinfo.io',
         ];
     }
 
@@ -187,9 +221,10 @@ class WhoisLookup {
     }
 
     /** @return array<string,string> */
-    private function empty(string $ip, string $reason): array {
+    private function error(string $ip, string $input, string $reason, string $message): array {
         return [
             'ip'           => $ip,
+            'input'        => $input,
             'org'          => '',
             'asn'          => '',
             'country'      => '',
@@ -198,6 +233,7 @@ class WhoisLookup {
             'abuse'        => '',
             'raw'          => '',
             'source'       => $reason,
+            'error'        => $message,
         ];
     }
 }

@@ -12,6 +12,27 @@ use DPXL\Shield\Core\Logger;
 class ChecksumVerifier {
 
     /**
+     * Core files that legitimately differ from the WP.org manifest on normal,
+     * uncompromised installs — they must not be reported as modified core:
+     *
+     * - wp-includes/version.php: localized installs add `$wp_local_package`,
+     *   and many hosts stamp a build string here.
+     * - wp-config-sample.php / readme.html / licence files: routinely edited or
+     *   removed by hosts and site owners.
+     *
+     * These files are still scanned for actual malware by MalwareScanner
+     * (they are .php/.html under the scanned trees), so genuine injections are
+     * caught by content — just not by a benign checksum diff.
+     */
+    private const IGNORED_CORE_FILES = [
+        'wp-includes/version.php',
+        'wp-config-sample.php',
+        'readme.html',
+        'license.txt',
+        'wp-content/index.php',
+    ];
+
+    /**
      * Fetches official checksums from WP.org and compares them against the
      * current files on disk. Returns scan result rows for changed files.
      *
@@ -29,6 +50,10 @@ class ChecksumVerifier {
         $issues = [];
 
         foreach ($official as $relativePath => $expectedMd5) {
+            if (in_array($relativePath, self::IGNORED_CORE_FILES, true)) {
+                continue;
+            }
+
             $absolutePath = ABSPATH . $relativePath;
 
             if (!file_exists($absolutePath)) {

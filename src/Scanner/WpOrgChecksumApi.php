@@ -12,22 +12,30 @@ use DPXL\Shield\Core\Logger;
 class WpOrgChecksumApi {
 
     private const API_BASE    = 'https://api.wordpress.org/core/checksums/1.0/';
-    private const TRANSIENT   = 'dpxl_shield_wp_core_checksums';
     private const CACHE_TTL   = DAY_IN_SECONDS;
 
     /** @return array<string, string>  relative_path => md5_hash */
     public function getCoreChecksums(): array {
-        $cached = get_transient(self::TRANSIENT);
+        global $wp_version;
+
+        // Version-scoped cache key: a WordPress core update naturally busts the
+        // cache instead of comparing against a stale manifest for a full day.
+        $transient = self::cacheKey($wp_version);
+        $cached    = get_transient($transient);
 
         if (is_array($cached) && !empty($cached)) {
             return $cached;
         }
 
-        global $wp_version;
-
+        // Always compare against the en_US manifest. Core integrity is
+        // locale-independent: WordPress ships localization as separate language
+        // packs (.mo files), not as modified core files. A localized install
+        // (e.g. pt_BR) that received automatic updates has en_US core files on
+        // disk, so querying with get_locale() makes dozens of untouched core
+        // files look "modified" — the classic mass false positive.
         $url = add_query_arg([
             'version' => $wp_version,
-            'locale'  => get_locale(),
+            'locale'  => 'en_US',
         ], self::API_BASE);
 
         $response = wp_remote_get($url, [
@@ -56,12 +64,17 @@ class WpOrgChecksumApi {
 
         $checksums = $data['checksums'];
 
-        set_transient(self::TRANSIENT, $checksums, self::CACHE_TTL);
+        set_transient($transient, $checksums, self::CACHE_TTL);
 
         return $checksums;
     }
 
     public static function invalidateCache(): void {
-        delete_transient(self::TRANSIENT);
+        global $wp_version;
+        delete_transient(self::cacheKey($wp_version));
+    }
+
+    private static function cacheKey(string $version): string {
+        return 'dpxl_shield_wp_core_checksums_' . md5($version . '|en_US');
     }
 }

@@ -151,8 +151,11 @@ class RestApi {
         $attacksWeek  = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$logTable} WHERE waf_action='block' AND timestamp >= %s", $week));
         $attacksMonth = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$logTable} WHERE waf_action='block' AND timestamp >= %s", $month));
 
-        $openIssues = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$scanTable} WHERE status='new'");
-        $criticalIssues = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$scanTable} WHERE status='new' AND severity='critical'");
+        // Count real threats only. Advisory/hardening recommendations are
+        // surfaced separately and must not inflate the dashboard problem badge.
+        $threatSql      = \DPXL\Shield\Scanner\ScanClassifier::threatWhereSql();
+        $openIssues     = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$scanTable} WHERE status='new' AND {$threatSql}");
+        $criticalIssues = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$scanTable} WHERE status='new' AND severity='critical' AND {$threatSql}");
 
         // Recent logins (last 10).
         $recentLogins = $wpdb->get_results(
@@ -541,43 +544,58 @@ class RestApi {
         }
 
         $whereSql = 'WHERE ' . implode(' AND ', $where);
+        $threatSql = \DPXL\Shield\Scanner\ScanClassifier::threatWhereSql();
+        $table     = $wpdb->prefix . 'dpxl_shield_scan_results';
 
+        // Threats (the "problems" the UI counts) — high-confidence findings.
         $rowsParams = array_merge($params, [$limit, $offset]);
         $rows = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT * FROM {$wpdb->prefix}dpxl_shield_scan_results {$whereSql} ORDER BY FIELD(severity, 'critical', 'high', 'medium', 'low', 'info'), id DESC LIMIT %d OFFSET %d",
+                "SELECT * FROM {$table} {$whereSql} AND {$threatSql} ORDER BY FIELD(severity, 'critical', 'high', 'medium', 'low', 'info'), id DESC LIMIT %d OFFSET %d",
+                ...$rowsParams
+            ),
+            ARRAY_A
+        ) ?? [];
+
+        // Recommendations (advisory) — hardening + low-confidence findings.
+        $recommendations = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT * FROM {$table} {$whereSql} AND {$threatSql} = 0 ORDER BY FIELD(severity, 'critical', 'high', 'medium', 'low', 'info'), id DESC LIMIT %d OFFSET %d",
                 ...$rowsParams
             ),
             ARRAY_A
         ) ?? [];
 
         $total = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$wpdb->prefix}dpxl_shield_scan_results {$whereSql}",
-                ...$params
-            )
+            $wpdb->prepare("SELECT COUNT(*) FROM {$table} {$whereSql} AND {$threatSql}", ...$params)
+        );
+
+        $recommendationTotal = (int) $wpdb->get_var(
+            $wpdb->prepare("SELECT COUNT(*) FROM {$table} {$whereSql} AND {$threatSql} = 0", ...$params)
         );
 
         $critical = (int) $wpdb->get_var(
             $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$wpdb->prefix}dpxl_shield_scan_results {$whereSql} AND severity = %s",
+                "SELECT COUNT(*) FROM {$table} {$whereSql} AND {$threatSql} AND severity = %s",
                 ...array_merge($params, ['critical'])
             )
         );
 
         $repairable = (int) $wpdb->get_var(
             $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$wpdb->prefix}dpxl_shield_scan_results {$whereSql} AND issue_type IN ('modified_core', 'modified_plugin')",
+                "SELECT COUNT(*) FROM {$table} {$whereSql} AND issue_type IN ('modified_core', 'modified_plugin')",
                 ...$params
             )
         );
 
         return rest_ensure_response([
-            'items'            => $rows,
-            'total'            => $total,
-            'critical_total'   => $critical,
-            'repairable_count' => $repairable,
-            'scan_id'          => $scanId,
+            'items'                => $rows,
+            'total'                => $total,
+            'critical_total'       => $critical,
+            'repairable_count'     => $repairable,
+            'recommendations'      => $recommendations,
+            'recommendation_total' => $recommendationTotal,
+            'scan_id'              => $scanId,
         ]);
     }
 

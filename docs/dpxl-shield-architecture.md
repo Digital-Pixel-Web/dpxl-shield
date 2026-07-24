@@ -1,5 +1,5 @@
 # DPXL Shield — Blueprint Técnico de Arquitetura
-**Versão:** 1.5 — Redesign dos e-mails: EmailTemplate + EventCatalog (v1.0.20)  
+**Versão:** 1.6 — Anti-falso-positivo do scanner: ScanClassifier + fix de locale (v1.0.21)  
 **Data:** 2026-07-24
 
 ---
@@ -1222,7 +1222,8 @@ Configurável em: All Options > Firewall Options > Allowlisted URLs
 | CustomPatternBlocker | `src/Firewall/CustomPatternBlocker.php` | ✅ Implementado |
 | AllowlistManager | `src/Firewall/AllowlistManager.php` | ✅ Implementado |
 | REST Output Buffer Protection | `dpxl-shield.php` + `src/Admin/RestApi.php` | ✅ Implementado (v1.0.14) |
-| MalwareScanner + ScanOrchestrator | `src/Scanner/` | ✅ Implementado |
+| MalwareScanner + ScanOrchestrator | `src/Scanner/` | ✅ Implementado (anti-FP v1.0.21) |
+| ScanClassifier (ameaça vs recomendação) | `src/Scanner/ScanClassifier.php` | ✅ Implementado (v1.0.21) |
 | FileIntegrityMonitor + FileRepair | `src/Scanner/` | ✅ Implementado |
 | ReputationChecker | `src/Scanner/ReputationChecker.php` | ✅ Implementado |
 | VulnerabilityScanner | — | ❌ Não implementado (Fase 5) |
@@ -1242,6 +1243,23 @@ Configurável em: All Options > Firewall Options > Allowlisted URLs
 | Diagnostics | `src/Tools/Diagnostics.php` | ✅ Implementado |
 | Admin REST API | `src/Admin/RestApi.php` | ✅ Implementado |
 | Testes unitários (PHPUnit) | `tests/Unit/` | ✅ Parcial (4 suites) |
+
+### Mudanças v1.0.21 — redução de falsos positivos do scanner
+
+Motivação: em um site pt_BR com stack pesada (Crocoblock/Elementor), a varredura retornava ~178 problemas / ~55 críticos, contra ~1 do Wordfence em site equivalente. Diagnóstico e correções:
+
+| Problema | Causa | Correção |
+|---|---|---|
+| ~55 "críticos" `modified_core` falsos | `WpOrgChecksumApi` pedia checksums com `get_locale()` (pt_BR). O WP.org devolvia o manifesto do pacote localizado, mas o core em disco é en_US (updates automáticos aplicam core en_US + language packs). Dezenas de arquivos íntegros "diferiam" → todos marcados CRITICAL | Comparar sempre contra `en_US`. Integridade de core é locale-independente |
+| `version.php` sempre CRITICAL | Instalações localizadas adicionam `$wp_local_package`; hosts estampam build string | `ChecksumVerifier::IGNORED_CORE_FILES` — `version.php`, `wp-config-sample.php`, `readme.html`, `license.txt`, `wp-content/index.php` saem do diff de checksum (mas continuam escaneados por conteúdo/malware) |
+| Cache de checksum não invalidava em update do WP | Transient com chave fixa | Chave `dpxl_shield_wp_core_checksums_{md5(version|en_US)}` — update de core busta o cache naturalmente |
+| Contagem de "problemas" inflada por ruído | Heurística ampla em código de plugin premium + avisos de hardening (WP_DEBUG, editor de arquivos, `wp-config-sample.php`) contavam como "problema" e podiam ser CRITICAL | Novo `ScanClassifier` separa **ameaça** (alta-confiança, conta como problema) de **recomendação** (advisory, seção à parte, nunca conta nem dispara alerta) |
+
+**`src/Scanner/ScanClassifier.php` — corte ameaça vs recomendação:**
+
+- **Ameaça:** `modified_core`, `modified_plugin`, `malware_signature`, `php_in_uploads`; `unknown` com severidade critical/high (`.env`, `.git`, `phpinfo`, backups de config, reputação/blocklist); heurística **apenas** quando `critical` (shell exec com input do usuário)
+- **Recomendação:** heurística ampla em plugin/tema (medium/high), avisos de hardening (`server/*`), arquivos públicos cosméticos (`wp-config-sample.php`, `debug.log`), conteúdo suspeito de posts
+- Fonte única da regra: `isThreat()` (PHP) e `threatWhereSql()` (SQL) mantidos em sincronia. `ScanOrchestrator::finalize()`, o resumo do dashboard e `RestApi::getScanResults()` contam **só ameaças**; o REST agora retorna também `recommendations` + `recommendation_total` (prontos para a futura seção "Recomendações" da UI)
 
 ### Mudanças v1.0.20 — apresentação dos e-mails
 
@@ -1272,4 +1290,4 @@ Configurável em: All Options > Firewall Options > Allowlisted URLs
 | Login bloqueado para todos os admins | `TwoFactorAuth::interceptLogin()` chamava `isRequired()` que retorna `true` para qualquer administrator (mesmo sem 2FA configurada), gerando `WP_Error('dpxl_2fa_required')` → mascarado como "credenciais incorretas" por `login_hide_errors` | `interceptLogin()` agora chama `isEnabled($user->ID)` — só bloqueia se 2FA foi efetivamente configurada |
 | Login bloqueado para username "admin" | `brute_force_block_admin_username` ausente de `Options::$defaults`; `Options::get()` retornava fallback hardcoded `true` | Default alterado para `false` — bloquear username "admin" requer opt-in explícito do admin |
 
-*Documento atualizado em 2026-07-24 — versão 1.5.*
+*Documento atualizado em 2026-07-24 — versão 1.6.*

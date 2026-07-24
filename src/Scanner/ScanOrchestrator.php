@@ -451,12 +451,18 @@ class ScanOrchestrator {
         $status = $this->cancelled ? 'cancelled' : 'idle';
         $now    = current_time('mysql', true);
 
+        // Count and alert on real threats only — advisory recommendations
+        // (hardening notices, low-confidence heuristics) must not drive the
+        // "issues found" badge or fire a critical alert email.
+        $threats  = array_filter($this->results, [ScanClassifier::class, 'isThreat']);
+        $threatCt = count($threats);
+
         update_option('dpxl_shield_scan_running', false, false);
         update_option('dpxl_shield_scan_current_stage', $status, false);
         update_option('dpxl_shield_last_scan_id', $this->scanId, false);
         update_option('dpxl_shield_last_scan_at', $now, false);
-        update_option('dpxl_shield_last_scan_issue_count', count($this->results), false);
-        update_option('dpxl_shield_scan_issues_found', count($this->results), false);
+        update_option('dpxl_shield_last_scan_issue_count', $threatCt, false);
+        update_option('dpxl_shield_scan_issues_found', $threatCt, false);
         update_option('dpxl_shield_scan_updated_at', $now, false);
         update_option('dpxl_shield_scan_cancel_requested', false, false);
 
@@ -464,8 +470,8 @@ class ScanOrchestrator {
             update_option('dpxl_shield_scan_last_error', 'Scan cancelled by admin before completion.', false);
         }
 
-        // Fire alert if any critical issues were found.
-        $criticals = array_filter($this->results, fn($r) => ($r['severity'] ?? '') === 'critical');
+        // Fire alert only if a critical *threat* was found.
+        $criticals = array_filter($threats, fn($r) => ($r['severity'] ?? '') === 'critical');
 
         if (!empty($criticals)) {
             do_action('dpxl_shield_alert', [

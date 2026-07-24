@@ -1,7 +1,7 @@
 <?php defined('ABSPATH') || exit; ?>
 <div class="dpxl-tab-pane" id="tab-audit-log">
     <div class="dpxl-card">
-        <h2><?php esc_html_e('Audit Log', 'dpxl-shield'); ?> <a href="#" class="dpxl-learn-more"><?php esc_html_e('Learn more', 'dpxl-shield'); ?> <?php \DPXL\Shield\Admin\Icons::render('external-link', '', 13); ?></a></h2>
+        <h2><?php \DPXL\Shield\Admin\Icons::render('list'); ?> <?php esc_html_e('Audit Log', 'dpxl-shield'); ?> <a href="#" class="dpxl-learn-more"><?php esc_html_e('Learn more', 'dpxl-shield'); ?> <?php \DPXL\Shield\Admin\Icons::render('external-link', '', 13); ?></a></h2>
 
         <!-- Options accordion -->
         <div class="dpxl-option-group">

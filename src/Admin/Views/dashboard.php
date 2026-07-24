@@ -32,7 +32,7 @@
     <div class="dpxl-dashboard-grid">
         <!-- Notifications -->
         <div class="dpxl-card">
-            <h2><?php esc_html_e('Notifications', 'dpxl-shield'); ?> <span class="dpxl-badge" id="notif-count">…</span></h2>
+            <h2><?php \DPXL\Shield\Admin\Icons::render('bell'); ?> <?php esc_html_e('Notifications', 'dpxl-shield'); ?> <span class="dpxl-badge" id="notif-count">…</span></h2>
             <div id="dpxl-notifications" class="dpxl-skeleton-list">
                 <div class="dpxl-skeleton"></div><div class="dpxl-skeleton"></div>
             </div>
@@ -40,7 +40,7 @@
 
         <!-- Firewall summary -->
         <div class="dpxl-card">
-            <h2><?php esc_html_e('Firewall Summary', 'dpxl-shield'); ?></h2>
+            <h2><?php \DPXL\Shield\Admin\Icons::render('shield'); ?> <?php esc_html_e('Firewall Summary', 'dpxl-shield'); ?></h2>
             <table class="dpxl-summary-table">
                 <thead><tr>
                     <th><?php esc_html_e('Block Type', 'dpxl-shield'); ?></th>
@@ -57,7 +57,7 @@
         <!-- Attack chart -->
         <div class="dpxl-card dpxl-card--full">
             <h2>
-                <?php esc_html_e('Total Attacks Blocked', 'dpxl-shield'); ?>
+                <?php \DPXL\Shield\Admin\Icons::render('activity'); ?> <?php esc_html_e('Total Attacks Blocked', 'dpxl-shield'); ?>
                 <span class="dpxl-card__meta" id="chart-last-updated"></span>
             </h2>
             <canvas id="attacks-chart" height="80"></canvas>
@@ -65,7 +65,7 @@
 
         <!-- Top countries -->
         <div class="dpxl-card">
-            <h2><?php esc_html_e('Top Countries (Last 7 Days)', 'dpxl-shield'); ?></h2>
+            <h2><?php \DPXL\Shield\Admin\Icons::render('globe'); ?> <?php esc_html_e('Top Countries (Last 7 Days)', 'dpxl-shield'); ?></h2>
             <ul class="dpxl-country-list" id="top-countries">
                 <li class="dpxl-loading-cell"><?php esc_html_e('Loading…', 'dpxl-shield'); ?></li>
             </ul>
@@ -74,7 +74,7 @@
         <!-- Recent logins -->
         <div class="dpxl-card">
             <h2>
-                <?php esc_html_e('Recent Login Attempts', 'dpxl-shield'); ?>
+                <?php \DPXL\Shield\Admin\Icons::render('clock'); ?> <?php esc_html_e('Recent Login Attempts', 'dpxl-shield'); ?>
                 <span class="dpxl-tab-bar">
                     <button class="dpxl-tab active" data-filter="success"><?php esc_html_e('Successful', 'dpxl-shield'); ?></button>
                     <button class="dpxl-tab" data-filter="failure"><?php esc_html_e('Failed', 'dpxl-shield'); ?></button>

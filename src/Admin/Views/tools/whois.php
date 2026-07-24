@@ -1,7 +1,7 @@
 <?php defined('ABSPATH') || exit; ?>
 <div class="dpxl-tab-pane" id="tab-whois">
     <div class="dpxl-card">
-        <h2><?php esc_html_e('Whois Lookup', 'dpxl-shield'); ?></h2>
+        <h2><?php \DPXL\Shield\Admin\Icons::render('search'); ?> <?php esc_html_e('Whois Lookup', 'dpxl-shield'); ?></h2>
         <div class="dpxl-whois-form">
             <input type="text" class="dpxl-input dpxl-input--lg" id="whois-ip-input"
                    placeholder="<?php esc_attr_e('Enter IP address or domain…', 'dpxl-shield'); ?>"

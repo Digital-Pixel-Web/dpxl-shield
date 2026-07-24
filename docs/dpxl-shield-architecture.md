@@ -1,5 +1,5 @@
 # DPXL Shield — Blueprint Técnico de Arquitetura
-**Versão:** 1.7 — Redesign da Varredura + sistema de ícones SVG (v1.0.22)  
+**Versão:** 1.8 — Sistema visual unificado em todas as telas (v1.0.23)  
 **Data:** 2026-07-24
 
 ---
@@ -1244,6 +1244,18 @@ Configurável em: All Options > Firewall Options > Allowlisted URLs
 | Admin REST API | `src/Admin/RestApi.php` | ✅ Implementado |
 | Testes unitários (PHPUnit) | `tests/Unit/` | ✅ Parcial (4 suites) |
 
+### Mudanças v1.0.23 — sistema visual unificado em todas as telas
+
+O redesign da Varredura (v1.0.22) foi estendido a todo o painel, refinando a **camada de CSS compartilhada** (`assets/css/admin.css`) — como todas as views usam as mesmas classes (`.dpxl-card`, `.dpxl-gauge`, `.dpxl-table`, `.dpxl-tab-nav`), o polimento vale para Dashboard, Firewall, Login Security, Tools e All Options de uma vez, sem tocar em markup/JS.
+
+- **Tokens** ampliados: `--dpxl-heading`, `--dpxl-muted`, `--dpxl-surface`, `--dpxl-border` suavizado (#dcdcde), `--dpxl-radius-lg` (10px), `--dpxl-shadow`/`--dpxl-shadow-hover`
+- **Cards:** raio 10px + sombra sutil; heading em `--dpxl-heading`; ícone de seção em cinza
+- **Gauges:** anel mais fino, hover com leve elevação
+- **Tabelas:** cabeçalho small-caps (uppercase, `--dpxl-muted`), bordas mais leves, hover discreto
+- **Tab-nav:** estilo underline (borda inferior no ativo) no lugar do pill preenchido
+- **Banner de proteção:** fundo claro com borda + ícone (shield/alert) em vez do bloco sólido
+- **Ícones de seção** (SVG) nos cabeçalhos: bell/shield/activity/globe/clock (Dashboard), shield/activity (Firewall), lock (2FA), list (Audit), search (Whois), settings (Diagnostics), upload-cloud (Import/Export). Set ampliado em `Icons.php` + espelho JS
+
 ### Mudanças v1.0.22 — redesign da tela de Varredura + sistema de ícones SVG
 
 **Tela de Varredura (referência: Wordfence):**
@@ -1305,4 +1317,4 @@ Motivação: em um site pt_BR com stack pesada (Crocoblock/Elementor), a varredu
 | Login bloqueado para todos os admins | `TwoFactorAuth::interceptLogin()` chamava `isRequired()` que retorna `true` para qualquer administrator (mesmo sem 2FA configurada), gerando `WP_Error('dpxl_2fa_required')` → mascarado como "credenciais incorretas" por `login_hide_errors` | `interceptLogin()` agora chama `isEnabled($user->ID)` — só bloqueia se 2FA foi efetivamente configurada |
 | Login bloqueado para username "admin" | `brute_force_block_admin_username` ausente de `Options::$defaults`; `Options::get()` retornava fallback hardcoded `true` | Default alterado para `false` — bloquear username "admin" requer opt-in explícito do admin |
 
-*Documento atualizado em 2026-07-24 — versão 1.7.*
+*Documento atualizado em 2026-07-24 — versão 1.8.*

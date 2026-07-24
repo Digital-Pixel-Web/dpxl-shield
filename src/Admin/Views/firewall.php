@@ -31,7 +31,7 @@ $extendedActive     = !empty($extendedStatus['active']);
     <div class="dpxl-tab-pane" id="tab-firewall">
         <!-- Extended Protection -->
         <div class="dpxl-card" id="extended-protection" data-backup-downloaded="<?php echo $backupDownloaded ? '1' : '0'; ?>">
-            <h2><?php esc_html_e('Extended Protection', 'dpxl-shield'); ?></h2>
+            <h2><?php \DPXL\Shield\Admin\Icons::render('shield'); ?> <?php esc_html_e('Extended Protection', 'dpxl-shield'); ?></h2>
             <p id="extended-status" class="dpxl-muted">
                 <?php
                 if ($extendedActive) {
@@ -119,7 +119,7 @@ $extendedActive     = !empty($extendedStatus['active']);
         <!-- Top blocked IPs -->
         <div class="dpxl-card">
             <h2>
-                <?php esc_html_e('Top IPs Blocked', 'dpxl-shield'); ?>
+                <?php \DPXL\Shield\Admin\Icons::render('activity'); ?> <?php esc_html_e('Top IPs Blocked', 'dpxl-shield'); ?>
                 <span class="dpxl-tab-bar">
                     <button class="dpxl-tab active" data-period="24h">24h</button>
                     <button class="dpxl-tab" data-period="7d">7 Days</button>

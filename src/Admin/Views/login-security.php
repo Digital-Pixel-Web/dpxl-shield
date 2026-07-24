@@ -25,7 +25,7 @@ $tab  = in_array($tab, $tabs, true) ? $tab : '2fa';
         $has2fa    = !empty(get_user_meta($userId, '_dpxl_shield_totp_secret', true));
         ?>
         <div class="dpxl-card">
-            <h2><?php esc_html_e('Two-Factor Authentication', 'dpxl-shield'); ?> <a href="#" class="dpxl-learn-more"><?php esc_html_e('Learn more', 'dpxl-shield'); ?> <?php \DPXL\Shield\Admin\Icons::render('external-link', '', 13); ?></a></h2>
+            <h2><?php \DPXL\Shield\Admin\Icons::render('lock'); ?> <?php esc_html_e('Two-Factor Authentication', 'dpxl-shield'); ?> <a href="#" class="dpxl-learn-more"><?php esc_html_e('Learn more', 'dpxl-shield'); ?> <?php \DPXL\Shield\Admin\Icons::render('external-link', '', 13); ?></a></h2>
             <p><?php printf(esc_html__('Editing user: %s (you)', 'dpxl-shield'), esc_html($user->user_login)); ?></p>
 
             <?php if ($has2fa) : ?>

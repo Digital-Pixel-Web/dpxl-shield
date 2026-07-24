@@ -2,7 +2,7 @@
 <div class="dpxl-tab-pane" id="tab-diagnostics">
     <div class="dpxl-card">
         <h2>
-            <?php esc_html_e('Diagnostics', 'dpxl-shield'); ?>
+            <?php \DPXL\Shield\Admin\Icons::render('settings'); ?> <?php esc_html_e('Diagnostics', 'dpxl-shield'); ?>
             <button class="dpxl-btn dpxl-btn--sm dpxl-float-right" id="btn-copy-diagnostics">
                 <?php esc_html_e('Copy Diagnostics', 'dpxl-shield'); ?>
             </button>

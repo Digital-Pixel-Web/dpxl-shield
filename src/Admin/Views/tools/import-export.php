@@ -1,7 +1,7 @@
 <?php defined('ABSPATH') || exit; ?>
 <div class="dpxl-tab-pane" id="tab-import-export">
     <div class="dpxl-card">
-        <h2><?php esc_html_e('Import / Export Options', 'dpxl-shield'); ?></h2>
+        <h2><?php \DPXL\Shield\Admin\Icons::render('upload-cloud'); ?> <?php esc_html_e('Import / Export Options', 'dpxl-shield'); ?></h2>
 
         <!-- Export -->
         <div class="dpxl-ie-section">

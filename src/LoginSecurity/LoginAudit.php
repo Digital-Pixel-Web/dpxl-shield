@@ -31,7 +31,10 @@ class LoginAudit {
             $this->markIpKnown($user->ID, $ip);
 
             do_action('dpxl_shield_alert', [
-                'level'       => 'critical',
+                // Notice, not critical: an admin signing in from a new network
+                // is routine (mobile, travel, dynamic IP). Reserve `critical`
+                // for confirmed compromise so it keeps its weight.
+                'level'       => 'medium',
                 'event_type'  => 'new_admin_ip_login',
                 'description' => "Admin '{$userLogin}' logged in from a new IP: {$ip}",
                 'context'     => [

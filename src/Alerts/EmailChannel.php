@@ -44,6 +44,7 @@ class EmailChannel {
         $headers = [
             'Content-Type: text/html; charset=UTF-8',
             'X-DPXL-Shield-Level: ' . $level,
+            'X-DPXL-Shield-Event: ' . $eventType,
         ];
 
         wp_mail((string) $recipient, $subject, $body, $headers);
@@ -61,16 +62,21 @@ class EmailChannel {
         set_transient('dpxl_alert_sent_' . md5($eventType), 1, self::RATE_WINDOW);
     }
 
+    /**
+     * Subject reads as a sentence, not as a log line. Severity travels in the
+     * X-DPXL-Shield-Level header (and the pill in the body) so routine events
+     * do not arrive shouting [CRITICAL] in the inbox list.
+     */
     private function buildSubject(string $level, string $eventType): string {
-        $siteName = get_option('blogname', get_option('siteurl'));
-        $emoji    = match ($level) {
-            'critical' => '[CRITICAL]',
-            'high'     => '[HIGH]',
-            'medium'   => '[WARNING]',
-            default    => '[NOTICE]',
-        };
+        $siteName = (string) get_option('blogname', '');
+        $siteName = $siteName !== '' ? $siteName : EmailTemplate::siteHost();
 
-        return sprintf('%s [%s] DPXL Shield — %s', $emoji, $siteName, $eventType);
+        return sprintf(
+            /* translators: 1: event title, 2: site name */
+            __('[DPXL Shield] %1$s — %2$s', 'dpxl-shield'),
+            EventCatalog::label($eventType),
+            $siteName
+        );
     }
 
     /**
@@ -82,55 +88,57 @@ class EmailChannel {
         string $description,
         array  $context
     ): string {
-        $siteUrl  = get_option('siteurl');
-        $siteName = get_option('blogname', $siteUrl);
-        $time     = gmdate('Y-m-d H:i:s') . ' UTC';
-        $color    = match ($level) {
-            'critical' => '#d63638',
-            'high'     => '#f0b849',
-            'medium'   => '#dba617',
-            default    => '#2271b1',
-        };
+        $palette = EmailTemplate::palette($level);
+        $title   = EventCatalog::label($eventType);
+        $summary = EventCatalog::summary($eventType);
 
-        $contextRows = '';
+        // The dispatcher's description is the specific, factual line
+        // ("Admin 'x' logged in from 1.2.3.4"). The catalog summary is the
+        // generic explanation. Show the specific one first.
+        $lead = $description !== '' ? $description : $summary;
 
-        foreach ($context as $key => $value) {
-            $safeKey   = esc_html((string) $key);
-            $safeValue = esc_html(is_array($value) ? wp_json_encode($value) : (string) $value);
-            $contextRows .= "<tr><td style='padding:4px 8px;color:#666;'>{$safeKey}</td><td style='padding:4px 8px;'>{$safeValue}</td></tr>";
-        }
-
-        $contextTable = $contextRows
-            ? "<table style='width:100%;border-collapse:collapse;margin-top:12px;font-size:13px;'>{$contextRows}</table>"
+        $note = ($description !== '' && $summary !== '')
+            ? '<p style="margin:12px 0 0;font-size:14px;line-height:1.6;color:#787c82;">' . esc_html($summary) . '</p>'
             : '';
 
-        return <<<HTML
-        <!DOCTYPE html>
-        <html>
-        <head><meta charset="UTF-8"></head>
-        <body style="font-family:Arial,sans-serif;background:#f6f7f7;margin:0;padding:20px;">
-          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:6px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">
-            <div style="background:{$color};padding:16px 24px;">
-              <h2 style="color:#fff;margin:0;font-size:18px;">DPXL Shield Alert</h2>
-              <p style="color:rgba(255,255,255,.85);margin:4px 0 0;font-size:13px;">{$siteName} — {$siteUrl}</p>
-            </div>
-            <div style="padding:24px;">
-              <table style="width:100%;border-collapse:collapse;font-size:14px;">
-                <tr><td style="padding:6px 0;color:#666;width:120px;">Level</td><td style="padding:6px 0;font-weight:bold;color:{$color};">{$level}</td></tr>
-                <tr><td style="padding:6px 0;color:#666;">Event</td><td style="padding:6px 0;">{$eventType}</td></tr>
-                <tr><td style="padding:6px 0;color:#666;">Time</td><td style="padding:6px 0;">{$time}</td></tr>
-                <tr><td style="padding:6px 0;color:#666;">Description</td><td style="padding:6px 0;">{$description}</td></tr>
-              </table>
-              {$contextTable}
-              <hr style="border:none;border-top:1px solid #eee;margin:20px 0;">
-              <p style="font-size:12px;color:#999;margin:0;">
-                This alert was sent by <strong>DPXL Shield</strong> installed on <a href="{$siteUrl}" style="color:#2271b1;">{$siteUrl}</a>.
-                <br>To manage alerts, go to <a href="{$siteUrl}/wp-admin/admin.php?page=dpxl-shield" style="color:#2271b1;">DPXL Shield Settings</a>.
-              </p>
-            </div>
-          </div>
-        </body>
-        </html>
-        HTML;
+        $content = EmailTemplate::pill($palette['label'], $palette['accent'], $palette['tint'])
+            . '<h1 style="margin:16px 0 0;font-size:21px;line-height:1.3;font-weight:600;color:#1d2327;">' . esc_html($title) . '</h1>'
+            . '<p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:#3c434a;">' . esc_html($lead) . '</p>'
+            . $note
+            . EmailTemplate::detailTable($this->buildDetailRows($context))
+            . EmailTemplate::button(
+                (string) get_option('siteurl') . '/wp-admin/admin.php?page=dpxl-shield',
+                __('Open DPXL Shield', 'dpxl-shield')
+            );
+
+        return EmailTemplate::render(
+            $title,
+            $palette['accent'],
+            $content,
+            sprintf(__('Event ID: %s', 'dpxl-shield'), esc_html($eventType))
+        );
+    }
+
+    /**
+     * Detail rows: time first, then whatever context the dispatcher supplied,
+     * with humanised field labels.
+     *
+     * @param  array<string,mixed> $context
+     * @return array<string,string>
+     */
+    private function buildDetailRows(array $context): array {
+        $rows = [__('When', 'dpxl-shield') => EmailTemplate::localTime()];
+
+        foreach ($context as $key => $value) {
+            if ($value === null || $value === '' || is_object($value)) {
+                continue;
+            }
+
+            $rows[EventCatalog::fieldLabel((string) $key)] = is_array($value)
+                ? implode(', ', array_map('strval', $value))
+                : (string) $value;
+        }
+
+        return $rows;
     }
 }

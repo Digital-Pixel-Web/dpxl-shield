@@ -1,6 +1,6 @@
 # DPXL Shield — Blueprint Técnico de Arquitetura
-**Versão:** 1.4 — Extended Protection bypass + $wpdb null-guard (v1.0.19)  
-**Data:** 2026-07-05
+**Versão:** 1.5 — Redesign dos e-mails: EmailTemplate + EventCatalog (v1.0.20)  
+**Data:** 2026-07-24
 
 ---
 
@@ -509,6 +509,21 @@ Canais de notificação:
 - Dashboard notification (sempre)
 
 Rate limiting de alertas: máximo 1 e-mail do mesmo tipo por hora (evita flood de alertas em ataque volumétrico).
+
+**Camada de apresentação dos e-mails (v1.0.20):**
+
+| Arquivo | Papel |
+|---|---|
+| `src/Alerts/EmailTemplate.php` | Shell HTML compartilhado por todos os e-mails: header, filete de severidade, componentes (`pill`, `button`, `detailTable`, `callout`), paleta e helpers de host/data |
+| `src/Alerts/EventCatalog.php` | Traduz slugs de evento (`new_admin_ip_login`) em título, explicação e rótulos de campo legíveis |
+
+Regras de apresentação:
+
+- **Slug nunca vai para o assunto.** O assunto é `[DPXL Shield] {Título do evento} — {Nome do site}`. Slug não catalogado cai no fallback `humanise()` (`fw.rule_triggered` → "Rule triggered")
+- **Severidade sai do assunto** e viaja nos headers `X-DPXL-Shield-Level` e `X-DPXL-Shield-Event` (filtráveis no cliente de e-mail) + pill colorida no corpo
+- **Cor é acento, não fundo.** A severidade aparece em um filete de 3px e na pill; nunca em banner de largura total. `critical` é reservado para comprometimento confirmado
+- Layout em tabelas, estilos inline, sem imagens externas nem webfonts (compatibilidade Outlook/Gmail/Apple Mail)
+- Horário renderizado com `wp_date()` no fuso e formato configurados no site (antes: UTC cru)
 
 **Activity Report (semanal/mensal):**
 - Diferente dos alertas de evento individual, o Activity Report é um **e-mail periódico de resumo**
@@ -1218,7 +1233,8 @@ Configurável em: All Options > Firewall Options > Allowlisted URLs
 | AnomalyDetector | `src/Traffic/AnomalyDetector.php` | ✅ Implementado |
 | AuditLog (hash chain) | `src/Audit/` | ✅ Implementado |
 | PhpExecutionBlocker + WpHardening | `src/Hardening/` | ✅ Implementado |
-| AlertManager + EmailChannel | `src/Alerts/` | ✅ Implementado |
+| AlertManager + EmailChannel | `src/Alerts/` | ✅ Implementado (template redesenhado v1.0.20) |
+| EmailTemplate + EventCatalog | `src/Alerts/` | ✅ Implementado (v1.0.20) |
 | WebhookChannel | `src/Alerts/WebhookChannel.php` | ✅ Implementado |
 | ActivityReport | `src/Alerts/ActivityReport.php` | ✅ Implementado |
 | WhoisLookup | `src/Tools/WhoisLookup.php` | ✅ Implementado (corrigido v1.2) |
@@ -1226,6 +1242,18 @@ Configurável em: All Options > Firewall Options > Allowlisted URLs
 | Diagnostics | `src/Tools/Diagnostics.php` | ✅ Implementado |
 | Admin REST API | `src/Admin/RestApi.php` | ✅ Implementado |
 | Testes unitários (PHPUnit) | `tests/Unit/` | ✅ Parcial (4 suites) |
+
+### Mudanças v1.0.20 — apresentação dos e-mails
+
+| Problema | Causa | Mudança |
+|---|---|---|
+| Assunto ilegível: `[CRITICAL] [EABH \| ...] DPXL Shield — new_admin_ip_login` | `buildSubject()` concatenava o slug bruto do evento e prefixava a severidade em caixa alta | Novo `EventCatalog` mapeia slug → título humano. Assunto passa a ser `[DPXL Shield] Admin login from a new IP — EABH \| ...`; severidade migra para os headers `X-DPXL-Shield-Level` / `X-DPXL-Shield-Event` |
+| Todo alerta parecia incidente grave | Banner vermelho de largura total no topo, independente da severidade real | Header neutro (`#1d2327`) + filete de 3px e pill na cor da severidade; paleta dessaturada |
+| Corpo era dump de campos (`Level`, `Event`, `user_id`) | Template renderizava chave/valor cru do array de contexto | `EventCatalog::fieldLabel()` humaniza as chaves; H1 com título do evento, linha factual, explicação de contexto e CTA |
+| Login de admin em IP novo chegava como `critical` | `LoginAudit::onLoginSuccess()` despachava `'level' => 'critical'` para um evento rotineiro (IP dinâmico, celular, viagem) | Rebaixado para `medium` ("Notice"). `critical` fica reservado para comprometimento confirmado |
+| Alerta e Activity Report tinham templates divergentes | Cada classe montava seu próprio HTML | Shell único em `EmailTemplate::render()`; ActivityReport ganhou grid de estatísticas e tabela de top IPs no mesmo visual |
+
+> `DPXL_SHIELD_VERSION` foi para `1.0.20` — obrigatório, senão o `TamperDetector` dispara alerta CRITICAL de adulteração nos arquivos alterados (baseline version-aware, §3.10).
 
 ### Correções v1.0.19
 
@@ -1244,4 +1272,4 @@ Configurável em: All Options > Firewall Options > Allowlisted URLs
 | Login bloqueado para todos os admins | `TwoFactorAuth::interceptLogin()` chamava `isRequired()` que retorna `true` para qualquer administrator (mesmo sem 2FA configurada), gerando `WP_Error('dpxl_2fa_required')` → mascarado como "credenciais incorretas" por `login_hide_errors` | `interceptLogin()` agora chama `isEnabled($user->ID)` — só bloqueia se 2FA foi efetivamente configurada |
 | Login bloqueado para username "admin" | `brute_force_block_admin_username` ausente de `Options::$defaults`; `Options::get()` retornava fallback hardcoded `true` | Default alterado para `false` — bloquear username "admin" requer opt-in explícito do admin |
 
-*Documento atualizado em 2026-07-05 — versão 1.4.*
+*Documento atualizado em 2026-07-24 — versão 1.5.*

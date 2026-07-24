@@ -1,8 +1,24 @@
 # DPXL Shield — Especificação de UI/UX do Painel Admin
-**Versão:** 1.2 — Atualizado para refletir correções v1.0.14 (2FA login fix, brute force defaults)  
-**Data:** 2026-07-05  
+**Versão:** 1.3 — Redesign visual e sistema de ícones SVG (v1.0.20–1.0.23)  
+**Data:** 2026-07-24  
 **Referência visual:** Análise das telas do Wordfence 7.0  
 **Nota de implementação:** Labels no painel são em Português (pt-BR). Esta spec usa Inglês para clareza, mas os textos reais estão em PT-BR (ex: "Tráfego ao vivo", "Log de auditoria", "Consulta Whois").
+
+---
+
+## 0. Atualizações v1.0.20–1.0.23 (redesign)
+
+Esta seção registra as mudanças de UI implementadas; o restante da spec continua válido como referência de estrutura e comportamento.
+
+**Sistema de ícones SVG — sem emojis (v1.0.22).** Todo o painel deixou de usar emojis (rendem inconsistente entre SO/navegador). Ícones agora são SVG inline estilo Feather com `stroke=currentColor`, de fonte única: `src/Admin/Icons.php` (`Icons::svg()/render()`) + espelho `ICONS`/`icon()` em `assets/js/admin.js`. As "color dots" semânticas de tráfego/audit (§8) permanecem como bolinhas coloridas — a mudança é só o fim dos glifos emoji em botões, status e cabeçalhos.
+
+**Tela de Varredura redesenhada (v1.0.22).** Progress stepper horizontal com linha conectora e estados cadeado (pendente) → spinner (ativo) → check (concluído); barra de progresso determinada no scan de malware; cards de resultado com ícone de severidade + chip colorido + título humano (ex: "Arquivo do core modificado" no lugar do slug `modified_core`). Nova **seção "Recomendações"** colapsável, separando avisos de hardening e achados de baixa confiança das ameaças reais (ver `ScanClassifier` na arquitetura).
+
+**Sistema visual unificado em todas as telas (v1.0.23).** Refinamento da camada de CSS compartilhada (`assets/css/admin.css`): cards com sombra sutil e raio 10px; gauges com anel fino + hover; tabelas com cabeçalho small-caps; tab-nav em estilo underline; banner de proteção claro com borda + ícone. Ícones SVG de seção nos cabeçalhos (bell/shield/activity/globe/clock/lock/list/search/settings/upload-cloud).
+
+**E-mails redesenhados (v1.0.20).** Fora do painel, mas parte da identidade visual: `EmailTemplate` (shell compartilhado) + `EventCatalog` (títulos legíveis). Ver arquitetura §3.12.
+
+**Paleta de tokens (CSS `:root`):** `--dpxl-heading` #1d2327, `--dpxl-text` #3c434a, `--dpxl-muted` #787c82, `--dpxl-border` #dcdcde, `--dpxl-radius` 6px / `--dpxl-radius-lg` 10px, `--dpxl-shadow`. As cores semânticas (§1) permanecem: primary #2271b1, ok #00a32a, warn #dba617, error #d63638, orange #f0b849.
 
 ---
 

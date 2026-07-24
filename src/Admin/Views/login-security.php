@@ -25,12 +25,12 @@ $tab  = in_array($tab, $tabs, true) ? $tab : '2fa';
         $has2fa    = !empty(get_user_meta($userId, '_dpxl_shield_totp_secret', true));
         ?>
         <div class="dpxl-card">
-            <h2><?php esc_html_e('Two-Factor Authentication', 'dpxl-shield'); ?> <a href="#" class="dpxl-learn-more"><?php esc_html_e('Learn more ↗', 'dpxl-shield'); ?></a></h2>
+            <h2><?php esc_html_e('Two-Factor Authentication', 'dpxl-shield'); ?> <a href="#" class="dpxl-learn-more"><?php esc_html_e('Learn more', 'dpxl-shield'); ?> <?php \DPXL\Shield\Admin\Icons::render('external-link', '', 13); ?></a></h2>
             <p><?php printf(esc_html__('Editing user: %s (you)', 'dpxl-shield'), esc_html($user->user_login)); ?></p>
 
             <?php if ($has2fa) : ?>
                 <div class="dpxl-notice dpxl-notice--success">
-                    ✅ <?php esc_html_e('Two-Factor Authentication is ACTIVE for this account.', 'dpxl-shield'); ?>
+                    <?php \DPXL\Shield\Admin\Icons::render('check-circle', 'dpxl-icon--ok'); ?> <?php esc_html_e('Two-Factor Authentication is ACTIVE for this account.', 'dpxl-shield'); ?>
                 </div>
                 <div class="dpxl-2fa-actions">
                     <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin.php?page=dpxl-shield-login&action=deactivate_2fa&tab=2fa'), 'deactivate_2fa')); ?>" class="dpxl-btn dpxl-btn--danger">
@@ -52,7 +52,7 @@ $tab  = in_array($tab, $tabs, true) ? $tab : '2fa';
                         <div class="dpxl-backup-codes" id="backup-codes-container">
                             <p><?php esc_html_e('Loading recovery codes…', 'dpxl-shield'); ?></p>
                         </div>
-                        <button class="dpxl-btn dpxl-btn--sm" id="btn-download-codes"><?php esc_html_e('⬇ Download Codes', 'dpxl-shield'); ?></button>
+                        <button class="dpxl-btn dpxl-btn--sm" id="btn-download-codes"><?php \DPXL\Shield\Admin\Icons::render('download'); ?> <?php esc_html_e('Download Codes', 'dpxl-shield'); ?></button>
                         <div class="dpxl-2fa-activate">
                             <input type="text" class="dpxl-input dpxl-input--otp" id="totp-code" placeholder="123456" maxlength="6" autocomplete="one-time-code">
                             <button class="dpxl-btn dpxl-btn--primary" id="btn-activate-2fa"><?php esc_html_e('Activate', 'dpxl-shield'); ?></button>

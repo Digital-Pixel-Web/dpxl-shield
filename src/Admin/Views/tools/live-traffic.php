@@ -9,7 +9,7 @@
                     <option value="bot"><?php esc_html_e('Bot / Crawler', 'dpxl-shield'); ?></option>
                     <option value="blocked"><?php esc_html_e('Blocked', 'dpxl-shield'); ?></option>
                 </select>
-                <button class="dpxl-btn" id="btn-show-filters"><?php esc_html_e('Show Advanced Filters ▼', 'dpxl-shield'); ?></button>
+                <button class="dpxl-btn" id="btn-show-filters"><?php \DPXL\Shield\Admin\Icons::render('sliders'); ?> <?php esc_html_e('Show Advanced Filters', 'dpxl-shield'); ?></button>
                 <label class="dpxl-toggle-label">
                     <input type="checkbox" id="traffic-live-update" checked>
                     <?php esc_html_e('Live Update', 'dpxl-shield'); ?>
@@ -57,7 +57,7 @@
         <div class="dpxl-modal__content">
             <div class="dpxl-modal__header">
                 <h2><?php esc_html_e('Request Detail', 'dpxl-shield'); ?></h2>
-                <button class="dpxl-modal__close" id="btn-close-modal" aria-label="<?php esc_attr_e('Close', 'dpxl-shield'); ?>">✕</button>
+                <button class="dpxl-modal__close" id="btn-close-modal" aria-label="<?php esc_attr_e('Close', 'dpxl-shield'); ?>"><?php \DPXL\Shield\Admin\Icons::render('x'); ?></button>
             </div>
             <div class="dpxl-modal__body" id="modal-body">
                 <table class="dpxl-detail-table" id="request-detail-table"></table>

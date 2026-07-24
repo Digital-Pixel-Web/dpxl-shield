@@ -121,7 +121,7 @@
         <?php foreach ($section['groups'] as $groupId => $group) : ?>
         <div class="dpxl-option-group" id="group-<?php echo esc_attr($groupId); ?>">
             <button type="button" class="dpxl-option-group__toggle">
-                <span class="dpxl-toggle-arrow">▶</span> <?php echo esc_html($group['title']); ?>
+                <span class="dpxl-toggle-arrow"><?php \DPXL\Shield\Admin\Icons::render('chevron-right'); ?></span> <?php echo esc_html($group['title']); ?>
             </button>
             <div class="dpxl-option-group__body dpxl-hidden">
                 <?php foreach ($group['options'] as $key => $opt) :

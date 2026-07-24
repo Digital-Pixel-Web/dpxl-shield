@@ -34,9 +34,13 @@ $extendedActive     = !empty($extendedStatus['active']);
             <h2><?php esc_html_e('Extended Protection', 'dpxl-shield'); ?></h2>
             <p id="extended-status" class="dpxl-muted">
                 <?php
-                echo $extendedActive
-                    ? esc_html__('✅ Extended Protection active. The WAF is loading before WordPress.', 'dpxl-shield')
-                    : esc_html__('⚠ Extended Protection inactive. Follow the steps below to enable it safely.', 'dpxl-shield');
+                if ($extendedActive) {
+                    \DPXL\Shield\Admin\Icons::render('check-circle', 'dpxl-icon--ok');
+                    echo ' ' . esc_html__('Extended Protection active. The WAF is loading before WordPress.', 'dpxl-shield');
+                } else {
+                    \DPXL\Shield\Admin\Icons::render('alert-triangle', 'dpxl-icon--medium');
+                    echo ' ' . esc_html__('Extended Protection inactive. Follow the steps below to enable it safely.', 'dpxl-shield');
+                }
                 ?>
             </p>
             <p class="dpxl-muted"><?php esc_html_e('This works like Wordfence: DPXL Shield downloads your current .htaccess as a backup, then automatically writes the auto_prepend_file rule and verifies it with a loopback request. You can start the flow from either button; if the backup has not been downloaded yet, DPXL Shield will download it first.', 'dpxl-shield'); ?></p>

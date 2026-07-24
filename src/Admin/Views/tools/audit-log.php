@@ -1,12 +1,12 @@
 <?php defined('ABSPATH') || exit; ?>
 <div class="dpxl-tab-pane" id="tab-audit-log">
     <div class="dpxl-card">
-        <h2><?php esc_html_e('Audit Log', 'dpxl-shield'); ?> <a href="#" class="dpxl-learn-more"><?php esc_html_e('Learn more ↗', 'dpxl-shield'); ?></a></h2>
+        <h2><?php esc_html_e('Audit Log', 'dpxl-shield'); ?> <a href="#" class="dpxl-learn-more"><?php esc_html_e('Learn more', 'dpxl-shield'); ?> <?php \DPXL\Shield\Admin\Icons::render('external-link', '', 13); ?></a></h2>
 
         <!-- Options accordion -->
         <div class="dpxl-option-group">
             <button type="button" class="dpxl-option-group__toggle">
-                <span class="dpxl-toggle-arrow">▼</span> <?php esc_html_e('Audit Log Options', 'dpxl-shield'); ?>
+                <span class="dpxl-toggle-arrow"><?php \DPXL\Shield\Admin\Icons::render('chevron-down'); ?></span> <?php esc_html_e('Audit Log Options', 'dpxl-shield'); ?>
             </button>
             <div class="dpxl-option-group__body">
                 <div class="dpxl-mode-selector">
@@ -26,7 +26,7 @@
 
         <!-- Chain integrity -->
         <div class="dpxl-integrity-bar">
-            <span>⚠ <?php esc_html_e('Integrity:', 'dpxl-shield'); ?></span>
+            <span><?php \DPXL\Shield\Admin\Icons::render('shield'); ?> <?php esc_html_e('Integrity:', 'dpxl-shield'); ?></span>
             <button class="dpxl-btn dpxl-btn--sm" id="btn-verify-chain"><?php esc_html_e('Verify Log Chain', 'dpxl-shield'); ?></button>
             <span class="dpxl-chain-status" id="chain-status"></span>
         </div>

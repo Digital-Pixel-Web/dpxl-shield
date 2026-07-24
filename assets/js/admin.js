@@ -116,8 +116,39 @@
         return new Date(ts.replace(' ', 'T') + 'Z').toLocaleString();
     }
 
+    // ── SVG icons (mirror of src/Admin/Icons.php — keep in sync) ─────────────
+    const ICONS = {
+        'alert-triangle': '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+        'alert-circle': '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
+        'info': '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+        'check': '<polyline points="20 6 9 17 4 12"/>',
+        'check-circle': '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+        'x': '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+        'eye': '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+        'download': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+        'arrow-right': '<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>',
+        'chevron-right': '<polyline points="9 18 15 12 9 6"/>',
+        'chevron-down': '<polyline points="6 9 12 15 18 9"/>',
+        'external-link': '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>',
+        'infinity': '<path d="M18.18 8c-5.1 0-7.13 8-12.74 8-4.58 0-4.58-8 0-8 5.61 0 7.64 8 12.74 8 5.1 0 5.1-8 0-8z"/>',
+        'settings': '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+    };
+
+    function icon(name, cls = '', size = 16) {
+        const inner = ICONS[name] || ICONS.info;
+        return `<svg class="dpxl-icon ${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${inner}</svg>`;
+    }
+
+    // Severity → semantic icon, coloured via CSS (.dpxl-icon--<sev>).
     function severityIcon(s) {
-        return { critical: '🔴', high: '🟠', medium: '🟡', low: '⚪', info: '🔵' }[s] || '⚪';
+        const map = { critical: 'alert-triangle', high: 'alert-triangle', medium: 'alert-circle', low: 'info', info: 'info' };
+        return icon(map[s] || 'info', 'dpxl-icon--' + (s || 'info'));
+    }
+
+    // Generic status (ok/warning/error) → icon.
+    function statusIcon(status) {
+        const map = { ok: 'check-circle', warning: 'alert-triangle', error: 'alert-circle' };
+        return icon(map[status] || 'info', 'dpxl-icon--' + (status === 'ok' ? 'ok' : status === 'error' ? 'critical' : 'medium'));
     }
 
     // ── Page detection ──────────────────────────────────────────────────────
@@ -414,9 +445,9 @@
 
             const status = document.getElementById('extended-status');
             if (status) {
-                status.textContent = data.extended_active
-                    ? `✅ Extended Protection active (${data.extended_method || 'auto_prepend_file'}). O WAF está sendo carregado antes do WordPress.`
-                    : `⚠ Proteção Estendida inativa. Siga as etapas de backup + ativação abaixo.`;
+                status.innerHTML = data.extended_active
+                    ? `${statusIcon('ok')} Extended Protection active (${esc(data.extended_method || 'auto_prepend_file')}). O WAF está sendo carregado antes do WordPress.`
+                    : `${statusIcon('warning')} Proteção Estendida inativa. Siga as etapas de backup + ativação abaixo.`;
             }
 
             const backupStatus = document.getElementById('extended-backup-status');
@@ -596,7 +627,7 @@
                     <td><code>${esc(row.ip)}</code></td>
                     <td>${esc(row.reason)}</td>
                     <td><span class="dpxl-badge">${esc(row.source)}</span></td>
-                    <td>${row.is_permanent === '1' ? '♾ Permanent' : formatDate(row.expires_at)}</td>
+                    <td>${row.is_permanent === '1' ? icon('infinity') + ' Permanent' : formatDate(row.expires_at)}</td>
                     <td>
                         <button class="dpxl-btn dpxl-btn--sm" onclick="dpxlUnblock('${esc(row.ip)}')">Unblock</button>
                         <button class="dpxl-btn dpxl-btn--sm" onclick="dpxlWhois('${esc(row.ip)}')">Whois</button>
@@ -686,6 +717,14 @@
         cancelBtn?.addEventListener('click', cancelScan);
         repairAllBtn?.addEventListener('click', repairAll);
 
+        document.getElementById('btn-toggle-recs')?.addEventListener('click', (e) => {
+            const btn  = e.currentTarget;
+            const list = document.getElementById('scan-recs-list');
+            const open = list?.classList.toggle('dpxl-hidden') === false;
+            btn.setAttribute('aria-expanded', String(open));
+            btn.textContent = open ? 'Ocultar' : 'Mostrar';
+        });
+
         const status = await refreshScanStatus();
         await loadScanResults(status?.running === true);
 
@@ -774,13 +813,38 @@
         const issues = document.getElementById('stat-issues');
         const critical = document.getElementById('stat-critical');
         const count = document.getElementById('results-count');
+        const bar = document.getElementById('scan-progressbar');
+        const fill = document.getElementById('scan-progressbar-fill');
 
         const issuesFound = Number(s.running ? (s.issues_found || 0) : (s.issue_count || s.issues_found || 0));
 
         if (files) files.textContent = Number(s.files_scanned || 0).toLocaleString();
         if (issues) issues.textContent = issuesFound.toLocaleString();
-        if (count) count.textContent = issuesFound.toLocaleString();
-        if (critical && s.running) critical.textContent = '0';
+        setThreatBadge(count, issuesFound);
+        if (critical && s.running) setCriticalStat(0);
+
+        // Determinate progress bar during the malware scan; hidden otherwise.
+        if (bar && fill) {
+            if (s.running && Number(s.files_total || 0) > 0) {
+                bar.hidden = false;
+                fill.style.width = Math.min(100, Number(s.progress || 0)) + '%';
+            } else {
+                bar.hidden = true;
+            }
+        }
+    }
+
+    function setThreatBadge(el, n) {
+        if (!el) return;
+        el.textContent = Number(n).toLocaleString();
+        el.classList.toggle('dpxl-hidden', Number(n) < 1);
+    }
+
+    function setCriticalStat(n) {
+        const critical = document.getElementById('stat-critical');
+        if (!critical) return;
+        critical.textContent = Number(n).toLocaleString();
+        critical.closest('.dpxl-stat')?.classList.toggle('is-zero', Number(n) < 1);
     }
 
     function buildScanStatusText(s) {
@@ -824,27 +888,21 @@
         const stages = ['spam_check', 'block_check', 'server_state', 'file_changes', 'malware_scan', 'content_safety', 'public_files', 'password_audit'];
 
         stages.forEach(stage => {
-            const el = document.querySelector(`#stage-${stage} .dpxl-stage__dot`);
+            const el = document.getElementById(`stage-${stage}`);
             if (!el) return;
 
             const status = statusMap[stage] || 'pending';
+            let state = 'pending';
 
             if (status === 'done') {
-                el.textContent = '✅';
-                el.className = 'dpxl-stage__dot dpxl-stage__dot--done';
+                state = 'done';
             } else if (status === 'error') {
-                el.textContent = '⚠';
-                el.className = 'dpxl-stage__dot dpxl-stage__dot--error';
-            } else if (status === 'cancelled') {
-                el.textContent = '■';
-                el.className = 'dpxl-stage__dot dpxl-stage__dot--pending';
-            } else if (stage === activeStage || status === 'running') {
-                el.textContent = '⟳';
-                el.className = 'dpxl-stage__dot dpxl-stage__dot--active';
-            } else {
-                el.textContent = '○';
-                el.className = 'dpxl-stage__dot dpxl-stage__dot--pending';
+                state = 'error';
+            } else if (status !== 'cancelled' && (stage === activeStage || status === 'running')) {
+                state = 'active';
             }
+
+            el.setAttribute('data-state', state);
         });
     }
 
@@ -886,9 +944,11 @@
             const data = await api.get('scan/results', { status: 'new', limit: 50 });
             const items = data.items || [];
 
-            if (count && !isRunning) count.textContent = data.total ?? items.length;
-            if (stat && !isRunning)  stat.textContent  = data.total ?? items.length;
-            if (crit && !isRunning)  crit.textContent  = data.critical_total ?? items.filter(i => i.severity === 'critical').length;
+            if (!isRunning) {
+                setThreatBadge(count, data.total ?? items.length);
+                if (stat) stat.textContent = (data.total ?? items.length).toLocaleString();
+                setCriticalStat(data.critical_total ?? items.filter(i => i.severity === 'critical').length);
+            }
 
             const repairAllBtn = document.getElementById('btn-repair-all');
             if (repairAllBtn) {
@@ -901,33 +961,78 @@
                 }
             }
 
+            renderRecommendations(data.recommendations || [], Number(data.recommendation_total || 0));
+
             if (!items.length) {
                 if (isRunning) {
-                    showScanRunningPlaceholder('A varredura está em andamento. Os resultados aparecerão aqui se o DPXL Shield encontrar problemas.');
+                    showScanRunningPlaceholder('A varredura está em andamento. As ameaças aparecerão aqui se o DPXL Shield encontrar alguma.');
                 } else {
-                    list.innerHTML = '<div class="dpxl-empty-state">✅ Nenhum problema de segurança encontrado. Seu site está limpo.</div>';
+                    list.innerHTML = '<div class="dpxl-empty-state dpxl-empty-state--clean">Nenhuma ameaça encontrada. Seu site está limpo.</div>';
                 }
                 return;
             }
 
-            const latestNote = data.scan_id ? `<div class="dpxl-scan-filter-note">Showing results from the latest scan only.</div>` : '';
-
-            list.innerHTML = latestNote + items.map(item => `
-                <div class="dpxl-result-item dpxl-result-item--${esc(item.severity)}">
-                    <strong>${severityIcon(item.severity)} ${esc(item.severity).toUpperCase()}</strong>
-                    <code>${esc(item.file_path)}</code>
-                    <p style="margin:4px 0;font-size:12px;color:#666;">${esc(item.details || item.issue_type)}</p>
-                    <div class="dpxl-result-actions">
-                        ${item.issue_type === 'modified_core' || item.issue_type === 'modified_plugin'
-                            ? `<button class="dpxl-btn dpxl-btn--sm dpxl-btn--primary" onclick="dpxlRepairFile('${esc(item.file_path)}')">Reparar arquivo</button>`
-                            : ''}
-                        <button class="dpxl-btn dpxl-btn--sm" onclick="dpxlDismissResult(${esc(item.id)})">Mark as Ignored</button>
-                    </div>
-                </div>
-            `).join('');
+            list.innerHTML = items.map(item => renderResultCard(item, false)).join('');
         } catch (e) {
-            list.innerHTML = `<div class="dpxl-empty-state dpxl-empty-state--error">Could not load scan results: ${esc(e.message)}</div>`;
+            list.innerHTML = `<div class="dpxl-empty-state dpxl-empty-state--error">Não foi possível carregar os resultados: ${esc(e.message)}</div>`;
         }
+    }
+
+    // Human-readable title per issue type — cards read as real problems,
+    // never as raw slugs like "modified_core".
+    function scanIssueTitle(item) {
+        const path = String(item.file_path || '');
+        const titles = {
+            modified_core:     'Arquivo do core modificado',
+            modified_plugin:   'Arquivo de plugin modificado',
+            malware_signature: 'Assinatura de malware detectada',
+            php_in_uploads:    'PHP executável em /uploads',
+            heuristic:         'Código suspeito',
+        };
+        if (titles[item.issue_type]) return titles[item.issue_type];
+
+        // issue_type = 'unknown' covers exposures + hardening + reputation.
+        if (path === 'site/reputation')        return 'Site em lista de reputação/blocklist';
+        if (path.startsWith('server/'))         return 'Recomendação de hardening';
+        if (/\.env|\.git|phpinfo|wp-config/.test(path)) return 'Arquivo sensível exposto';
+        return 'Item de segurança';
+    }
+
+    function renderResultCard(item, isRec) {
+        const sev = String(item.severity || 'info').toLowerCase();
+        const repairable = item.issue_type === 'modified_core' || item.issue_type === 'modified_plugin';
+        const cls = isRec ? 'dpxl-result-item--recommendation' : `dpxl-result-item--${esc(sev)}`;
+
+        return `
+            <div class="dpxl-result-item ${cls}">
+                <span class="dpxl-result-item__icon">${severityIcon(sev)}</span>
+                <span class="dpxl-sev-chip dpxl-sev-chip--${esc(sev)}">${esc(sevLabel(sev))}</span>
+                <div class="dpxl-result-item__title">${esc(scanIssueTitle(item))}</div>
+                <p class="dpxl-result-item__desc">${esc(item.details || item.issue_type)}
+                    ${item.file_path && !/^(site|server)\//.test(item.file_path) ? `<br><span class="dpxl-result-item__path">${esc(item.file_path)}</span>` : ''}
+                </p>
+                <div class="dpxl-result-actions">
+                    ${repairable ? `<button class="dpxl-btn dpxl-btn--sm dpxl-btn--primary" onclick="dpxlRepairFile('${esc(item.file_path)}')">Reparar arquivo</button>` : ''}
+                    <button class="dpxl-btn dpxl-btn--sm" onclick="dpxlDismissResult(${esc(item.id)})">Ignorar</button>
+                </div>
+            </div>`;
+    }
+
+    function renderRecommendations(recs, total) {
+        const card = document.getElementById('scan-recs-card');
+        const list = document.getElementById('scan-recs-list');
+        const badge = document.getElementById('recs-count');
+        if (!card || !list) return;
+
+        if (!total) { card.classList.add('dpxl-hidden'); return; }
+
+        card.classList.remove('dpxl-hidden');
+        if (badge) badge.textContent = total.toLocaleString();
+        list.innerHTML = recs.map(item => renderResultCard(item, true)).join('');
+    }
+
+    function sevLabel(sev) {
+        return { critical: 'Crítico', high: 'Alto', medium: 'Médio', low: 'Baixo', info: 'Info' }[sev] || sev;
     }
 
     function showScanRunningPlaceholder(message) {
@@ -1020,7 +1125,7 @@
                     <td><code style="font-size:11px;">${esc(row.uri?.substring(0, 40))}</code></td>
                     <td><code>${esc(row.ip)}</code></td>
                     <td style="${statusClass}">${esc(status)}</td>
-                    <td><button class="dpxl-btn dpxl-btn--sm" onclick="dpxlShowDetail(this)">👁</button></td>
+                    <td><button class="dpxl-btn dpxl-btn--sm" onclick="dpxlShowDetail(this)" aria-label="Detalhes">${icon('eye')}</button></td>
                 </tr>`;
             }).join('');
         } catch (e) { tbody.innerHTML = `<tr><td colspan="7" class="dpxl-loading-cell">${esc(e.message)}</td></tr>`; }
@@ -1109,8 +1214,10 @@
         if (status) status.textContent = 'Verifying…';
         try {
             const r = await api.post('audit-log/verify');
-            if (status) status.textContent = r.valid ? `✅ Chain valid (${r.total} entries)` : `🔴 Chain broken at entry ID ${r.broken_at}`;
-        } catch (e) { if (status) status.textContent = '⚠ Verification error: ' + e.message; }
+            if (status) status.innerHTML = r.valid
+                ? `${statusIcon('ok')} Chain valid (${esc(r.total)} entries)`
+                : `${statusIcon('error')} Chain broken at entry ID ${esc(r.broken_at)}`;
+        } catch (e) { if (status) status.innerHTML = `${statusIcon('warning')} Verification error: ${esc(e.message)}`; }
     }
 
     async function saveAuditMode() {
@@ -1271,9 +1378,8 @@
                     <h3>${esc(group)}</h3>
                     ${keys.filter(k => checks[k]).map(k => {
                         const c = checks[k];
-                        const icon = { ok: '✅', warning: '⚠', error: '🔴' }[c.status] || '⚪';
                         return `<div class="dpxl-diag-item">
-                            <span class="dpxl-diag-status">${icon}</span>
+                            <span class="dpxl-diag-status">${statusIcon(c.status)}</span>
                             <span class="dpxl-diag-label">${esc(c.label)}</span>
                             <span class="dpxl-diag-value">${esc(c.value)}</span>
                         </div>
@@ -1297,7 +1403,7 @@
                 const body = btn.nextElementSibling;
                 const arrow = btn.querySelector('.dpxl-toggle-arrow');
                 body?.classList.toggle('dpxl-hidden');
-                if (arrow) arrow.textContent = body?.classList.contains('dpxl-hidden') ? '▶' : '▼';
+                if (arrow) arrow.innerHTML = icon(body?.classList.contains('dpxl-hidden') ? 'chevron-right' : 'chevron-down');
             });
         });
 

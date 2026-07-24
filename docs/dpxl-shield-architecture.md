@@ -1,5 +1,5 @@
 # DPXL Shield — Blueprint Técnico de Arquitetura
-**Versão:** 1.6 — Anti-falso-positivo do scanner: ScanClassifier + fix de locale (v1.0.21)  
+**Versão:** 1.7 — Redesign da Varredura + sistema de ícones SVG (v1.0.22)  
 **Data:** 2026-07-24
 
 ---
@@ -1244,6 +1244,21 @@ Configurável em: All Options > Firewall Options > Allowlisted URLs
 | Admin REST API | `src/Admin/RestApi.php` | ✅ Implementado |
 | Testes unitários (PHPUnit) | `tests/Unit/` | ✅ Parcial (4 suites) |
 
+### Mudanças v1.0.22 — redesign da tela de Varredura + sistema de ícones SVG
+
+**Tela de Varredura (referência: Wordfence):**
+- Progress stepper horizontal com linha conectora e estados cadeado (pendente) → spinner (ativo) → check (concluído), substituindo os dots soltos
+- Barra de progresso determinada durante o estágio de malware
+- Cards de resultado reformulados: ícone de severidade + chip colorido + título humano (via mapa `scanIssueTitle`, ex: `modified_core` → "Arquivo do core modificado") em vez do slug cru gritando "CRITICAL"
+- **Nova seção "Recomendações"** (colapsável, discreta) consumindo `recommendations` + `recommendation_total` do REST — hardening e achados de baixa confiança ficam separados das ameaças e não entram na contagem
+- Badge de ameaças oculto quando zero; estat. "Críticas" perde o vermelho quando é zero; estado limpo com check verde
+
+**Sistema de ícones SVG — fim dos emojis:**
+- `src/Admin/Icons.php` (`Icons::svg()/render()`) + espelho `ICONS`/`icon()` em `assets/js/admin.js` — ícones inline estilo Feather, `stroke=currentColor` (herdam cor via CSS)
+- Motivo: emojis renderizam inconsistente entre SO/navegador e passam aspecto amador num painel de segurança
+- Todos os emojis do painel removidos (JS, 6 views PHP, pseudo-elementos do CSS via data-URI). Cores por severidade em `.dpxl-icon--{critical,high,medium,low,info,ok}`
+- Strings de tradução em `AdminMenu.php` realinhadas (removido emoji das chaves e valores)
+
 ### Mudanças v1.0.21 — redução de falsos positivos do scanner
 
 Motivação: em um site pt_BR com stack pesada (Crocoblock/Elementor), a varredura retornava ~178 problemas / ~55 críticos, contra ~1 do Wordfence em site equivalente. Diagnóstico e correções:
@@ -1290,4 +1305,4 @@ Motivação: em um site pt_BR com stack pesada (Crocoblock/Elementor), a varredu
 | Login bloqueado para todos os admins | `TwoFactorAuth::interceptLogin()` chamava `isRequired()` que retorna `true` para qualquer administrator (mesmo sem 2FA configurada), gerando `WP_Error('dpxl_2fa_required')` → mascarado como "credenciais incorretas" por `login_hide_errors` | `interceptLogin()` agora chama `isEnabled($user->ID)` — só bloqueia se 2FA foi efetivamente configurada |
 | Login bloqueado para username "admin" | `brute_force_block_admin_username` ausente de `Options::$defaults`; `Options::get()` retornava fallback hardcoded `true` | Default alterado para `false` — bloquear username "admin" requer opt-in explícito do admin |
 
-*Documento atualizado em 2026-07-24 — versão 1.6.*
+*Documento atualizado em 2026-07-24 — versão 1.7.*

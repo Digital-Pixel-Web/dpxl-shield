@@ -94,7 +94,7 @@ class AdminMenu {
             'All Options' => 'Todas as Opções',
             'Settings' => 'Configurações',
             'Two-Factor Authentication' => 'Autenticação de Dois Fatores',
-            'Learn more ↗' => 'Saiba mais ↗',
+            'Learn more' => 'Saiba mais',
             'Editing user: %s (you)' => 'Editando usuário: %s (você)',
             'Two-Factor Authentication is ACTIVE for this account.' => 'A autenticação de dois fatores está ATIVA para esta conta.',
             'Deactivate 2FA' => 'Desativar 2FA',
@@ -104,7 +104,7 @@ class AdminMenu {
             'Loading…' => 'Carregando…',
             '2. Enter Code from App' => '2. Digite o código do aplicativo',
             'Loading recovery codes…' => 'Carregando códigos de recuperação…',
-            '⬇ Download Codes' => '⬇ Baixar códigos',
+            'Download Codes' => 'Baixar códigos',
             'Activate' => 'Ativar',
             'Server Time:' => 'Hora do servidor:',
             'Detected IP:' => 'IP detectado:',
@@ -170,7 +170,7 @@ class AdminMenu {
             'Human' => 'Humano',
             'Bot / Crawler' => 'Bot / Rastreador',
             'Blocked' => 'Bloqueado',
-            'Show Advanced Filters ▼' => 'Mostrar filtros avançados ▼',
+            'Show Advanced Filters' => 'Mostrar filtros avançados',
             'Live Update' => 'Atualização ao vivo',
             'Response' => 'Resposta',
             'All' => 'Todos',
@@ -218,7 +218,7 @@ class AdminMenu {
             'Login Security Options' => 'Opções de segurança de login',
             'Extended Protection setup finished.' => 'A configuração da Proteção Estendida foi concluída.',
             'Extended Protection is not active. Your firewall loads after WordPress, reducing protection.' => 'A Proteção Estendida não está ativa. Seu firewall é carregado depois do WordPress, reduzindo a proteção.',
-            'Enable now →' => 'Ativar agora →',
+            'Enable now' => 'Ativar agora',
             'You do not have permission to download this file.' => 'Você não tem permissão para baixar este arquivo.',
             'You do not have permission to enable Extended Protection.' => 'Você não tem permissão para ativar a Proteção Estendida.',
             'You do not have permission to view this page.' => 'Você não tem permissão para visualizar esta página.',
@@ -552,7 +552,7 @@ class AdminMenu {
         echo '<div class="notice notice-warning dpxl-notice dpxl-notice--extended-warning">';
         echo '<p><strong>' . esc_html__('DPXL Shield', 'dpxl-shield') . '</strong> — ';
         echo esc_html__('Extended Protection is not active. Your firewall loads after WordPress, reducing protection.', 'dpxl-shield') . ' ';
-        echo '<a href="' . esc_url($wizardUrl) . '">' . esc_html__('Enable now →', 'dpxl-shield') . '</a></p>';
+        echo '<a href="' . esc_url($wizardUrl) . '">' . esc_html__('Enable now', 'dpxl-shield') . ' ' . Icons::svg('arrow-right', '', 13) . '</a></p>';
         echo '</div>';
     }
 

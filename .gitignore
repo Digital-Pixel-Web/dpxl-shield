@@ -30,5 +30,10 @@
 .env
 .env.*
 
+# Documentação interna — NÃO fica dentro do plugin (evita ser servida
+# publicamente em /wp-content/plugins/dpxl-shield/docs/). Mantida em
+# "../docs-internal/", fora da pasta do plugin.
+/docs/
+
 # Claude settings (local apenas)
 .claude/

@@ -17,9 +17,15 @@ class FirewallEngineTest extends TestCase {
         parent::setUp();
         Monkey\setUp();
 
-        // Stub WordPress functions used inside FirewallEngine / pipeline steps.
+        // Simulate the pre-WordPress (Extended Protection) context: the WAF runs
+        // via auto_prepend_file before WordPress finishes loading, so $wpdb is
+        // null. WP functions may already be *defined* (Brain\Monkey can't
+        // undefine them across tests), so every DB-backed blocker must be
+        // null-$wpdb-safe — which the guards in IpBlocklist / CountryBlocker /
+        // CustomPatternBlocker (v1.0.19) provide. Options read through get_option
+        // return their defaults here.
         Functions\stubs([
-            'get_option'          => false,
+            'get_option'          => fn($key, $default = false) => $default,
             'absint'              => fn($v) => abs((int) $v),
             'sanitize_text_field' => fn($v) => $v,
             'apply_filters'       => fn($tag, $value, ...$args) => $value,
@@ -29,8 +35,6 @@ class FirewallEngineTest extends TestCase {
             'current_time'        => fn($type) => '2026-01-01 00:00:00',
         ]);
 
-        // Ensure $wpdb is null — simulates pre-WordPress (Extended Protection) context.
-        // IpBlocklist::blockIp() must handle this gracefully.
         global $wpdb;
         $wpdb = null;
     }
@@ -52,14 +56,28 @@ class FirewallEngineTest extends TestCase {
     }
 
     private function makeRequest(array $overrides = []): Request {
+        $uri = $overrides['uri'] ?? '/';
+
         $_SERVER = array_merge([
             'REMOTE_ADDR'    => $overrides['ip'] ?? '1.2.3.4',
             'REQUEST_METHOD' => $overrides['method'] ?? 'GET',
-            'REQUEST_URI'    => $overrides['uri'] ?? '/',
+            'REQUEST_URI'    => $uri,
             'HTTP_USER_AGENT' => $overrides['ua'] ?? 'Mozilla/5.0',
             'HTTP_HOST'      => 'example.com',
             'HTTPS'          => 'on',
         ], $overrides['server'] ?? []);
+
+        // Populate $_GET / QUERY_STRING from the URI so rules that scan request
+        // parameters (SQLi, XSS) see the payload — as a real web request would.
+        $_GET = [];
+        $_SERVER['QUERY_STRING'] = '';
+
+        if (($pos = strpos($uri, '?')) !== false) {
+            $query = substr($uri, $pos + 1);
+            $_SERVER['QUERY_STRING'] = $query;
+            parse_str($query, $_GET);
+        }
+
         return new Request();
     }
 

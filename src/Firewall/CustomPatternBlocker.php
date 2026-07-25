@@ -97,11 +97,13 @@ class CustomPatternBlocker {
     }
 
     private static function loadFromDatabase(): array {
-        if (!function_exists('get_transient')) {
+        global $wpdb;
+
+        // No WordPress / no $wpdb (Extended Protection runs pre-WordPress):
+        // return no rules instead of dereferencing a null $wpdb.
+        if (!function_exists('get_transient') || !$wpdb instanceof \wpdb) {
             return [];
         }
-
-        global $wpdb;
 
         return $wpdb->get_results(
             "SELECT field, pattern, match_type, action, reason, expires_at

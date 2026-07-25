@@ -24,29 +24,10 @@ class Loader {
 
         $uri = $_SERVER['REQUEST_URI'] ?? '';
 
-        // ── Admin bypass ───────────────────────────────────────────────────
-        // wp-admin and wp-login.php must never be WAF-filtered in the pre-
-        // WordPress context. Page builders (Elementor, Gutenberg) POST raw
-        // HTML/CSS that triggers XSS/SQLi rules; WordPress itself handles
-        // admin authentication. is_admin() is unavailable here, so we check
-        // the URI directly.
-        if (str_contains($uri, '/wp-admin/') || str_contains($uri, '/wp-login.php')) {
+        // Admin, wp-login and authenticated REST/admin-ajax requests never get
+        // WAF-filtered in the pre-WordPress context (see shouldBypassEarlyWaf).
+        if (self::shouldBypassEarlyWaf($uri, $_COOKIE)) {
             return;
-        }
-
-        // ── Authenticated REST / admin-ajax bypass ─────────────────────────
-        // REST API and admin-ajax requests from logged-in users must bypass
-        // the WAF. We cannot validate WP auth cookies pre-WordPress, but we
-        // trust their presence: WordPress sets wordpress_logged_in_<hash>
-        // cookies only after a successful login.
-        $isAuthEndpoint = str_contains($uri, '/wp-json/') || str_contains($uri, 'admin-ajax.php');
-
-        if ($isAuthEndpoint) {
-            foreach (array_keys($_COOKIE) as $cookieName) {
-                if (str_starts_with((string) $cookieName, 'wordpress_logged_in_')) {
-                    return; // Logged-in user — skip WAF entirely.
-                }
-            }
         }
 
         // ── WAF evaluation (unauthenticated public requests only) ──────────
@@ -65,6 +46,39 @@ class Loader {
         if ($result->decision->value === 'block') {
             self::sendBlockResponse($result->ruleId, $result->reason);
         }
+    }
+
+    /**
+     * Decides whether a request must skip the pre-WordPress WAF entirely.
+     *
+     * Pure function (no superglobals, no side effects) so the security-critical
+     * bypass logic can be unit-tested directly.
+     *
+     * - `wp-admin/` and `wp-login.php`: WordPress handles admin auth, and page
+     *   builders (Elementor, Gutenberg) POST raw HTML/CSS that trips XSS/SQLi
+     *   rules. `is_admin()` is unavailable pre-WordPress, so the URI is checked.
+     * - `wp-json/` and `admin-ajax.php` carrying a `wordpress_logged_in_*`
+     *   cookie: a logged-in user. The cookie cannot be validated pre-WordPress,
+     *   but WordPress only sets it after a successful login.
+     *
+     * @param array<string,mixed> $cookies  Typically $_COOKIE
+     */
+    public static function shouldBypassEarlyWaf(string $uri, array $cookies): bool {
+        if (str_contains($uri, '/wp-admin/') || str_contains($uri, '/wp-login.php')) {
+            return true;
+        }
+
+        $isAuthEndpoint = str_contains($uri, '/wp-json/') || str_contains($uri, 'admin-ajax.php');
+
+        if ($isAuthEndpoint) {
+            foreach (array_keys($cookies) as $cookieName) {
+                if (str_starts_with((string) $cookieName, 'wordpress_logged_in_')) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static function locateConfig(): ?string {

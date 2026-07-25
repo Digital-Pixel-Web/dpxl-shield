@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 1.0.23
+Stable tag: 1.0.24
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -138,6 +138,10 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.0.24 =
+* Hardening: the pre-WordPress WAF pipeline is now fully null-safe — the IP blocklist, country blocker and custom-pattern blocker all fall back gracefully when `$wpdb` is unavailable (Extended Protection context), completing the v1.0.19 guard.
+* Internal: restored the automated test suite to green (56 passing) and added direct coverage for the early-WAF bypass logic and the audit-log hash chain.
 
 = 1.0.23 =
 * UI: unified visual system across every admin screen — cards with soft shadows, refined gauges, small-caps table headers, underline tabs, and SVG section icons.

@@ -149,12 +149,14 @@ class IpBlocklist {
     }
 
     private static function loadFromDatabase(): array {
-        if (!function_exists('get_transient')) {
-            // WordPress not loaded — try flat file fallback.
+        global $wpdb;
+
+        // WordPress not loaded, or $wpdb not yet available (Extended Protection
+        // runs pre-WordPress) — fall back to the flat-file blocklist instead of
+        // dereferencing a null $wpdb. Mirrors the guard in blockIp() (v1.0.19).
+        if (!function_exists('get_transient') || !$wpdb instanceof \wpdb) {
             return self::loadFromFile();
         }
-
-        global $wpdb;
 
         $rows = $wpdb->get_results(
             "SELECT ip, cidr FROM {$wpdb->prefix}dpxl_shield_blocked_ips

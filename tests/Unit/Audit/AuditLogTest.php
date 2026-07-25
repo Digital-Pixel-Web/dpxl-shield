@@ -64,7 +64,7 @@ class AuditLogTest extends TestCase {
     public function testHashIsHexString(): void {
         $hash = AuditLog::computeHash(
             '2026-01-01 00:00:00',
-            AuditEvents::AUTH_LOGIN_FAIL,
+            AuditEvents::AUTH_LOGIN_FAILURE,
             'Failed login',
             str_repeat('0', 64)
         );
@@ -74,20 +74,22 @@ class AuditLogTest extends TestCase {
 
     public function testSignificantEventFilterExcludesContentEvents(): void {
         $this->assertFalse(
-            AuditEvents::isSignificant(AuditEvents::CONTENT_MODIFIED),
+            AuditEvents::isSignificant(AuditEvents::CONTENT_POST_UPDATED),
             'Content events are not significant by default'
         );
 
         $this->assertTrue(
-            AuditEvents::isSignificant(AuditEvents::AUTH_LOGIN_FAIL),
+            AuditEvents::isSignificant(AuditEvents::AUTH_LOGIN_FAILURE),
             'Auth events are always significant'
         );
     }
 
     public function testEventCategoryMapping(): void {
-        $this->assertSame('auth', AuditEvents::category(AuditEvents::AUTH_LOGIN_SUCCESS));
-        $this->assertSame('fw', AuditEvents::category(AuditEvents::FW_IP_BLOCKED));
-        $this->assertSame('settings', AuditEvents::category(AuditEvents::SETTINGS_CHANGED));
-        $this->assertSame('plugin', AuditEvents::category(AuditEvents::PLUGIN_ACTIVATED));
+        // Assert against the CATEGORY_* constants, not their string values, so
+        // the test stays correct if a category label is ever renamed.
+        $this->assertSame(AuditEvents::CATEGORY_AUTH,     AuditEvents::category(AuditEvents::AUTH_LOGIN_SUCCESS));
+        $this->assertSame(AuditEvents::CATEGORY_FIREWALL, AuditEvents::category(AuditEvents::FW_IP_BLOCKED));
+        $this->assertSame(AuditEvents::CATEGORY_SETTINGS, AuditEvents::category(AuditEvents::SETTINGS_UPDATED));
+        $this->assertSame(AuditEvents::CATEGORY_PLUGIN,   AuditEvents::category(AuditEvents::PLUGIN_ACTIVATED));
     }
 }

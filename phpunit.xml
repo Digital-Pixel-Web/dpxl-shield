@@ -1,27 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.0/phpunit.xsd"
-         bootstrap="tests/bootstrap.php"
-         colors="true"
-         failOnRisky="true"
-         failOnWarning="true">
-
-    <testsuites>
-        <testsuite name="DPXL Shield Unit Tests">
-            <directory>tests/Unit</directory>
-        </testsuite>
-    </testsuites>
-
-    <coverage>
-        <include>
-            <directory suffix=".php">src</directory>
-        </include>
-        <exclude>
-            <directory>src/Admin/Views</directory>
-        </exclude>
-    </coverage>
-
-    <php>
-        <const name="DPXL_SHIELD_TESTS" value="true"/>
-    </php>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd" bootstrap="tests/bootstrap.php" colors="true" failOnRisky="true" failOnWarning="true">
+  <testsuites>
+    <testsuite name="DPXL Shield Unit Tests">
+      <directory>tests/Unit</directory>
+    </testsuite>
+  </testsuites>
+  <php>
+    <const name="DPXL_SHIELD_TESTS" value="true"/>
+  </php>
+  <source>
+    <include>
+      <directory suffix=".php">src</directory>
+    </include>
+    <exclude>
+      <directory>src/Admin/Views</directory>
+    </exclude>
+  </source>
 </phpunit>

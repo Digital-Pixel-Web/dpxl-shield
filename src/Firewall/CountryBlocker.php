@@ -131,11 +131,13 @@ class CountryBlocker {
     }
 
     private static function loadFromDatabase(): array {
-        if (!function_exists('get_transient')) {
+        global $wpdb;
+
+        // No WordPress / no $wpdb (Extended Protection runs pre-WordPress):
+        // return an empty config instead of dereferencing a null $wpdb.
+        if (!function_exists('get_transient') || !$wpdb instanceof \wpdb) {
             return ['codes' => [], 'mode' => 'block'];
         }
-
-        global $wpdb;
 
         $rows = $wpdb->get_results(
             "SELECT country_code, mode

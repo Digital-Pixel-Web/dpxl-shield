@@ -59,7 +59,7 @@ class AuditLog {
         $actorUser  = get_current_user_id() ?: null;
         $prevHash   = self::lastChainHash();
 
-        $chainHash  = self::computeChainHash($timestamp, $eventType, $description, $prevHash);
+        $chainHash  = self::computeHash($timestamp, $eventType, $description, $prevHash);
 
         $wpdb->insert(
             $wpdb->prefix . 'dpxl_shield_audit_log',
@@ -114,7 +114,7 @@ class AuditLog {
             }
 
             foreach ($rows as $row) {
-                $expected = self::computeChainHash(
+                $expected = self::computeHash(
                     (string) $row['timestamp'],
                     (string) $row['event_type'],
                     (string) $row['description'],
@@ -185,7 +185,17 @@ class AuditLog {
         return $hash ? (string) $hash : self::GENESIS_HASH;
     }
 
-    private static function computeChainHash(
+    /** Genesis hash — the prev-hash of the first chain entry (64 zeros). */
+    public static function genesisHash(): string {
+        return self::GENESIS_HASH;
+    }
+
+    /**
+     * Pure, deterministic chain-hash computation. Public so the hash-chain
+     * logic can be unit-tested directly; also used internally by log() and
+     * verifyChain().
+     */
+    public static function computeHash(
         string $timestamp,
         string $eventType,
         string $description,

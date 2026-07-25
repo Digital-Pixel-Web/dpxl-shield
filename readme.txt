@@ -1,10 +1,10 @@
 === DPXL Shield ===
 Contributors: digitalpixelbr
 Tags: security, firewall, malware scanner, login protection, two-factor authentication
-Requires at least: 6.3
+Requires at least: 6.4
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 1.0.3
+Stable tag: 1.0.23
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -139,6 +139,41 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 
 == Changelog ==
 
+= 1.0.23 =
+* UI: unified visual system across every admin screen — cards with soft shadows, refined gauges, small-caps table headers, underline tabs, and SVG section icons.
+
+= 1.0.22 =
+* UI: redesigned Scan screen — progress stepper (lock → spinner → check), severity chips, and human-readable result titles instead of raw slugs.
+* UI: replaced every emoji with inline SVG icons so glyphs render identically across browsers and operating systems.
+* Scan: new "Recommendations" section separates hardening advisories and low-confidence findings from real threats — they no longer inflate the problem count.
+
+= 1.0.21 =
+* Scanner: fixed mass false positives. Core integrity now always compares against the en_US checksum manifest, so localized (e.g. pt-BR) installs no longer flag untouched core files as modified.
+* Scanner: version.php and other legitimately-varying core files are excluded from the checksum diff (still scanned for malware by content).
+* Scanner: new threat/recommendation classifier — only high-confidence findings count as problems and fire critical alerts.
+* Scanner: checksum cache is now keyed by WordPress version, so a core update busts a stale manifest instead of comparing against it for a day.
+
+= 1.0.20 =
+* Alerts: redesigned alert and activity-report emails — readable subject lines, muted severity styling (no full-width red banner), and human event titles.
+* Alerts: "admin login from a new IP" downgraded from Critical to Notice; it is a routine event.
+
+= 1.0.19 =
+* Firewall: Extended Protection no longer triggers an HTTP 500 on wp-admin or page-builder (Elementor) saves — added a URI and logged-in-cookie bypass for requests that run before WordPress loads.
+* Firewall: `$wpdb` null-guard in IpBlocklist for the pre-WordPress context.
+* Database: self-healing table creation on boot; added the `auto_anomaly` block source to the schema.
+
+= 1.0.14 =
+* REST: output-buffer protection stops stray PHP notices from corrupting JSON responses on debug-enabled hosts.
+* Self-protection: the tamper-detection baseline is now version-aware — no more false "files modified" alerts after a legitimate update.
+* Login: fixed all administrators being blocked at login — 2FA interception now checks whether 2FA is actually configured for the user, not just required by role.
+* Login: blocking the "admin" username is now opt-in (it was silently enabled by default).
+
+= 1.0.4 – 1.0.13 =
+* Fixed a REST error on the dashboard and a COUNT bug in the traffic statistics.
+* Made plugin boot resilient to activation-time errors.
+* Fixed four bugs in the WHOIS lookup tool.
+* Fixed the 2FA `dpxl_2fa_required` redirect handling.
+
 = 1.0.0 =
 * Initial release.
 * Web Application Firewall (extended + basic modes).
@@ -154,6 +189,15 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 * Plugin self-protection (tamper detection, deactivation guard).
 
 == Upgrade Notice ==
+
+= 1.0.21 =
+Major reduction in scanner false positives. Run a new scan after updating to see the corrected results.
+
+= 1.0.19 =
+Important fix: prevents HTTP 500 errors on wp-admin and page-builder saves when Extended Protection is active. Recommended for all users.
+
+= 1.0.14 =
+Critical login fix: resolves administrators being unable to log in. Update immediately if you use per-role 2FA enforcement.
 
 = 1.0.0 =
 First stable release. No upgrade path from pre-release versions.

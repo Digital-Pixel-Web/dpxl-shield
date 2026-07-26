@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 1.0.26
+Stable tag: 1.0.27
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -140,6 +140,10 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.0.27 =
+* New: Scheduled PDF security report. The periodic activity report can now travel as a branded PDF attachment on the same daily/weekly/monthly email, and a "Download PDF" button on the All Options screen produces the report on demand. Rendered on-server with no external service.
+* Data for the PDF and the HTML email now share a single collector (`ReportData`), so both always reflect the same figures.
 
 = 1.0.26 =
 * Internal: extended automated test coverage to the previously-untested security-critical modules — brute-force lockout escalation, self-protection baseline/tamper diff, 2FA backup codes and the form honeypot (86 tests total). Pure refactors to expose testable seams; no behavior change.

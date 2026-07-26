@@ -1,0 +1,96 @@
+<?php
+declare(strict_types=1);
+
+namespace DPXL\Shield\Tests\Unit\Alerts;
+
+use Brain\Monkey;
+use Brain\Monkey\Functions;
+use DPXL\Shield\Alerts\PdfReport;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * The branded PDF report. These lock two things: the HTML carries the real
+ * figures and brand marks, and Dompdf turns that HTML into an actual PDF
+ * document (the magic-byte header). If Dompdf or a WordPress seam breaks, the
+ * scheduled email would ship a corrupt or empty attachment.
+ */
+class PdfReportTest extends TestCase {
+
+    protected function setUp(): void {
+        parent::setUp();
+        Monkey\setUp();
+
+        Functions\stubs([
+            '__'                 => fn($t, $d = null) => $t,
+            'esc_html'           => fn($t) => htmlspecialchars((string) $t, ENT_QUOTES),
+            'esc_html__'         => fn($t, $d = null) => htmlspecialchars((string) $t, ENT_QUOTES),
+            '_n'                 => fn($s, $p, $n, $d = null) => (int) $n === 1 ? $s : $p,
+            'number_format_i18n' => fn($n) => number_format((float) $n),
+            'get_option'         => fn($k, $def = false) => match ($k) {
+                'blogname'    => 'EABH',
+                'siteurl'     => 'https://eabh.com.br',
+                'date_format' => 'd/m/Y',
+                'time_format' => 'H:i',
+                default       => $def,
+            },
+            'wp_parse_url'       => fn($url, $c = -1) => parse_url((string) $url, $c),
+            'wp_date'            => fn($fmt, $ts = null) => gmdate($fmt, $ts ?? time()),
+            'sanitize_file_name' => fn($n) => preg_replace('/[^A-Za-z0-9._-]/', '-', (string) $n),
+            'trailingslashit'    => fn($p) => rtrim((string) $p, '/\\') . '/',
+            'get_temp_dir'       => fn() => rtrim(sys_get_temp_dir(), '/') . '/',
+        ]);
+    }
+
+    protected function tearDown(): void {
+        Monkey\tearDown();
+        parent::tearDown();
+    }
+
+    /** @return array<string,mixed> */
+    private function sampleData(int $criticals = 0): array {
+        return [
+            'freq'           => 'weekly',
+            'since'          => date('Y-m-d H:i:s', strtotime('-7 days')),
+            'attacksBlocked' => 1234,
+            'topIps'         => [['ip' => '203.0.113.7', 'hits' => 12]],
+            'loginSuccess'   => 5,
+            'loginFailed'    => 3,
+            'scanIssues'     => 2,
+            'criticalIssues' => $criticals,
+        ];
+    }
+
+    public function testHtmlCarriesBrandAndFigures(): void {
+        $html = (new PdfReport())->buildHtml($this->sampleData());
+
+        $this->assertStringContainsString('DPXL', $html);
+        $this->assertStringContainsString('SHIELD', $html);
+        $this->assertStringContainsString('eabh.com.br', $html, 'Site host must appear in the header');
+        $this->assertStringContainsString('1,234', $html, 'Attacks-blocked figure must be formatted and present');
+        $this->assertStringContainsString('203.0.113.7', $html, 'Top blocked IP must be listed');
+        $this->assertStringContainsString('#F68B00', $html, 'Digital Pixel orange must drive the brand accent');
+    }
+
+    public function testCriticalIssuesRaiseACallout(): void {
+        $clean = (new PdfReport())->buildHtml($this->sampleData(0));
+        $this->assertStringNotContainsString('class="callout"', $clean);
+
+        $withCriticals = (new PdfReport())->buildHtml($this->sampleData(2));
+        $this->assertStringContainsString('class="callout"', $withCriticals);
+    }
+
+    public function testRenderProducesAPdfDocument(): void {
+        $pdf = (new PdfReport())->render($this->sampleData());
+
+        $this->assertNotSame('', $pdf);
+        $this->assertSame('%PDF', substr($pdf, 0, 4), 'Output must be a real PDF (magic bytes)');
+    }
+
+    public function testFilenameIsDatedAndSafe(): void {
+        $name = (new PdfReport())->filename($this->sampleData());
+
+        $this->assertStringStartsWith('dpxl-shield-relatorio-', $name);
+        $this->assertStringEndsWith('.pdf', $name);
+        $this->assertDoesNotMatchRegularExpression('/[^A-Za-z0-9._-]/', $name, 'Filename must be filesystem-safe');
+    }
+}

@@ -31,6 +31,10 @@
                         'alert_email'                  => ['type' => 'email',  'label' => __('Alert Email Address', 'dpxl-shield'),          'default' => get_option('admin_email')],
                         'activity_report_enabled'      => ['type' => 'toggle', 'label' => __('Enable Activity Reports', 'dpxl-shield'),       'default' => true],
                         'activity_report_frequency'    => ['type' => 'select', 'label' => __('Report Frequency', 'dpxl-shield'),             'default' => 'weekly', 'options' => ['daily' => __('Diário', 'dpxl-shield'), 'weekly' => __('Semanal', 'dpxl-shield'), 'monthly' => __('Mensal', 'dpxl-shield')]],
+                        'activity_report_pdf_enabled'  => ['type' => 'toggle', 'label' => __('Attach PDF report to email', 'dpxl-shield'),  'default' => true],
+                        'activity_report_pdf_download' => ['type' => 'link',   'label' => __('Download report now', 'dpxl-shield'),
+                            'button' => __('Download PDF', 'dpxl-shield'),
+                            'href'   => wp_nonce_url(admin_url('admin-post.php?action=dpxl_shield_download_report_pdf'), 'dpxl_shield_download_report_pdf')],
                     ],
                 ],
             ],
@@ -143,6 +147,10 @@
                     <?php elseif ($opt['type'] === 'email') : ?>
                         <input type="email" class="dpxl-input" id="opt-<?php echo esc_attr($key); ?>" name="<?php echo esc_attr($key); ?>"
                                value="<?php echo esc_attr((string) $val); ?>">
+                    <?php elseif ($opt['type'] === 'link') : ?>
+                        <a class="dpxl-btn dpxl-btn--sm" href="<?php echo esc_url((string) ($opt['href'] ?? '#')); ?>" target="_blank" rel="noopener">
+                            <?php echo esc_html((string) ($opt['button'] ?? $opt['label'])); ?>
+                        </a>
                     <?php else : ?>
                         <input type="number" class="dpxl-input dpxl-input--sm" id="opt-<?php echo esc_attr($key); ?>" name="<?php echo esc_attr($key); ?>"
                                value="<?php echo esc_attr((string) $val); ?>"

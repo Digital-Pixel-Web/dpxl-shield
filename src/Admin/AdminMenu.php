@@ -5,6 +5,8 @@ namespace DPXL\Shield\Admin;
 
 use DPXL\Shield\Core\Options;
 use DPXL\Shield\Bootstrap\AutoPrepend;
+use DPXL\Shield\Alerts\ReportData;
+use DPXL\Shield\Alerts\PdfReport;
 
 /**
  * Registers the plugin admin menu and all sub-pages.
@@ -23,6 +25,7 @@ class AdminMenu {
         add_filter('gettext', [$this, 'translatePluginStrings'], 20, 3);
         add_action('admin_post_dpxl_shield_download_htaccess_backup', [$this, 'downloadHtaccessBackup']);
         add_action('admin_post_dpxl_shield_enable_extended',          [$this, 'enableExtendedFromPost']);
+        add_action('admin_post_dpxl_shield_download_report_pdf',      [$this, 'downloadReportPdf']);
     }
 
     // ── Menu pages ─────────────────────────────────────────────────────────
@@ -197,6 +200,9 @@ class AdminMenu {
             'Alert Email Address' => 'E-mail para alertas',
             'Enable Activity Reports' => 'Ativar relatórios de atividade',
             'Report Frequency' => 'Frequência do relatório',
+            'Attach PDF report to email' => 'Anexar relatório em PDF ao e-mail',
+            'Download report now' => 'Baixar relatório agora',
+            'Download PDF' => 'Baixar PDF',
             'Daily' => 'Diário',
             'Weekly' => 'Semanal',
             'Monthly' => 'Mensal',
@@ -472,6 +478,7 @@ class AdminMenu {
             'version'   => $version,
             'downloadHtaccessUrl' => wp_nonce_url(admin_url('admin-post.php?action=dpxl_shield_download_htaccess_backup'), 'dpxl_shield_download_htaccess_backup'),
             'enableExtendedUrl'   => wp_nonce_url(admin_url('admin-post.php?action=dpxl_shield_enable_extended'), 'dpxl_shield_enable_extended'),
+            'downloadReportUrl'   => wp_nonce_url(admin_url('admin-post.php?action=dpxl_shield_download_report_pdf'), 'dpxl_shield_download_report_pdf'),
             'strings'   => [
                 'loading'  => __('Loading…', 'dpxl-shield'),
                 'error'    => __('Error loading data. Please try again.', 'dpxl-shield'),
@@ -502,6 +509,30 @@ class AdminMenu {
         header('Content-Length: ' . strlen($content));
 
         echo $content;
+        exit;
+    }
+
+    /**
+     * Streams an on-demand branded PDF of the current activity report, using the
+     * same figures the scheduled email carries.
+     */
+    public function downloadReportPdf(): void {
+        if (!current_user_can(self::CAPABILITY)) {
+            wp_die(esc_html__('You do not have permission to download this report.', 'dpxl-shield'));
+        }
+
+        check_admin_referer('dpxl_shield_download_report_pdf');
+
+        $data   = ReportData::collect((string) Options::get('activity_report_frequency', 'weekly'));
+        $report = new PdfReport();
+        $pdf    = $report->render($data);
+
+        nocache_headers();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . $report->filename($data) . '"');
+        header('Content-Length: ' . strlen($pdf));
+
+        echo $pdf; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped — binary PDF
         exit;
     }
 

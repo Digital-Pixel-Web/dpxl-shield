@@ -29,12 +29,30 @@ class ActivityReport {
         $subject = $this->buildSubject($data);
         $body    = $this->buildBody($data);
 
+        // Attach the branded PDF when enabled. A render/write failure must never
+        // block the report — the HTML email still goes out on its own.
+        $attachments = [];
+        $pdfPath     = null;
+
+        if (Options::get('activity_report_pdf_enabled', true)) {
+            $pdfPath = (new PdfReport())->renderToFile($data);
+
+            if ($pdfPath !== null) {
+                $attachments[] = $pdfPath;
+            }
+        }
+
         wp_mail(
             (string) $recipient,
             $subject,
             $body,
-            ['Content-Type: text/html; charset=UTF-8']
+            ['Content-Type: text/html; charset=UTF-8'],
+            $attachments
         );
+
+        if ($pdfPath !== null && file_exists($pdfPath)) {
+            @unlink($pdfPath);
+        }
 
         Options::set('activity_report_last_sent', time());
     }
@@ -43,76 +61,7 @@ class ActivityReport {
 
     /** @return array<string,mixed> */
     private function gatherData(): array {
-        global $wpdb;
-
-        $freq  = Options::get('activity_report_frequency', 'weekly');
-        $since = match ($freq) {
-            'daily'   => date('Y-m-d H:i:s', strtotime('-1 day')),
-            'monthly' => date('Y-m-d H:i:s', strtotime('-30 days')),
-            default   => date('Y-m-d H:i:s', strtotime('-7 days')),
-        };
-
-        $logTable   = $wpdb->prefix . 'dpxl_shield_traffic_log';
-        $blockedTable = $wpdb->prefix . 'dpxl_shield_blocked_ips';
-        $loginTable  = $wpdb->prefix . 'dpxl_shield_login_events';
-        $scanTable   = $wpdb->prefix . 'dpxl_shield_scan_results';
-
-        // Total attacks blocked.
-        $attacksBlocked = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$logTable} WHERE waf_action='block' AND timestamp >= %s",
-                $since
-            )
-        );
-
-        // Top 5 blocked IPs.
-        $topIps = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT ip, COUNT(*) as hits FROM {$logTable}
-                 WHERE waf_action='block' AND timestamp >= %s
-                 GROUP BY ip ORDER BY hits DESC LIMIT 5",
-                $since
-            ),
-            ARRAY_A
-        ) ?? [];
-
-        // Successful logins.
-        $loginSuccess = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$loginTable} WHERE result='success' AND timestamp >= %s",
-                $since
-            )
-        );
-
-        // Failed logins.
-        $loginFailed = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$loginTable} WHERE result='failure' AND timestamp >= %s",
-                $since
-            )
-        );
-
-        // New scan issues.
-        $scanIssues = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$scanTable} WHERE status='new' AND scanned_at >= %s",
-                $since
-            )
-        );
-
-        // Critical scan issues.
-        $criticalIssues = (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$scanTable} WHERE status='new' AND severity='critical' AND scanned_at >= %s",
-                $since
-            )
-        );
-
-        return compact(
-            'freq', 'since', 'attacksBlocked',
-            'topIps', 'loginSuccess', 'loginFailed',
-            'scanIssues', 'criticalIssues'
-        );
+        return ReportData::collect((string) Options::get('activity_report_frequency', 'weekly'));
     }
 
     // ── Email building ─────────────────────────────────────────────────────

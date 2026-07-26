@@ -47,16 +47,27 @@ class TamperDetector {
         $instance = new self();
 
         // Auto-update baseline when the plugin version advances.
-        $storedVersion  = get_option('dpxl_shield_integrity_version', '');
+        $storedVersion  = (string) get_option('dpxl_shield_integrity_version', '');
         $currentVersion = defined('DPXL_SHIELD_VERSION') ? DPXL_SHIELD_VERSION : '';
 
-        if ($storedVersion !== $currentVersion && $currentVersion !== '') {
+        if (self::shouldRebaseline($storedVersion, $currentVersion)) {
             $instance->recordBaseline();
             update_option('dpxl_shield_integrity_version', $currentVersion, false);
             return; // Baseline just recorded — nothing to compare against yet.
         }
 
         $instance->runVerification();
+    }
+
+    /**
+     * Whether the integrity baseline must be re-recorded rather than compared.
+     *
+     * True only when the plugin version actually advanced — this is the guard
+     * that stopped the v1.0.14 false-positive tamper alerts after legitimate
+     * updates. An empty current version (constant missing) never rebaselines.
+     */
+    public static function shouldRebaseline(string $storedVersion, string $currentVersion): bool {
+        return $currentVersion !== '' && $storedVersion !== $currentVersion;
     }
 
     // ── Internal ───────────────────────────────────────────────────────────
@@ -70,7 +81,7 @@ class TamperDetector {
         }
 
         $current    = $this->computeChecksums();
-        $mismatches = $this->diff($baseline, $current);
+        $mismatches = self::diffChecksums($baseline, $current);
 
         if (empty($mismatches)) {
             return;
@@ -134,7 +145,7 @@ class TamperDetector {
      * @param array<string,string> $current
      * @return string[]
      */
-    private function diff(array $baseline, array $current): array {
+    public static function diffChecksums(array $baseline, array $current): array {
         $mismatches = [];
 
         foreach ($current as $path => $hash) {

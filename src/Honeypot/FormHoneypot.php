@@ -97,8 +97,18 @@ class FormHoneypot {
     // ── Internal ───────────────────────────────────────────────────────────
 
     private function isFilled(): bool {
-        // The field must exist in POST AND be non-empty to trigger.
-        return isset($_POST[self::FIELD_NAME]) && $_POST[self::FIELD_NAME] !== '';
+        return self::isTriggered($_POST);
+    }
+
+    /**
+     * A submission trips the honeypot when the hidden field exists and is
+     * non-empty — only a bot (or a script) fills an invisible field. Pure
+     * function over the submitted data so the trigger rule is unit-tested.
+     *
+     * @param array<string,mixed> $post
+     */
+    public static function isTriggered(array $post): bool {
+        return isset($post[self::FIELD_NAME]) && $post[self::FIELD_NAME] !== '';
     }
 
     private function blockBotIp(string $context): void {

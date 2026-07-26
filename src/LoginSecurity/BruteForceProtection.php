@@ -118,17 +118,24 @@ class BruteForceProtection {
         return $next;
     }
 
-    private function applyLockoutIfNeeded(string $ip, int $failures, string $username): void {
-        $threshold5  = (int) Options::get('brute_force_threshold', 5);
-        $threshold10 = $threshold5 * 2;
-        $threshold20 = $threshold5 * 4;
-
-        $lockoutSeconds = match (true) {
-            $failures >= $threshold20 => DAY_IN_SECONDS,
-            $failures >= $threshold10 => HOUR_IN_SECONDS,
-            $failures >= $threshold5  => 5 * MINUTE_IN_SECONDS,
-            default                   => 0,
+    /**
+     * Progressive lockout duration (seconds) for a failure count, given the
+     * base threshold. 0 means "not locked out yet". Pure function so the
+     * security-critical escalation curve is unit-tested.
+     *
+     *   ≥ base×4 → 24h · ≥ base×2 → 1h · ≥ base → 5min · below → 0
+     */
+    public static function lockoutDuration(int $failures, int $baseThreshold): int {
+        return match (true) {
+            $failures >= $baseThreshold * 4 => DAY_IN_SECONDS,
+            $failures >= $baseThreshold * 2 => HOUR_IN_SECONDS,
+            $failures >= $baseThreshold     => 5 * MINUTE_IN_SECONDS,
+            default                         => 0,
         };
+    }
+
+    private function applyLockoutIfNeeded(string $ip, int $failures, string $username): void {
+        $lockoutSeconds = self::lockoutDuration($failures, (int) Options::get('brute_force_threshold', 5));
 
         if ($lockoutSeconds === 0) {
             return;

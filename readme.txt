@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 1.0.24
+Stable tag: 1.0.25
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -34,6 +34,7 @@ Enterprise-grade WordPress security: WAF, malware scanner, 2FA, brute force prot
 * Content safety scanning (iframes, external scripts, hidden links)
 * Password strength and HIBP breach audit for all users
 * Site reputation check (Google Safe Browsing + Spamhaus)
+* Vulnerability scanner — flags outdated plugins/themes (offline) with optional WPScan CVE lookup
 * One-click file repair for modified core and plugin files
 
 **Login Security**
@@ -76,6 +77,7 @@ DPXL Shield processes visitor IP addresses solely for security purposes and stor
 * `ip-api.com` — WHOIS/GeoIP fallback (no account required)
 * `safebrowsing.googleapis.com` — site reputation check (requires free API key)
 * `raw.githubusercontent.com` — core file repair downloads
+* `wpscan.com` — known-CVE lookup for installed plugins/themes (only when a WPScan API token is configured; the base outdated-component check runs entirely offline)
 
 No data is sent to Digital Pixel servers.
 
@@ -138,6 +140,10 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.0.25 =
+* New: Vulnerability scanner (Scan stage 9). Flags installed plugins and themes running an outdated version — the most common real-world entry point — using WordPress's own update data, with no external request and no API key required. Optionally enriches results with known CVEs from the WPScan vulnerability database when an API token is configured.
+* Schema: `scan_results.issue_type` gains `vulnerable_version`; existing installs are migrated automatically on upgrade.
 
 = 1.0.24 =
 * Hardening: the pre-WordPress WAF pipeline is now fully null-safe — the IP blocklist, country blocker and custom-pattern blocker all fall back gracefully when `$wpdb` is unavailable (Extended Protection context), completing the v1.0.19 guard.

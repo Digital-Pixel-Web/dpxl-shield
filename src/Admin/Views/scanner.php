@@ -50,6 +50,7 @@
                 'content_safety'=> 'Conteúdo',
                 'public_files'  => 'Públicos',
                 'password_audit'=> 'Senhas',
+                'vulnerability' => 'Vulnerab.',
             ];
             foreach ($stages as $id => $label) : ?>
                 <div class="dpxl-step" id="stage-<?php echo esc_attr($id); ?>" data-state="pending">

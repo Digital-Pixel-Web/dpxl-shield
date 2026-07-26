@@ -37,6 +37,10 @@ class ScanClassifierTest extends TestCase {
             'php in uploads is a threat' => [
                 ['issue_type' => 'php_in_uploads', 'severity' => 'critical'], true, '',
             ],
+            'vulnerable version is a threat' => [
+                ['issue_type' => 'vulnerable_version', 'severity' => 'medium'], true,
+                'Outdated / vulnerable components are real threats regardless of severity',
+            ],
             'exposed .env is a threat' => [
                 ['issue_type' => 'unknown', 'severity' => 'critical'], true,
                 '.env / .git / phpinfo exposure is critical unknown → threat',

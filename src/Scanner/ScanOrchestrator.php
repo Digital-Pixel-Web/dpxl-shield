@@ -220,6 +220,7 @@ class ScanOrchestrator {
             'content_safety'  => [$this, 'stageContentSafety'],
             'public_files'    => [$this, 'stagePublicFiles'],
             'password_audit'  => [$this, 'stagePasswordAudit'],
+            'vulnerability'   => [$this, 'stageVulnerabilityScan'],
         ];
     }
 
@@ -299,6 +300,10 @@ class ScanOrchestrator {
 
     private function stagePasswordAudit(): array {
         return (new PasswordStrengthAudit())->run();
+    }
+
+    private function stageVulnerabilityScan(): array {
+        return (new VulnerabilityScanner())->run();
     }
 
     // ── Internal ───────────────────────────────────────────────────────────

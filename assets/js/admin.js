@@ -885,6 +885,7 @@
             content_safety: 'Content Safety',
             public_files: 'Public Files',
             password_audit: 'Password Audit',
+            vulnerability: 'Verificação de vulnerabilidades',
             idle: 'Idle',
             cancelled: 'Cancelled',
             failed: 'Failed',
@@ -893,7 +894,7 @@
     }
 
     function updateStageBar(activeStage, statusMap = {}) {
-        const stages = ['spam_check', 'block_check', 'server_state', 'file_changes', 'malware_scan', 'content_safety', 'public_files', 'password_audit'];
+        const stages = ['spam_check', 'block_check', 'server_state', 'file_changes', 'malware_scan', 'content_safety', 'public_files', 'password_audit', 'vulnerability'];
 
         stages.forEach(stage => {
             const el = document.getElementById(`stage-${stage}`);
@@ -996,6 +997,7 @@
             malware_signature: 'Assinatura de malware detectada',
             php_in_uploads:    'PHP executável em /uploads',
             heuristic:         'Código suspeito',
+            vulnerable_version:'Componente vulnerável ou desatualizado',
         };
         if (titles[item.issue_type]) return titles[item.issue_type];
 

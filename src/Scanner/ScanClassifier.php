@@ -28,7 +28,7 @@ namespace DPXL\Shield\Scanner;
 class ScanClassifier {
 
     /** Issue types that are always high-confidence threats. */
-    private const THREAT_TYPES = ['modified_core', 'modified_plugin', 'malware_signature', 'php_in_uploads'];
+    private const THREAT_TYPES = ['modified_core', 'modified_plugin', 'malware_signature', 'php_in_uploads', 'vulnerable_version'];
 
     /**
      * @param array<string,mixed> $row  A scan_results row (issue_type, severity, ...)
@@ -68,7 +68,7 @@ class ScanClassifier {
      */
     public static function threatWhereSql(): string {
         return "("
-            . "issue_type IN ('modified_core','modified_plugin','malware_signature','php_in_uploads')"
+            . "issue_type IN ('modified_core','modified_plugin','malware_signature','php_in_uploads','vulnerable_version')"
             . " OR (issue_type = 'heuristic' AND severity = 'critical')"
             . " OR (issue_type = 'unknown' AND severity IN ('critical','high'))"
             . ")";

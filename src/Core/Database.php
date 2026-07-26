@@ -6,7 +6,7 @@ namespace DPXL\Shield\Core;
 class Database {
 
     private const SCHEMA_VERSION_OPTION = 'dpxl_shield_db_version';
-    private const SCHEMA_VERSION = '1.0.0';
+    private const SCHEMA_VERSION = '1.1.0';
 
     public static function createTables(): void {
         global $wpdb;
@@ -21,7 +21,35 @@ class Database {
             dbDelta($sql);
         }
 
+        self::runMigrations($wpdb);
+
         update_option(self::SCHEMA_VERSION_OPTION, self::SCHEMA_VERSION);
+    }
+
+    /**
+     * Idempotent ALTERs for changes dbDelta cannot apply on existing tables.
+     *
+     * dbDelta only adds columns/indexes — it never modifies an existing column
+     * definition, so extending an ENUM must be done explicitly. MODIFY to the
+     * full, current ENUM is safe to run repeatedly.
+     */
+    private static function runMigrations(\wpdb $wpdb): void {
+        $scanResults = $wpdb->prefix . 'dpxl_shield_scan_results';
+
+        // Schema 1.1.0: add 'vulnerable_version' to scan_results.issue_type.
+        if (self::tableExists($wpdb, $scanResults)) {
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            $wpdb->query(
+                "ALTER TABLE `{$scanResults}`
+                 MODIFY COLUMN issue_type
+                 ENUM('modified_core','modified_plugin','malware_signature','heuristic','php_in_uploads','vulnerable_version','unknown') NOT NULL"
+            );
+        }
+    }
+
+    private static function tableExists(\wpdb $wpdb, string $table): bool {
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        return (string) $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table;
     }
 
     /**
@@ -153,7 +181,7 @@ class Database {
                 scan_id      VARCHAR(36)     NOT NULL,
                 scanned_at   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 file_path    TEXT            NOT NULL,
-                issue_type   ENUM('modified_core','modified_plugin','malware_signature','heuristic','php_in_uploads','unknown') NOT NULL,
+                issue_type   ENUM('modified_core','modified_plugin','malware_signature','heuristic','php_in_uploads','vulnerable_version','unknown') NOT NULL,
                 severity     ENUM('critical','high','medium','low') NOT NULL,
                 signature_id VARCHAR(50),
                 details      TEXT,

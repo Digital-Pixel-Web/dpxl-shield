@@ -26,6 +26,11 @@ define('DPXL_SHIELD_URL', plugin_dir_url(__FILE__));
 define('DPXL_SHIELD_FILE', __FILE__);
 define('DPXL_SHIELD_BASENAME', plugin_basename(__FILE__));
 
+// Ed25519 public key (base64) that the threat feed's signed manifest is verified
+// against. The matching private key never leaves the maintainer's build/signing
+// environment and is never committed. See docs-internal/dpxl-shield-threatfeed-design.md.
+define('DPXL_SHIELD_FEED_PUBKEY', '2TfF5ZV81IHzcRUfTiDH9enjACNvDdb6q2otfuymVTw=');
+
 if (file_exists(DPXL_SHIELD_PATH . 'vendor/autoload.php')) {
     require_once DPXL_SHIELD_PATH . 'vendor/autoload.php';
 }

@@ -6,6 +6,7 @@ namespace DPXL\Shield\Core;
 use DPXL\Shield\Scanner\ScanOrchestrator;
 use DPXL\Shield\Alerts\ActivityReport;
 use DPXL\Shield\Scanner\ReputationChecker;
+use DPXL\Shield\Threat\ThreatFeedUpdater;
 
 /**
  * WP-Cron schedule registration and hook handlers.
@@ -17,6 +18,7 @@ class Cron {
     private const HOOK_CLEANUP          = 'dpxl_shield_cleanup';
     private const HOOK_ACTIVITY_REPORT  = 'dpxl_shield_activity_report';
     private const HOOK_REPUTATION_CHECK = 'dpxl_shield_reputation_check';
+    private const HOOK_THREAT_FEED      = 'dpxl_shield_threat_feed_update';
 
     public static function register(): void {
         // Register custom intervals.
@@ -28,6 +30,7 @@ class Cron {
         add_action(self::HOOK_CLEANUP,          [self::class, 'runCleanup']);
         add_action(self::HOOK_ACTIVITY_REPORT,  [self::class, 'runActivityReport']);
         add_action(self::HOOK_REPUTATION_CHECK, [self::class, 'runReputationCheck']);
+        add_action(self::HOOK_THREAT_FEED,      [self::class, 'runThreatFeedUpdate']);
 
         // Schedule if not already scheduled.
         self::scheduleIfNeeded();
@@ -85,12 +88,19 @@ class Cron {
         if (!wp_next_scheduled(self::HOOK_REPUTATION_CHECK)) {
             wp_schedule_event(time() + 2 * HOUR_IN_SECONDS, 'daily', self::HOOK_REPUTATION_CHECK);
         }
+
+        // Threat feed — daily, with a random offset so installations don't all
+        // hit the CDN at the same minute (jitter).
+        if (!wp_next_scheduled(self::HOOK_THREAT_FEED)) {
+            $jitter = random_int(0, 6 * HOUR_IN_SECONDS);
+            wp_schedule_event(time() + HOUR_IN_SECONDS + $jitter, 'daily', self::HOOK_THREAT_FEED);
+        }
     }
 
     public static function unschedule(): void {
         foreach ([
             self::HOOK_FULL_SCAN, self::HOOK_INCREMENTAL_SCAN, self::HOOK_CLEANUP,
-            self::HOOK_ACTIVITY_REPORT, self::HOOK_REPUTATION_CHECK,
+            self::HOOK_ACTIVITY_REPORT, self::HOOK_REPUTATION_CHECK, self::HOOK_THREAT_FEED,
         ] as $hook) {
             $timestamp = wp_next_scheduled($hook);
 
@@ -121,6 +131,13 @@ class Cron {
     public static function runReputationCheck(): void {
         Logger::debug('Cron: running reputation check.');
         (new ReputationChecker())->run();
+        update_option('dpxl_shield_last_cron_run', time());
+    }
+
+    public static function runThreatFeedUpdate(): void {
+        Logger::debug('Cron: checking threat feed for updates.');
+        $status = (new ThreatFeedUpdater())->run();
+        Logger::debug('Cron: threat feed update status = ' . $status);
         update_option('dpxl_shield_last_cron_run', time());
     }
 

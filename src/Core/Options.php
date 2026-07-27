@@ -34,6 +34,8 @@ class Options {
         'honeypot_enabled'             => true,
         'php_execution_blocker'        => true,
         'self_protection_enabled'      => true,
+        'threat_feed_enabled'          => true,
+        'threat_feed_version'          => '',
     ];
 
     public static function setDefaults(): void {

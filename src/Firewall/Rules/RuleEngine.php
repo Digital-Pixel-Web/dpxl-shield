@@ -17,12 +17,19 @@ class RuleEngine {
     }
 
     private function registerDefaults(): void {
+        // Built-in rules are the immutable protection floor — always present.
         $this->addRule(new GenericHeuristicRule());  // priority 5  — critical obfuscation
         $this->addRule(new SqlInjectionRule());       // priority 10
         $this->addRule(new RfiRule());                // priority 11
         $this->addRule(new LfiRule());                // priority 12
         $this->addRule(new XssRule());                // priority 15
         $this->addRule(new WordPressRule());           // priority 20
+
+        // Threat-feed rules add coverage on top (block-only). Absent/invalid feed
+        // file → no rules added; the built-ins above still run. Safe pre-WordPress.
+        foreach (RuleRepository::load() as $rule) {
+            $this->addRule($rule);
+        }
     }
 
     public function addRule(RuleInterface $rule): void {

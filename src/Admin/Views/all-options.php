@@ -10,6 +10,27 @@
 
     <div class="dpxl-notice dpxl-notice--success dpxl-hidden" id="all-options-saved"><?php esc_html_e('Settings saved.', 'dpxl-shield'); ?></div>
 
+    <?php
+    if (isset($_GET['dpxl_feed_checked'])) {
+        $feedStatus = get_transient('dpxl_shield_feed_check_' . get_current_user_id());
+        delete_transient('dpxl_shield_feed_check_' . get_current_user_id());
+
+        if (is_string($feedStatus) && $feedStatus !== '') {
+            $version  = (string) \DPXL\Shield\Core\Options::get('threat_feed_version', '');
+            [$class, $msg] = match ($feedStatus) {
+                'ok'        => ['success', sprintf(__('Threat feed updated to version %s.', 'dpxl-shield'), $version)],
+                'no_change' => ['success', __('Threat feed is already up to date.', 'dpxl-shield')],
+                'net_fail'  => ['warning', __('Could not reach the threat feed. Try again later.', 'dpxl-shield')],
+                'sig_fail', 'hash_fail' => ['error', __('Feed verification failed — the update was rejected.', 'dpxl-shield')],
+                'no_pubkey' => ['warning', __('Feed cannot be verified on this server (missing key or sodium).', 'dpxl-shield')],
+                'disabled'  => ['warning', __('The threat feed is disabled.', 'dpxl-shield')],
+                default     => ['warning', sprintf(__('Threat feed check finished: %s.', 'dpxl-shield'), $feedStatus)],
+            };
+            printf('<div class="dpxl-notice dpxl-notice--%s">%s</div>', esc_attr($class), esc_html($msg));
+        }
+    }
+    ?>
+
     <form id="all-options-form">
     <?php
     $sections = [
@@ -65,6 +86,16 @@
                         'rate_limit_login'   => ['type' => 'number', 'label' => __('Login page limit (req/min)', 'dpxl-shield'), 'default' => 5],
                         'rate_limit_xmlrpc'  => ['type' => 'number', 'label' => __('XML-RPC limit (req/min)', 'dpxl-shield'),   'default' => 3],
                         'rate_limit_rest'    => ['type' => 'number', 'label' => __('REST API limit (req/min)', 'dpxl-shield'),  'default' => 60],
+                    ],
+                ],
+                'threat_feed' => [
+                    'title'   => __('Threat Feed', 'dpxl-shield'),
+                    'options' => [
+                        'threat_feed_enabled' => ['type' => 'toggle', 'label' => __('Auto-update WAF rules from the threat feed', 'dpxl-shield'), 'default' => true],
+                        'threat_feed_check'   => ['type' => 'link', 'label' => __('Check for rule updates now', 'dpxl-shield'),
+                            'button' => __('Check now', 'dpxl-shield'),
+                            'newtab' => false,
+                            'href'   => wp_nonce_url(admin_url('admin-post.php?action=dpxl_shield_check_feed'), 'dpxl_shield_check_feed')],
                     ],
                 ],
             ],
@@ -148,7 +179,8 @@
                         <input type="email" class="dpxl-input" id="opt-<?php echo esc_attr($key); ?>" name="<?php echo esc_attr($key); ?>"
                                value="<?php echo esc_attr((string) $val); ?>">
                     <?php elseif ($opt['type'] === 'link') : ?>
-                        <a class="dpxl-btn dpxl-btn--sm" href="<?php echo esc_url((string) ($opt['href'] ?? '#')); ?>" target="_blank" rel="noopener">
+                        <?php $newtab = ($opt['newtab'] ?? true) !== false; ?>
+                        <a class="dpxl-btn dpxl-btn--sm" href="<?php echo esc_url((string) ($opt['href'] ?? '#')); ?>"<?php echo $newtab ? ' target="_blank" rel="noopener"' : ''; ?>>
                             <?php echo esc_html((string) ($opt['button'] ?? $opt['label'])); ?>
                         </a>
                     <?php else : ?>

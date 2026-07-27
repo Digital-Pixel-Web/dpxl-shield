@@ -33,12 +33,44 @@ class Diagnostics {
             'uploads_perms'      => $this->checkDirPerms(wp_upload_dir()['basedir'] ?? '', '0755'),
             'maxmind_db'         => $this->checkMaxMindDb(),
             'wp_cron'            => $this->checkWpCron(),
+            'threat_feed'        => $this->checkThreatFeed(),
             'disk_space'         => $this->checkDiskSpace(),
             'mysql_version'      => $this->checkMysqlVersion(),
         ];
     }
 
     // ── Checks ─────────────────────────────────────────────────────────────
+
+    /** @return array{status:string,label:string,value:string,note:string} */
+    private function checkThreatFeed(): array {
+        if (!get_option('dpxl_shield_threat_feed_enabled', true)) {
+            return ['status' => 'warning', 'label' => 'Threat Feed', 'value' => 'Disabled', 'note' => ''];
+        }
+
+        $version    = (string) get_option('dpxl_shield_threat_feed_version', '');
+        $lastStatus = (string) get_option('dpxl_shield_threat_feed_last_status', '');
+        $lastRun    = (int) get_option('dpxl_shield_threat_feed_last_run', 0);
+
+        $status = match (true) {
+            $lastRun === 0                                  => 'warning',
+            in_array($lastStatus, ['ok', 'no_change'], true) => 'ok',
+            in_array($lastStatus, ['sig_fail', 'hash_fail'], true) => 'error',
+            default                                         => 'warning',
+        };
+
+        $value = $version !== ''
+            ? 'v' . $version . ($lastStatus !== '' ? ' (' . $lastStatus . ')' : '')
+            : ($lastRun === 0 ? 'Never run' : '(' . ($lastStatus ?: 'pending') . ')');
+
+        $note = match ($lastStatus) {
+            'sig_fail', 'hash_fail' => 'Feed failed signature/integrity verification and was NOT applied. Possible feed-channel tampering.',
+            'net_fail'              => 'Could not reach the feed. Rules stay at the last good version.',
+            'no_pubkey'             => 'No feed public key or ext-sodium — feed cannot be verified.',
+            default                 => '',
+        };
+
+        return ['status' => $status, 'label' => 'Threat Feed', 'value' => $value, 'note' => $note];
+    }
 
     /** @return array{status:string,label:string,value:string,note:string} */
     private function checkPhpVersion(): array {

@@ -7,6 +7,7 @@ use DPXL\Shield\Core\Options;
 use DPXL\Shield\Bootstrap\AutoPrepend;
 use DPXL\Shield\Alerts\ReportData;
 use DPXL\Shield\Alerts\PdfReport;
+use DPXL\Shield\Threat\ThreatFeedUpdater;
 
 /**
  * Registers the plugin admin menu and all sub-pages.
@@ -26,6 +27,7 @@ class AdminMenu {
         add_action('admin_post_dpxl_shield_download_htaccess_backup', [$this, 'downloadHtaccessBackup']);
         add_action('admin_post_dpxl_shield_enable_extended',          [$this, 'enableExtendedFromPost']);
         add_action('admin_post_dpxl_shield_download_report_pdf',      [$this, 'downloadReportPdf']);
+        add_action('admin_post_dpxl_shield_check_feed',               [$this, 'checkFeed']);
     }
 
     // ── Menu pages ─────────────────────────────────────────────────────────
@@ -213,6 +215,10 @@ class AdminMenu {
             'Path Traversal (LFI) Protection' => 'Proteção contra Path Traversal (LFI)',
             'Remote File Inclusion Protection' => 'Proteção contra inclusão remota de arquivos',
             'Enable Brute Force Protection' => 'Ativar proteção contra força bruta',
+            'Threat Feed' => 'Feed de ameaças',
+            'Auto-update WAF rules from the threat feed' => 'Atualizar regras do WAF automaticamente pelo feed de ameaças',
+            'Check for rule updates now' => 'Verificar atualizações de regras agora',
+            'Check now' => 'Verificar agora',
             'Scan Options' => 'Opções de varredura',
             'Scan Scheduling' => 'Agendamento da varredura',
             'Scan Content' => 'Conteúdo da varredura',
@@ -533,6 +539,27 @@ class AdminMenu {
         header('Content-Length: ' . strlen($pdf));
 
         echo $pdf; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped — binary PDF
+        exit;
+    }
+
+    /**
+     * Runs the threat-feed updater on demand and returns to All Options with a
+     * notice carrying the result.
+     */
+    public function checkFeed(): void {
+        if (!current_user_can(self::CAPABILITY)) {
+            wp_die(esc_html__('You do not have permission to do this.', 'dpxl-shield'));
+        }
+
+        check_admin_referer('dpxl_shield_check_feed');
+
+        $status = (new ThreatFeedUpdater())->run();
+        set_transient('dpxl_shield_feed_check_' . get_current_user_id(), $status, 60);
+
+        wp_safe_redirect(add_query_arg(
+            ['dpxl_feed_checked' => '1'],
+            admin_url('admin.php?page=dpxl-shield-options')
+        ));
         exit;
     }
 

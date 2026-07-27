@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 1.0.27
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -140,6 +140,10 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.1.0 =
+* New: Self-updating WAF rules (Threat Feed). The firewall now pulls a signed rule feed on a daily schedule and applies it without waiting for a plugin release — closing the gap where rules only changed on upgrade. Every update is verified with an Ed25519 signature and a SHA-256 checksum before it is applied, and the built-in rules remain an immutable floor the feed can only add to, never weaken. New "Threat Feed" controls under Firewall Options (on/off and "Check now") plus a status line in Tools → Diagnostics.
+* Internal: the firewall rule engine is now data-driven (`JsonRule` / `RuleRepository`) alongside the built-in rules; feed writes are atomic with one-level rollback and an anti-rollback version guard. +36 tests (126 total).
 
 = 1.0.27 =
 * New: Scheduled PDF security report. The periodic activity report can now travel as a branded PDF attachment on the same daily/weekly/monthly email, and a "Download PDF" button on the All Options screen produces the report on demand. Rendered on-server with no external service.

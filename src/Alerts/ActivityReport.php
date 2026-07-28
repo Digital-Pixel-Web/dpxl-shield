@@ -25,21 +25,31 @@ class ActivityReport {
             return;
         }
 
-        $data    = $this->gatherData();
-        $subject = $this->buildSubject($data);
-        $body    = $this->buildBody($data);
+        $data = $this->gatherData();
 
-        // Attach the branded PDF when enabled. A render/write failure must never
-        // block the report — the HTML email still goes out on its own.
+        // Localise the report (email + PDF) for the render window. The admin-only
+        // UI gettext filter never runs during WP-Cron, so without this the
+        // scheduled report would go out in English.
+        ReportI18n::activate();
+
         $attachments = [];
         $pdfPath     = null;
 
-        if (Options::get('activity_report_pdf_enabled', true)) {
-            $pdfPath = (new PdfReport())->renderToFile($data);
+        try {
+            $subject = $this->buildSubject($data);
+            $body    = $this->buildBody($data);
 
-            if ($pdfPath !== null) {
-                $attachments[] = $pdfPath;
+            // Attach the branded PDF when enabled. A render/write failure must never
+            // block the report — the HTML email still goes out on its own.
+            if (Options::get('activity_report_pdf_enabled', true)) {
+                $pdfPath = (new PdfReport())->renderToFile($data);
+
+                if ($pdfPath !== null) {
+                    $attachments[] = $pdfPath;
+                }
             }
+        } finally {
+            ReportI18n::deactivate();
         }
 
         wp_mail(

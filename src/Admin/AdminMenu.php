@@ -7,6 +7,7 @@ use DPXL\Shield\Core\Options;
 use DPXL\Shield\Bootstrap\AutoPrepend;
 use DPXL\Shield\Alerts\ReportData;
 use DPXL\Shield\Alerts\PdfReport;
+use DPXL\Shield\Alerts\ReportI18n;
 use DPXL\Shield\Threat\ThreatFeedUpdater;
 
 /**
@@ -531,7 +532,13 @@ class AdminMenu {
 
         $data   = ReportData::collect((string) Options::get('activity_report_frequency', 'weekly'));
         $report = new PdfReport();
-        $pdf    = $report->render($data);
+
+        ReportI18n::activate();
+        try {
+            $pdf = $report->render($data);
+        } finally {
+            ReportI18n::deactivate();
+        }
 
         nocache_headers();
         header('Content-Type: application/pdf');

@@ -61,24 +61,28 @@ php "$PLUGIN_DIR/tools/check-php74.php" \
 # ── 1. Copy the plugin into staging, excluding everything dev-only ──────────
 # vendor/ is deliberately excluded here and rebuilt below with --no-dev, so a
 # dev vendor tree can never leak into a release.
+#
+# Every directory pattern is ANCHORED with a leading slash, so it matches only
+# at the plugin root. An unanchored 'tools/' also matches src/Admin/Views/tools/
+# — which silently stripped all five Tools tab views out of the 1.4.0 build.
 rsync -a \
-    --exclude '.git/' \
-    --exclude '.github/' \
-    --exclude '.claude/' \
-    --exclude 'tests/' \
-    --exclude 'tools/' \
-    --exclude 'docs/' \
-    --exclude 'vendor/' \
-    --exclude 'node_modules/' \
+    --exclude '/.git/' \
+    --exclude '/.github/' \
+    --exclude '/.claude/' \
+    --exclude '/tests/' \
+    --exclude '/tools/' \
+    --exclude '/docs/' \
+    --exclude '/vendor/' \
+    --exclude '/node_modules/' \
+    --exclude '/.gitignore' \
+    --exclude '/phpunit.xml' \
+    --exclude '/.phpunit.cache/' \
+    --exclude '/.phpunit.result.cache' \
+    --exclude '/data/*.mmdb' \
+    --exclude '/data/blocked-ips.php' \
+    --exclude '/data/early-config.php' \
     --exclude '*.zip' \
-    --exclude '.gitignore' \
     --exclude '.DS_Store' \
-    --exclude 'phpunit.xml' \
-    --exclude '.phpunit.cache/' \
-    --exclude '.phpunit.result.cache' \
-    --exclude 'data/*.mmdb' \
-    --exclude 'data/blocked-ips.php' \
-    --exclude 'data/early-config.php' \
     "$PLUGIN_DIR/" "$DEST/"
 
 # ── 2. Production dependencies ───────────────────────────────────────────────
@@ -125,7 +129,68 @@ if [[ -d "$FONT_DIR" ]]; then
     echo "==> Fonts trimmed: $((before / 1024)) MB -> $((after / 1024)) MB"
 fi
 
-# ── 4. Zip ───────────────────────────────────────────────────────────────────
+# ── 4. Verify the staged tree before zipping ─────────────────────────────────
+# An over-broad rsync exclude once stripped every Tools tab view out of a build
+# and the zip still looked healthy from the outside. Nothing ships now unless
+# each PHP file the plugin loads at runtime is actually present.
+echo "==> Verifying staged tree"
+
+missing=0
+
+# Every admin view must survive — these are require'd by path, so a missing one
+# is not a fatal error, just a silently broken tab.
+while IFS= read -r view; do
+    relative="${view#"$PLUGIN_DIR/"}"
+
+    if [[ ! -f "$DEST/$relative" ]]; then
+        echo "  MISSING: $relative" >&2
+        missing=$((missing + 1))
+    fi
+done < <(find "$PLUGIN_DIR/src/Admin/Views" -name '*.php')
+
+# Spot-check the rest of the runtime surface.
+for required in \
+    dpxl-shield.php \
+    dpxl-shield-waf.php \
+    uninstall.php \
+    readme.txt \
+    src/Compat/php-polyfill.php \
+    src/Bootstrap/Loader.php \
+    vendor/autoload.php \
+    assets/js/admin.js \
+    assets/css/admin.css \
+    rules/waf-rules.json
+do
+    if [[ ! -e "$DEST/$required" ]]; then
+        echo "  MISSING: $required" >&2
+        missing=$((missing + 1))
+    fi
+done
+
+# And the dev-only trees must NOT be there.
+for forbidden in tests tools composer.json composer.lock phpunit.xml .git; do
+    if [[ -e "$DEST/$forbidden" ]]; then
+        echo "  LEAKED: $forbidden" >&2
+        missing=$((missing + 1))
+    fi
+done
+
+if [[ "$missing" -gt 0 ]]; then
+    echo "error: $missing problem(s) in the staged tree — not packaging." >&2
+    exit 1
+fi
+
+src_count="$(find "$PLUGIN_DIR/src" -name '*.php' | wc -l | tr -d ' ')"
+dst_count="$(find "$DEST/src" -name '*.php' | wc -l | tr -d ' ')"
+
+if [[ "$src_count" != "$dst_count" ]]; then
+    echo "error: src/ has $src_count PHP files but the build staged $dst_count." >&2
+    exit 1
+fi
+
+echo "==> OK: $dst_count PHP files under src/, all views present"
+
+# ── 5. Zip ───────────────────────────────────────────────────────────────────
 rm -f "$ZIP_PATH"
 ( cd "$STAGE" && zip -rq "$ZIP_PATH" "$PLUGIN_SLUG" -x '*.DS_Store' )
 

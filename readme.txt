@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -148,6 +148,9 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.4.1 =
+* Fixed: the Tools screen showed "View not found" on every tab in the 1.4.0 package. A packaging bug dropped the five tab templates from the zip — the plugin code was never affected, only the built archive. The build now verifies that every view is present before producing a zip.
 
 = 1.4.0 =
 * **Now runs on PHP 7.4.** The minimum PHP version drops from 8.1 to 7.4 — the same floor WordPress itself sets — so the plugin installs on older shared hosting. Every PHP 8 construct in the codebase was rewritten, and a build-time check (`composer check-php74`) now fails the release if any creeps back in.

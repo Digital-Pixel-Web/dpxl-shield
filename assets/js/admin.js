@@ -1561,6 +1561,91 @@
         document.getElementById('webhook-format')?.addEventListener('change', syncSecretField);
 
         load();
+        initApiTokens();
+    }
+
+    function initApiTokens() {
+        const container = document.getElementById('tokens-container');
+
+        if (!container) return;
+
+        function usedAt(row) {
+            if (!row.last_used_at) return '<span class="dpxl-muted">Never used</span>';
+
+            const when = new Date(row.last_used_at.replace(' ', 'T') + 'Z').toLocaleString();
+            const from = row.last_used_ip ? `<br><span class="dpxl-muted">${esc(row.last_used_ip)}</span>` : '';
+
+            return `${esc(when)}${from}`;
+        }
+
+        async function load() {
+            try {
+                const data  = await api.get('api-tokens');
+                const items = data.items || [];
+
+                container.className = '';
+
+                if (!items.length) {
+                    container.innerHTML = '<p class="dpxl-empty-state">No tokens yet. Nothing can read this site through the API.</p>';
+                    return;
+                }
+
+                container.innerHTML = `
+                    <table class="dpxl-table">
+                        <thead><tr><th>Name</th><th>Token</th><th>Created</th><th>Last used</th><th></th></tr></thead>
+                        <tbody>${items.map(row => `
+                            <tr>
+                                <td><strong>${esc(row.label)}</strong></td>
+                                <td><code>${esc(row.masked)}</code></td>
+                                <td>${esc(new Date(row.created_at.replace(' ', 'T') + 'Z').toLocaleDateString())}</td>
+                                <td>${usedAt(row)}</td>
+                                <td><button class="dpxl-btn dpxl-btn--sm" data-revoke="${row.id}">Revoke</button></td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>`;
+
+                container.querySelectorAll('[data-revoke]').forEach(b =>
+                    b.addEventListener('click', () => revoke(b.dataset.revoke)));
+            } catch (e) {
+                container.innerHTML = `<p class="dpxl-empty-state">${esc(e.message)}</p>`;
+            }
+        }
+
+        async function create() {
+            const label = document.getElementById('token-label');
+
+            try {
+                const res = await api.post('api-tokens', { label: label?.value || '' });
+
+                // The plaintext exists only in this response — surface it and let
+                // the admin copy it before anything else happens on the page.
+                const notice = document.getElementById('new-token-notice');
+                document.getElementById('new-token-value').textContent = res.plain;
+                notice?.classList.remove('dpxl-hidden');
+                notice?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+                if (label) label.value = '';
+                load();
+            } catch (e) { showNotice(e.message, 'error'); }
+        }
+
+        async function revoke(id) {
+            if (!confirm('Revoke this token? Any integration using it will stop working immediately.')) return;
+
+            try {
+                await api.delete(`api-tokens/${encodeURIComponent(id)}`);
+                showNotice('Token revoked.');
+                load();
+            } catch (e) { showNotice(e.message, 'error'); }
+        }
+
+        document.getElementById('btn-create-token')?.addEventListener('click', create);
+        document.getElementById('btn-copy-token')?.addEventListener('click', () => {
+            const value = document.getElementById('new-token-value')?.textContent;
+            if (value) navigator.clipboard.writeText(value).then(() => showNotice('Token copied.'));
+        });
+
+        load();
     }
 
     // ── Tools: Diagnostics ──────────────────────────────────────────────────

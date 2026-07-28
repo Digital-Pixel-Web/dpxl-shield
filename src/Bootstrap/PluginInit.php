@@ -124,6 +124,10 @@ class PluginInit {
         // defined later in the WordPress lifecycle, after plugins_loaded.
         (new RestApi())->registerHooks();
 
+        // Read-only integration API, on its own namespace and authenticated by
+        // bearer token rather than a WordPress session.
+        (new \DPXL\Shield\Api\PublicApi())->registerHooks();
+
         do_action('dpxl_shield_loaded');
     }
 }

@@ -538,3 +538,30 @@
 
 /* Full-width row inside the two-column form grid (long URLs need the space). */
 .dpxl-form-grid__wide { grid-column: 1 / -1; }
+
+/* API tokens */
+.dpxl-token-value {
+    display: inline-block;
+    padding: 8px 10px;
+    background: #fff;
+    border: 1px solid var(--dpxl-border);
+    border-radius: 4px;
+    font-size: 12px;
+    word-break: break-all;
+    user-select: all;
+}
+
+.dpxl-details { margin-top: 16px; }
+.dpxl-details > summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--dpxl-muted); }
+.dpxl-details[open] > summary { margin-bottom: 10px; }
+
+.dpxl-code-block {
+    margin: 0 0 10px;
+    padding: 12px 14px;
+    background: #1d2327;
+    color: #e0e0e0;
+    border-radius: var(--dpxl-radius);
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-x: auto;
+}

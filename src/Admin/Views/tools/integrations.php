@@ -78,4 +78,49 @@
                 </div>
             </div>
         </div>
+
+        <!-- Read-only API tokens -->
+        <div class="dpxl-card">
+            <h2>
+                <?php \DPXL\Shield\Admin\Icons::render('lock'); ?>
+                <?php esc_html_e('API tokens', 'dpxl-shield'); ?>
+            </h2>
+
+            <p class="dpxl-card__intro">
+                <?php esc_html_e('For systems that prefer to pull rather than receive. A token grants read-only access to the audit log, traffic log, scan results and firewall status — nothing can be changed through it.', 'dpxl-shield'); ?>
+            </p>
+
+            <p class="dpxl-card__intro">
+                <?php esc_html_e('Give each integration its own token so you can revoke one without disturbing the others. Revoking takes effect immediately.', 'dpxl-shield'); ?>
+            </p>
+
+            <div class="dpxl-notice dpxl-notice--success dpxl-hidden" id="new-token-notice">
+                <p><strong><?php esc_html_e('Copy this token now — it will not be shown again.', 'dpxl-shield'); ?></strong></p>
+                <p><code id="new-token-value" class="dpxl-token-value"></code></p>
+                <button class="dpxl-btn dpxl-btn--sm" id="btn-copy-token"><?php esc_html_e('Copy', 'dpxl-shield'); ?></button>
+            </div>
+
+            <div id="tokens-container" class="dpxl-loading-cell"><?php esc_html_e('Loading…', 'dpxl-shield'); ?></div>
+
+            <div class="dpxl-form-grid">
+                <label><?php esc_html_e('Name', 'dpxl-shield'); ?>
+                    <input type="text" class="dpxl-input" id="token-label" placeholder="Splunk, Datadog, …">
+                </label>
+                <div class="dpxl-form-actions">
+                    <button class="dpxl-btn dpxl-btn--primary" id="btn-create-token"><?php esc_html_e('Create token', 'dpxl-shield'); ?></button>
+                </div>
+            </div>
+
+            <details class="dpxl-details">
+                <summary><?php esc_html_e('How to use it', 'dpxl-shield'); ?></summary>
+                <p class="dpxl-card__intro">
+                    <?php esc_html_e('Send the token as a bearer credential. Collections are cursor-paginated: pass the next_cursor value from each response as ?after= on the following call.', 'dpxl-shield'); ?>
+                </p>
+                <pre class="dpxl-code-block"><code>curl -H "Authorization: Bearer &lt;token&gt;" \
+  "<?php echo esc_html(rest_url(\DPXL\Shield\Api\PublicApi::NS)); ?>/events?limit=50"</code></pre>
+                <p class="dpxl-card__intro">
+                    <?php esc_html_e('Available: /status, /events, /traffic, /scan-results.', 'dpxl-shield'); ?>
+                </p>
+            </details>
+        </div>
     </div>

@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.5.0
+Stable tag: 1.6.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,10 +59,14 @@ Enterprise-grade WordPress security: WAF, malware scanner, 2FA, brute force prot
 
 **Alerts**
 * Configurable email alerts for critical security events
+* Weekly / monthly activity report email, with a branded PDF attachment
+* Deactivation and deletion guard — alerts you even if a plugin is deleted
+
+**Integrations**
 * Outbound webhooks to Slack, Discord, PagerDuty or any SIEM — up to 10 endpoints, each with its own severity threshold
 * HMAC-SHA256 signed payloads so your receiver can verify they came from your site
-* Weekly / monthly activity report email
-* Deactivation and deletion guard — alerts you even if a plugin is deleted
+* Read-only REST API with bearer-token authentication — pull the audit log, traffic log, scan results and firewall status into your own tooling
+* One token per integration, revocable independently; tokens are stored hashed and shown only once
 
 **Tools**
 * WHOIS & GeoIP lookup with one-click block/allowlist
@@ -149,6 +153,15 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.6.0 =
+* **New: read-only integration API.** Systems that prefer to pull rather than receive can now read the audit log, traffic log, scan results and firewall status over REST, authenticated with a bearer token. This completes the integrations work started in 1.5.0.
+* New: API tokens are managed in Tools → Integrations. Each integration gets its own token so one can be revoked without disturbing the others. Tokens are stored hashed — the plaintext is shown once, at creation, and cannot be recovered afterwards.
+* The API is read-only by design: there is no endpoint that changes anything, so a leaked token cannot be used to alter your site's protection.
+* Collections are cursor-paginated rather than offset-paginated. These logs grow between a client's calls, and with an offset the client would silently re-read or skip records every time that happened.
+* Rate limited per token, deliberately below the firewall's own REST ceiling so a busy client gets a clear "rate limit exceeded" response instead of being blocked by the WAF with no explanation.
+* Repeated authentication failures from one address are locked out and recorded in the audit log — probing for a valid token is something you should be able to see.
+* Compatible with Apache/CGI hosting, which strips the Authorization header before PHP sees it; the rewritten variants are read as a fallback.
 
 = 1.5.0 =
 * **New: outbound webhooks (Tools → Integrations).** Push security events to Slack, Discord, PagerDuty or any SIEM as they happen. Up to 10 endpoints, each with its own severity threshold — so a chat channel can take only critical events while a SIEM takes everything. Each destination receives the payload shape it actually expects, and a "Test" button reports exactly what the endpoint answered.

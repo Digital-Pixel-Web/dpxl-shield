@@ -6,7 +6,7 @@ namespace DPXL\Shield\Core;
 class Database {
 
     private const SCHEMA_VERSION_OPTION = 'dpxl_shield_db_version';
-    private const SCHEMA_VERSION = '1.1.0';
+    private const SCHEMA_VERSION = '1.2.0';
 
     public static function createTables(): void {
         global $wpdb;
@@ -80,6 +80,7 @@ class Database {
             'dpxl_shield_file_checksums',
             'dpxl_shield_audit_log',
             'dpxl_shield_rate_buckets',
+            'dpxl_shield_api_tokens',
         ];
 
         foreach ($tableNames as $name) {
@@ -229,6 +230,24 @@ class Database {
                 PRIMARY KEY  (id),
                 UNIQUE KEY uk_bucket   (bucket_key),
                 INDEX idx_window (window_start)
+            ) {$charset};",
+
+            // ── API tokens (read-only integration credentials) ────────────
+            // token_hash is SHA-256 of the plaintext, which is never stored.
+            // token_lookup is the clear-text leading fragment: it finds the row
+            // with an indexed lookup so the hash comparison can stay constant
+            // time, and it is what the admin sees to tell tokens apart.
+            "CREATE TABLE {$prefix}dpxl_shield_api_tokens (
+                id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                label        VARCHAR(60)     NOT NULL,
+                token_hash   CHAR(64)        NOT NULL,
+                token_lookup VARCHAR(20)     NOT NULL,
+                created_at   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_used_at DATETIME        NULL DEFAULT NULL,
+                last_used_ip VARCHAR(45)     NULL DEFAULT NULL,
+                PRIMARY KEY  (id),
+                UNIQUE KEY uk_lookup (token_lookup),
+                INDEX idx_hash (token_hash)
             ) {$charset};",
         ];
     }

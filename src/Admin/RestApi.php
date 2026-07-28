@@ -21,6 +21,8 @@ use DPXL\Shield\Integrations\Event;
 use DPXL\Shield\Integrations\Severity;
 use DPXL\Shield\Integrations\WebhookDispatcher;
 use DPXL\Shield\Integrations\WebhookEndpoint;
+use DPXL\Shield\Api\TokenStore;
+use DPXL\Shield\Api\PublicApi;
 
 /**
  * Registers all REST API endpoints for the admin panel.
@@ -135,6 +137,11 @@ class RestApi {
         register_rest_route(self::NS, '/webhooks',            ['methods' => 'POST',   'callback' => [$this, 'saveWebhook'],         'permission_callback' => $auth]);
         register_rest_route(self::NS, '/webhooks/(?P<id>[A-Za-z0-9_-]+)',      ['methods' => 'DELETE', 'callback' => [$this, 'deleteWebhook'], 'permission_callback' => $auth]);
         register_rest_route(self::NS, '/webhooks/(?P<id>[A-Za-z0-9_-]+)/test', ['methods' => 'POST',   'callback' => [$this, 'testWebhook'],   'permission_callback' => $auth]);
+
+        // API tokens for the read-only integration API
+        register_rest_route(self::NS, '/api-tokens',              ['methods' => 'GET',    'callback' => [$this, 'getApiTokens'],   'permission_callback' => $auth]);
+        register_rest_route(self::NS, '/api-tokens',              ['methods' => 'POST',   'callback' => [$this, 'createApiToken'], 'permission_callback' => $auth]);
+        register_rest_route(self::NS, '/api-tokens/(?P<id>\d+)',  ['methods' => 'DELETE', 'callback' => [$this, 'revokeApiToken'], 'permission_callback' => $auth]);
     }
 
     // ── Permission ─────────────────────────────────────────────────────────
@@ -1032,5 +1039,54 @@ class RestApi {
         }
 
         return new \WP_REST_Response(['error' => __('Endpoint not found.', 'dpxl-shield')], 404);
+    }
+
+    // ── API tokens ─────────────────────────────────────────────────────────
+
+    public function getApiTokens(): \WP_REST_Response {
+        return rest_ensure_response([
+            'items'     => TokenStore::all(),
+            'max'       => TokenStore::MAX_TOKENS,
+            'base_url'  => rest_url(PublicApi::NS),
+        ]);
+    }
+
+    /**
+     * Mints a token. The plaintext is in this response and nowhere else —
+     * only the hash is stored, so it cannot be shown again later.
+     */
+    public function createApiToken(\WP_REST_Request $request): \WP_REST_Response {
+        $result = TokenStore::create(sanitize_text_field((string) $request->get_param('label')));
+
+        if (!($result['success'] ?? false)) {
+            $message = ($result['error'] ?? '') === 'token_limit'
+                ? __('Maximum number of tokens reached. Revoke one first.', 'dpxl-shield')
+                : __('Could not create the token.', 'dpxl-shield');
+
+            return new \WP_REST_Response(['error' => $message], 400);
+        }
+
+        AuditLog::log(
+            'settings.updated',
+            'high',
+            'A read-only API token was created.',
+            ['label' => $result['token']['label'] ?? '']
+        );
+
+        return rest_ensure_response([
+            'success' => true,
+            'token'   => $result['token'],
+            'plain'   => $result['plain'],
+        ]);
+    }
+
+    public function revokeApiToken(\WP_REST_Request $request): \WP_REST_Response {
+        $id = (int) $request->get_param('id');
+
+        TokenStore::revoke($id);
+
+        AuditLog::log('settings.updated', 'high', 'A read-only API token was revoked.', ['token_id' => $id]);
+
+        return rest_ensure_response(['success' => true]);
     }
 }

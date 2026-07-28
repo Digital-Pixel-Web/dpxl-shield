@@ -210,12 +210,34 @@
             // Recent logins
             renderLoginTable(data.recent_logins || [], 'success');
 
+            // Top countries
+            renderTopCountries(data.top_countries || [], data.geoip_ready);
+
             // Notifications
             renderNotifications(data);
 
         } catch (e) {
             showNotice('Unable to load dashboard data. ' + e.message, 'error');
+            const tc = document.getElementById('top-countries');
+            if (tc) tc.innerHTML = '<li class="dpxl-empty">Não foi possível carregar.</li>';
         }
+    }
+
+    function renderTopCountries(items, geoipReady) {
+        const el = document.getElementById('top-countries');
+        if (!el) return;
+
+        if (!items.length) {
+            el.innerHTML = `<li class="dpxl-empty">${geoipReady
+                ? 'Nenhum país bloqueado nos últimos 7 dias.'
+                : 'Geolocalização indisponível — configure o GeoLite2 (Ferramentas → Diagnostics).'}</li>`;
+            return;
+        }
+
+        el.innerHTML = items.map(c =>
+            `<li><span class="dpxl-country-code">${esc(c.country)}</span>`
+            + `<span class="dpxl-country-hits">${parseInt(c.hits, 10) || 0}</span></li>`
+        ).join('');
     }
 
     function drawAttackChart(data) {

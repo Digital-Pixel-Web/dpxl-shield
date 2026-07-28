@@ -174,11 +174,26 @@ class RestApi {
             ARRAY_A
         ) ?? [];
 
+        // Top blocked countries (last 7 days). Empty until the GeoLite2 database
+        // is present so TrafficLogger can geolocate — the widget shows an empty
+        // state rather than spinning.
+        $topCountries = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT country, COUNT(*) as hits FROM {$logTable}
+                 WHERE waf_action='block' AND country IS NOT NULL AND country <> '' AND timestamp >= %s
+                 GROUP BY country ORDER BY hits DESC LIMIT 5",
+                $week
+            ),
+            ARRAY_A
+        ) ?? [];
+
         return rest_ensure_response([
             'attacks'       => ['today' => $attacksToday, 'week' => $attacksWeek, 'month' => $attacksMonth],
             'scan_issues'   => ['total' => $openIssues, 'critical' => $criticalIssues],
             'recent_logins' => $recentLogins,
             'attack_chart'  => $attackChart,
+            'top_countries' => $topCountries,
+            'geoip_ready'   => file_exists((defined('DPXL_SHIELD_PATH') ? DPXL_SHIELD_PATH : '') . 'data/GeoLite2-Country.mmdb'),
             'extended_mode' => defined('DPXL_SHIELD_EXTENDED_ACTIVE'),
             'firewall_ok'   => Options::get('firewall_enabled', true),
             'scan_ok'       => $criticalIssues === 0,

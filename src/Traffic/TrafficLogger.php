@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace DPXL\Shield\Traffic;
 
 use DPXL\Shield\Firewall\RuleResult;
+use DPXL\Shield\Firewall\CountryBlocker;
 use DPXL\Shield\Core\Options;
 
 /**
@@ -70,6 +71,10 @@ class TrafficLogger {
         $classifier = new TrafficClassifier();
         $isBot      = $classifier->isBot($userAgent ?? '', $ip) ? 1 : 0;
 
+        // Geolocate the IP so the dashboard/report country widgets have data.
+        // resolveCountry() is a cheap no-op (null) when the GeoLite2 DB is absent.
+        $country = CountryBlocker::resolveCountry($ip);
+
         $wpdb->insert(
             $wpdb->prefix . 'dpxl_shield_traffic_log',
             [
@@ -84,8 +89,9 @@ class TrafficLogger {
                 'waf_rule_id'   => self::$wafRuleId ?: null,
                 'response_time' => $responseTime,
                 'is_bot'        => $isBot,
+                'country'       => $country ?: null,
             ],
-            ['%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%f', '%d']
+            ['%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%f', '%d', '%s']
         );
     }
 

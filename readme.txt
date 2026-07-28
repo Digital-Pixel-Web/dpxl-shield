@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 1.2.1
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -140,6 +140,9 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.3.0 =
+* New: the GeoLite2 geolocation database now installs and updates itself automatically through the signed feed — no manual per-site upload. Country data (dashboard widget, activity report, country blocking) starts working on its own after the next scheduled update. The database is verified (SHA-256 + signed manifest) before use and kept fresh automatically. Includes GeoLite2 data created by MaxMind (https://www.maxmind.com).
 
 = 1.2.1 =
 * Fixed: the dashboard "Top Countries" widget no longer spins on "loading" forever — it now shows the top blocked countries (last 7 days), or a clear empty / "configure GeoLite2" state when there is no country data yet.

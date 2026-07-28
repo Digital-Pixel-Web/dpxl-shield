@@ -193,13 +193,11 @@ class RestApi {
         global $wpdb;
 
         $blockedTable = $wpdb->prefix . 'dpxl_shield_blocked_ips';
-        $rulesFile    = defined('DPXL_SHIELD_PATH') ? DPXL_SHIELD_PATH . 'rules/waf-rules.json' : '';
-        $rulesCount   = 0;
 
-        if ($rulesFile && file_exists($rulesFile)) {
-            $json = json_decode((string) file_get_contents($rulesFile), true);
-            $rulesCount = is_array($json['rules'] ?? null) ? count($json['rules']) : 0;
-        }
+        // Count the rules actually in force: the built-in floor plus whatever the
+        // threat feed has added (RuleRepository). The old count read a static
+        // bundled JSON that never reflected the feed, so it never moved on update.
+        $rulesCount = count((new \DPXL\Shield\Firewall\Rules\RuleEngine())->getRules());
 
         $blockedCount = (int) $wpdb->get_var(
             "SELECT COUNT(*) FROM {$blockedTable}

@@ -36,6 +36,9 @@ class Options {
         'self_protection_enabled'      => true,
         'threat_feed_enabled'          => true,
         'threat_feed_version'          => '',
+        'geo_db_enabled'               => true,
+        'geo_db_sha'                   => '',
+        'geo_db_version'               => '',
     ];
 
     public static function setDefaults(): void {

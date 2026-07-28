@@ -7,6 +7,7 @@ use DPXL\Shield\Scanner\ScanOrchestrator;
 use DPXL\Shield\Alerts\ActivityReport;
 use DPXL\Shield\Scanner\ReputationChecker;
 use DPXL\Shield\Threat\ThreatFeedUpdater;
+use DPXL\Shield\Threat\GeoDbUpdater;
 
 /**
  * WP-Cron schedule registration and hook handlers.
@@ -138,6 +139,13 @@ class Cron {
         Logger::debug('Cron: checking threat feed for updates.');
         $status = (new ThreatFeedUpdater())->run();
         Logger::debug('Cron: threat feed update status = ' . $status);
+
+        // Same daily cadence keeps the GeoLite2 DB fresh automatically. The check
+        // is cheap when unchanged (only the small manifest is fetched); the ~4 MB
+        // download happens only when MaxMind publishes a newer database.
+        $geoStatus = (new GeoDbUpdater())->run();
+        Logger::debug('Cron: geo DB update status = ' . $geoStatus);
+
         update_option('dpxl_shield_last_cron_run', time());
     }
 

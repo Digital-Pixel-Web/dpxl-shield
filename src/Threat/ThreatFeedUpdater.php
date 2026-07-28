@@ -98,7 +98,7 @@ class ThreatFeedUpdater {
         }
 
         // 1. Authenticity — signature over a deterministic payload of the manifest.
-        if (!FeedVerifier::verify($this->signedPayload($manifest), (string) $manifest['signature'], $this->publicKeyB64)) {
+        if (!FeedVerifier::verify(self::signedPayload($manifest), (string) $manifest['signature'], $this->publicKeyB64)) {
             return self::SIG_FAIL;
         }
 
@@ -161,7 +161,7 @@ class ThreatFeedUpdater {
      *
      * @param array<string,mixed> $manifest
      */
-    public function signedPayload(array $manifest): string {
+    public static function signedPayload(array $manifest): string {
         $lines = [
             'dpxl-shield-feed',
             'schema=' . (int) ($manifest['schema'] ?? 0),
@@ -169,8 +169,9 @@ class ThreatFeedUpdater {
             'min_plugin_version=' . (string) ($manifest['min_plugin_version'] ?? ''),
         ];
 
-        // Fixed artifact order; only those present are included.
-        foreach (['waf_rules', 'signatures'] as $name) {
+        // Fixed artifact order; only those present are included. New artifacts go
+        // at the end so a manifest without them yields the same payload as before.
+        foreach (['waf_rules', 'signatures', 'geo_db'] as $name) {
             $artifact = $manifest['artifacts'][$name] ?? null;
 
             if (is_array($artifact)) {

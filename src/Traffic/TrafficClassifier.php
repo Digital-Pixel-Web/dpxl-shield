@@ -12,7 +12,7 @@ namespace DPXL\Shield\Traffic;
  *   human     — real browser, normal behaviour
  *   bot       — known crawler user-agent (Googlebot, Bingbot, etc.)
  *   blocked   — WAF action = block
- *   suspicious— flagged but not blocked (rate anomaly, unusual pattern)
+ *   suspicious— flagged but not blocked (rate anomaly, unusual pattern, no UA)
  *   unknown   — insufficient signal to classify
  */
 class TrafficClassifier {
@@ -29,6 +29,14 @@ class TrafficClassifier {
 
         if ($this->isKnownBot($userAgent)) {
             return 'bot';
+        }
+
+        // An absent User-Agent is anomalous, not a known crawler: every browser
+        // and every well-behaved bot identifies itself. Attack tooling is what
+        // omits it, so it belongs with the flagged traffic — not filed away
+        // next to Googlebot.
+        if (trim($userAgent) === '') {
+            return 'suspicious';
         }
 
         if ($wafAction === 'log_only' || $statusCode === 403) {
@@ -49,10 +57,6 @@ class TrafficClassifier {
     // ── Internal ───────────────────────────────────────────────────────────
 
     private function isKnownBot(string $ua): bool {
-        if ($ua === '') {
-            return true; // empty UA → almost certainly automated
-        }
-
         $botSignatures = [
             'googlebot', 'bingbot', 'slurp', 'duckduckbot', 'baiduspider',
             'yandexbot', 'sogou', 'exabot', 'facebot', 'ia_archiver',

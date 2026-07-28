@@ -53,7 +53,11 @@ class Options {
         }
     }
 
-    public static function get(string $key, mixed $fallback = null): mixed {
+    /**
+     * @param  mixed $fallback
+     * @return mixed
+     */
+    public static function get(string $key, $fallback = null) {
         $value = get_option(self::PREFIX . $key, null);
 
         if ($value === null) {
@@ -63,7 +67,8 @@ class Options {
         return $value;
     }
 
-    public static function set(string $key, mixed $value): bool {
+    /** @param mixed $value */
+    public static function set(string $key, $value): bool {
         return update_option(self::PREFIX . $key, $value);
     }
 

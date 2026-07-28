@@ -178,6 +178,17 @@ $extendedActive     = !empty($extendedStatus['active']);
             </div>
             <div id="country-list-container" class="dpxl-loading-cell"><?php esc_html_e('Loading…', 'dpxl-shield'); ?></div>
             <button class="dpxl-btn dpxl-btn--primary" id="btn-save-countries"><?php esc_html_e('Save Changes', 'dpxl-shield'); ?></button>
+
+            <?php // Required MaxMind attribution — shown where the geo data is used. ?>
+            <p class="dpxl-attribution">
+                <?php
+                printf(
+                    /* translators: %s: MaxMind website link. */
+                    esc_html__('Country data: this product includes GeoLite2 data created by MaxMind, available from %s.', 'dpxl-shield'),
+                    '<a href="https://www.maxmind.com" target="_blank" rel="noopener noreferrer">https://www.maxmind.com</a>'
+                );
+                ?>
+            </p>
         </div>
 
         <!-- Custom pattern panel (hidden initially) -->

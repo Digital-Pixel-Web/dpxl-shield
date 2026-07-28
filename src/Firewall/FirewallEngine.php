@@ -27,10 +27,19 @@ class FirewallEngine {
     /** @var string[] URI patterns that bypass WAF (regex or exact) */
     private array $allowlistedUris = [];
 
+    /** @var string */
+    private $configFile;
+
+    /** @var string */
+    private $blockedIpsFile;
+
     public function __construct(
-        private readonly string $configFile,
-        private readonly string $blockedIpsFile,
+        string $configFile,
+        string $blockedIpsFile
     ) {
+        $this->configFile     = $configFile;
+        $this->blockedIpsFile = $blockedIpsFile;
+
         $this->ruleEngine = new RuleEngine();
         $this->loadConfig();
     }

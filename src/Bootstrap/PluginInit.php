@@ -75,7 +75,7 @@ class PluginInit {
 
         TrafficLogger::setWafResult($result);
 
-        if ($result->decision->value === 'block') {
+        if ($result->decision === 'block') {
             wp_die(
                 esc_html__('Your request has been blocked by DPXL Shield.', 'dpxl-shield'),
                 esc_html__('403 Forbidden', 'dpxl-shield'),

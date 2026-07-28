@@ -51,23 +51,28 @@ class Diagnostics {
         $lastStatus = (string) get_option('dpxl_shield_threat_feed_last_status', '');
         $lastRun    = (int) get_option('dpxl_shield_threat_feed_last_run', 0);
 
-        $status = match (true) {
-            $lastRun === 0                                  => 'warning',
-            in_array($lastStatus, ['ok', 'no_change'], true) => 'ok',
-            in_array($lastStatus, ['sig_fail', 'hash_fail'], true) => 'error',
-            default                                         => 'warning',
-        };
+        if ($lastRun === 0) {
+            $status = 'warning';
+        } elseif (in_array($lastStatus, ['ok', 'no_change'], true)) {
+            $status = 'ok';
+        } elseif (in_array($lastStatus, ['sig_fail', 'hash_fail'], true)) {
+            $status = 'error';
+        } else {
+            $status = 'warning';
+        }
 
         $value = $version !== ''
             ? 'v' . $version . ($lastStatus !== '' ? ' (' . $lastStatus . ')' : '')
             : ($lastRun === 0 ? 'Never run' : '(' . ($lastStatus ?: 'pending') . ')');
 
-        $note = match ($lastStatus) {
-            'sig_fail', 'hash_fail' => 'Feed failed signature/integrity verification and was NOT applied. Possible feed-channel tampering.',
-            'net_fail'              => 'Could not reach the feed. Rules stay at the last good version.',
-            'no_pubkey'             => 'No feed public key or ext-sodium — feed cannot be verified.',
-            default                 => '',
-        };
+        $notes = [
+            'sig_fail'  => 'Feed failed signature/integrity verification and was NOT applied. Possible feed-channel tampering.',
+            'hash_fail' => 'Feed failed signature/integrity verification and was NOT applied. Possible feed-channel tampering.',
+            'net_fail'  => 'Could not reach the feed. Rules stay at the last good version.',
+            'no_pubkey' => 'No feed public key or ext-sodium — feed cannot be verified.',
+        ];
+
+        $note = $notes[$lastStatus] ?? '';
 
         return ['status' => $status, 'label' => 'Threat Feed', 'value' => $value, 'note' => $note];
     }
@@ -190,11 +195,62 @@ class Diagnostics {
         $path   = defined('DPXL_SHIELD_PATH') ? DPXL_SHIELD_PATH . 'data/GeoLite2-Country.mmdb' : '';
         $exists = $path && file_exists($path);
 
+        $version    = (string) get_option('dpxl_shield_geo_db_version', '');
+        $lastStatus = (string) get_option('dpxl_shield_geo_db_last_status', '');
+        $lastRun    = (int) get_option('dpxl_shield_geo_db_last_run', 0);
+        $enabled    = (bool) get_option('dpxl_shield_geo_db_enabled', true);
+
+        // The DB is what actually makes country features work, so a missing file
+        // is the headline regardless of how the last update run went.
+        if (!$exists) {
+            return [
+                'status' => 'warning',
+                'label'  => 'MaxMind GeoLite2 DB',
+                'value'  => $enabled ? 'Not installed yet' : 'Not installed (auto-update off)',
+                'note'   => $enabled
+                    ? 'Country features stay idle until the database downloads. It installs itself on the daily update — or use "Check now" in All Options to fetch it immediately.'
+                    : 'Auto-update is disabled, so the database will never download. Enable it in All Options → Firewall.',
+            ];
+        }
+
+        // Stale is a real risk here: MaxMind requires redistributed copies to be
+        // under 30 days old, and an old DB silently mislabels traffic.
+        $ageDays = (int) floor((time() - (int) filemtime($path)) / DAY_IN_SECONDS);
+
+        $verificationFailed = in_array($lastStatus, ['sig_fail', 'hash_fail'], true);
+        $stale              = $ageDays > 30;
+
+        if ($verificationFailed) {
+            $status = 'error';
+        } elseif ($stale || !$enabled || $lastRun === 0) {
+            $status = 'warning';
+        } else {
+            $status = 'ok';
+        }
+
+        $value = 'Present (' . $this->humanSize((int) filesize($path)) . ')'
+            . ($version !== '' ? ' · ' . $version : '')
+            . ($lastStatus !== '' ? ' · ' . $lastStatus : '');
+
+        if ($verificationFailed) {
+            $note = 'The downloaded database failed signature/integrity verification and was NOT applied. Possible feed-channel tampering.';
+        } elseif ($stale) {
+            $note = "Database is {$ageDays} days old. MaxMind requires redistributed copies to stay under 30 days — check that the daily cron is running.";
+        } elseif (!$enabled) {
+            $note = 'Auto-update is disabled; this database will go stale. Enable it in All Options → Firewall.';
+        } elseif ($lastStatus === 'net_fail') {
+            $note = 'Could not reach the feed on the last run. The current database stays in use.';
+        } elseif ($lastRun === 0) {
+            $note = 'Auto-update has not run yet.';
+        } else {
+            $note = '';
+        }
+
         return [
-            'status' => $exists ? 'ok' : 'warning',
+            'status' => $status,
             'label'  => 'MaxMind GeoLite2 DB',
-            'value'  => $exists ? 'Present (' . $this->humanSize((int) filesize($path)) . ')' : 'Not found',
-            'note'   => $exists ? '' : 'Country blocking is disabled. Upload GeoLite2-Country.mmdb to the plugin data/ directory.',
+            'value'  => $value,
+            'note'   => $note,
         ];
     }
 

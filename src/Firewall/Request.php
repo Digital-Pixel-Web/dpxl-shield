@@ -4,22 +4,47 @@ declare(strict_types=1);
 namespace DPXL\Shield\Firewall;
 
 /**
- * Immutable value object representing the current HTTP request.
+ * Value object representing the current HTTP request.
  * Safe to instantiate before WordPress loads.
+ *
+ * Populated once in the constructor and never written to afterwards. The
+ * properties are not marked `readonly` because that is PHP 8.1 and the plugin's
+ * floor is 7.4 — treat them as read-only by convention.
  */
 class Request {
 
-    public readonly string $ip;
-    public readonly string $method;
-    public readonly string $uri;
-    public readonly string $queryString;
-    public readonly string $userAgent;
-    public readonly string $referer;
-    public readonly string $host;
-    public readonly array  $get;
-    public readonly array  $post;
-    public readonly array  $cookies;
-    public readonly string $rawBody;
+    /** @var string */
+    public $ip;
+
+    /** @var string */
+    public $method;
+
+    /** @var string */
+    public $uri;
+
+    /** @var string */
+    public $queryString;
+
+    /** @var string */
+    public $userAgent;
+
+    /** @var string */
+    public $referer;
+
+    /** @var string */
+    public $host;
+
+    /** @var array */
+    public $get;
+
+    /** @var array */
+    public $post;
+
+    /** @var array */
+    public $cookies;
+
+    /** @var string */
+    public $rawBody;
 
     public function __construct() {
         $this->ip          = $this->resolveIp();

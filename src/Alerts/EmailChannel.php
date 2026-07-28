@@ -38,8 +38,18 @@ class EmailChannel {
             return;
         }
 
-        $subject = $this->buildSubject($level, $eventType);
-        $body    = $this->buildBody($level, $eventType, $description, $context);
+        // Alerts are dispatched from cron and from the WAF's pre-WordPress path,
+        // where the admin-only gettext filter never runs — without this the
+        // shared email shell would go out in English. try/finally so a throw
+        // while rendering cannot leave the global filter installed.
+        ReportI18n::activate();
+
+        try {
+            $subject = $this->buildSubject($level, $eventType);
+            $body    = $this->buildBody($level, $eventType, $description, $context);
+        } finally {
+            ReportI18n::deactivate();
+        }
 
         $headers = [
             'Content-Type: text/html; charset=UTF-8',

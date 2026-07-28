@@ -75,17 +75,18 @@ class AuditEvents {
     public static function category(string $eventType): string {
         $prefix = explode('.', $eventType)[0] ?? '';
 
-        return match ($prefix) {
+        $categories = [
             'auth'     => self::CATEGORY_AUTH,
             'user'     => self::CATEGORY_USER,
-            'plugin',
-            'theme',
+            'plugin'   => self::CATEGORY_PLUGIN,
+            'theme'    => self::CATEGORY_PLUGIN,
             'wp'       => self::CATEGORY_PLUGIN,
             'fw'       => self::CATEGORY_FIREWALL,
             'settings' => self::CATEGORY_SETTINGS,
             'content'  => self::CATEGORY_CONTENT,
-            default    => self::CATEGORY_SETTINGS,
-        };
+        ];
+
+        return $categories[$prefix] ?? self::CATEGORY_SETTINGS;
     }
 
     /**

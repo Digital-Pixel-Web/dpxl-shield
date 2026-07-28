@@ -16,10 +16,7 @@ class AuditLogTest extends TestCase {
         Monkey\setUp();
 
         Functions\stubs([
-            'get_option'     => fn($key, $default = false) => match ($key) {
-                'dpxl_shield_audit_mode' => 'all_events',
-                default                  => $default,
-            },
+            'get_option'     => fn($key, $default = false) => $key === 'dpxl_shield_audit_mode' ? 'all_events' : $default,
             'update_option'  => true,
             'current_time'   => fn($type) => $type === 'timestamp' ? time() : date('Y-m-d H:i:s'),
             'absint'         => fn($v) => abs((int) $v),

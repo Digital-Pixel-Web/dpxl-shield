@@ -130,8 +130,10 @@ class FileIntegrityMonitor {
     /**
      * Called after a WordPress core or plugin update — re-records baselines
      * so the monitor doesn't alert on legitimate update-induced changes.
+     *
+     * @param mixed $upgrader WP_Upgrader instance — unused, but part of the hook signature.
      */
-    public function onUpgrade(mixed $upgrader, array $hookExtra): void {
+    public function onUpgrade($upgrader, array $hookExtra): void {
         $type = $hookExtra['type'] ?? '';
 
         if ($type === 'core') {

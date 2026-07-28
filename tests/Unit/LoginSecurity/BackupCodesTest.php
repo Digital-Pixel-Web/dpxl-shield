@@ -19,7 +19,7 @@ class BackupCodesTest extends TestCase {
     private array $storedHashes;
 
     /** @var mixed Captures whatever update_user_meta writes back. */
-    private mixed $written = null;
+    private $written = null;
 
     protected function setUp(): void {
         parent::setUp();

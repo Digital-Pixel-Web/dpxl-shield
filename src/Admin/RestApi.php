@@ -293,9 +293,19 @@ class RestApi {
         $where  = [];
         $values = [];
 
+        // Mirrors TrafficClassifier::classify(). Only is_bot is persisted, so
+        // 'suspicious' is derived from the stored user_agent (absent UA) and the
+        // log_only/403 signals — the same rules the classifier applies.
+        $noAgent = "(user_agent IS NULL OR TRIM(user_agent) = '')";
+
         if ($type === 'blocked') { $where[] = "waf_action = 'block'"; }
         elseif ($type === 'bot') { $where[] = "is_bot = 1 AND waf_action != 'block'"; }
-        elseif ($type === 'human') { $where[] = "is_bot = 0 AND waf_action = 'pass'"; }
+        elseif ($type === 'suspicious') {
+            $where[] = "waf_action != 'block' AND is_bot = 0 AND ({$noAgent} OR waf_action = 'log_only' OR status_code = 403)";
+        }
+        elseif ($type === 'human') {
+            $where[] = "is_bot = 0 AND waf_action = 'pass' AND status_code != 403 AND NOT {$noAgent}";
+        }
 
         if ($ip)  { $where[] = 'ip = %s'; $values[] = $ip; }
         if ($url) { $where[] = 'uri LIKE %s'; $values[] = '%' . $wpdb->esc_like($url) . '%'; }

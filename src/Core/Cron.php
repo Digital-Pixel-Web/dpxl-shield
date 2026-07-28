@@ -75,11 +75,12 @@ class Cron {
 
         // Activity report — frequency based on option.
         $reportFreq = Options::get('activity_report_frequency', 'weekly');
-        $reportRecurrence = match ($reportFreq) {
+        $recurrences = [
             'daily'   => 'daily',
             'monthly' => 'dpxl_monthly',
-            default   => 'dpxl_weekly',
-        };
+        ];
+
+        $reportRecurrence = $recurrences[$reportFreq] ?? 'dpxl_weekly';
 
         if (!wp_next_scheduled(self::HOOK_ACTIVITY_REPORT)) {
             wp_schedule_event(time() + DAY_IN_SECONDS, $reportRecurrence, self::HOOK_ACTIVITY_REPORT);

@@ -24,25 +24,28 @@
             $rulesVersion = (string) \DPXL\Shield\Core\Options::get('threat_feed_version', '');
             $geoVersion   = (string) \DPXL\Shield\Core\Options::get('geo_db_version', '');
 
-            $rulesMsg = match ($feedStatus['rules'] ?? '') {
-                'ok'                    => ['success', sprintf(__('WAF rules updated to version %s.', 'dpxl-shield'), $rulesVersion)],
-                'no_change'             => ['success', __('WAF rules are already up to date.', 'dpxl-shield')],
-                'net_fail'              => ['warning', __('Could not reach the feed for WAF rules.', 'dpxl-shield')],
-                'sig_fail', 'hash_fail' => ['error',   __('WAF rules verification failed — rejected.', 'dpxl-shield')],
-                'no_pubkey'             => ['warning', __('Feed cannot be verified on this server (missing key or sodium).', 'dpxl-shield')],
-                'disabled'              => ['warning', __('The threat feed is disabled.', 'dpxl-shield')],
-                default                 => null,
-            };
+            $rulesMessages = [
+                'ok'        => ['success', sprintf(__('WAF rules updated to version %s.', 'dpxl-shield'), $rulesVersion)],
+                'no_change' => ['success', __('WAF rules are already up to date.', 'dpxl-shield')],
+                'net_fail'  => ['warning', __('Could not reach the feed for WAF rules.', 'dpxl-shield')],
+                'sig_fail'  => ['error',   __('WAF rules verification failed — rejected.', 'dpxl-shield')],
+                'hash_fail' => ['error',   __('WAF rules verification failed — rejected.', 'dpxl-shield')],
+                'no_pubkey' => ['warning', __('Feed cannot be verified on this server (missing key or sodium).', 'dpxl-shield')],
+                'disabled'  => ['warning', __('The threat feed is disabled.', 'dpxl-shield')],
+            ];
 
-            $geoMsg = match ($feedStatus['geo'] ?? '') {
-                'ok'                    => ['success', sprintf(__('GeoLite2 database installed/updated (%s).', 'dpxl-shield'), $geoVersion)],
-                'no_change'             => ['success', __('GeoLite2 database is already up to date.', 'dpxl-shield')],
-                'net_fail'              => ['warning', __('Could not download the GeoLite2 database.', 'dpxl-shield')],
-                'sig_fail', 'hash_fail' => ['error',   __('GeoLite2 database verification failed — rejected.', 'dpxl-shield')],
-                'no_geo'                => ['warning', __('No GeoLite2 database is available in the feed yet.', 'dpxl-shield')],
-                'disabled'              => ['warning', __('GeoLite2 auto-update is disabled.', 'dpxl-shield')],
-                default                 => null,
-            };
+            $geoMessages = [
+                'ok'        => ['success', sprintf(__('GeoLite2 database installed/updated (%s).', 'dpxl-shield'), $geoVersion)],
+                'no_change' => ['success', __('GeoLite2 database is already up to date.', 'dpxl-shield')],
+                'net_fail'  => ['warning', __('Could not download the GeoLite2 database.', 'dpxl-shield')],
+                'sig_fail'  => ['error',   __('GeoLite2 database verification failed — rejected.', 'dpxl-shield')],
+                'hash_fail' => ['error',   __('GeoLite2 database verification failed — rejected.', 'dpxl-shield')],
+                'no_geo'    => ['warning', __('No GeoLite2 database is available in the feed yet.', 'dpxl-shield')],
+                'disabled'  => ['warning', __('GeoLite2 auto-update is disabled.', 'dpxl-shield')],
+            ];
+
+            $rulesMsg = $rulesMessages[$feedStatus['rules'] ?? ''] ?? null;
+            $geoMsg   = $geoMessages[$feedStatus['geo'] ?? ''] ?? null;
 
             foreach ([$rulesMsg, $geoMsg] as $m) {
                 if ($m !== null) {

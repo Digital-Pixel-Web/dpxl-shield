@@ -63,7 +63,11 @@ class FormHoneypot {
 
     // ── Validation ─────────────────────────────────────────────────────────
 
-    public function checkLogin(mixed $user, string $username, string $password): mixed {
+    /**
+     * @param  mixed $user WP_User, WP_Error or null, depending on the filter chain.
+     * @return mixed The user untouched, or a WP_Error when the honeypot tripped.
+     */
+    public function checkLogin($user, string $username, string $password) {
         if ($this->isFilled()) {
             $this->blockBotIp('login form honeypot');
             return new \WP_Error('honeypot', __('An error occurred. Please try again.', 'dpxl-shield'));

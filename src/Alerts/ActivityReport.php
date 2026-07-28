@@ -377,10 +377,11 @@ class ActivityReport {
     }
 
     private function periodLabel(string $freq): string {
-        return match ($freq) {
+        $labels = [
             'daily'   => __('Daily', 'dpxl-shield'),
             'monthly' => __('Monthly', 'dpxl-shield'),
-            default   => __('Weekly', 'dpxl-shield'),
-        };
+        ];
+
+        return $labels[$freq] ?? __('Weekly', 'dpxl-shield');
     }
 }

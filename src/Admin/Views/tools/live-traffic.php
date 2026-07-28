@@ -7,6 +7,7 @@
                     <option value=""><?php esc_html_e('All Hits', 'dpxl-shield'); ?></option>
                     <option value="human"><?php esc_html_e('Human', 'dpxl-shield'); ?></option>
                     <option value="bot"><?php esc_html_e('Bot / Crawler', 'dpxl-shield'); ?></option>
+                    <option value="suspicious"><?php esc_html_e('Suspicious', 'dpxl-shield'); ?></option>
                     <option value="blocked"><?php esc_html_e('Blocked', 'dpxl-shield'); ?></option>
                 </select>
                 <button class="dpxl-btn" id="btn-show-filters"><?php \DPXL\Shield\Admin\Icons::render('sliders'); ?> <?php esc_html_e('Show Advanced Filters', 'dpxl-shield'); ?></button>

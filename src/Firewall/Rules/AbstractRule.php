@@ -60,7 +60,7 @@ abstract class AbstractRule implements RuleInterface {
     protected function flattenValues(array $params): array {
         $values = [];
 
-        array_walk_recursive($params, static function (mixed $v) use (&$values): void {
+        array_walk_recursive($params, static function ($v) use (&$values): void {
             if (is_scalar($v)) {
                 $values[] = (string) $v;
             }

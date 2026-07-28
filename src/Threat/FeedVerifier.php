@@ -56,7 +56,7 @@ class FeedVerifier {
 
         try {
             return sodium_crypto_sign_verify_detached($signature, $message, $publicKey);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             return false;
         }
     }

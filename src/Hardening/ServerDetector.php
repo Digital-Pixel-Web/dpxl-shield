@@ -50,11 +50,12 @@ class ServerDetector {
 
     /** Returns a human-readable server name for the admin UI. */
     public static function label(): string {
-        return match (self::detect()) {
+        $labels = [
             self::APACHE    => 'Apache',
             self::NGINX     => 'Nginx',
             self::LITESPEED => 'LiteSpeed',
-            default         => 'Unknown',
-        };
+        ];
+
+        return $labels[self::detect()] ?? 'Unknown';
     }
 }

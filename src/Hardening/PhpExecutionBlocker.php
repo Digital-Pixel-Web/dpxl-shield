@@ -38,13 +38,18 @@ HTACCESS;
      *
      * @return bool|string  true on success, Nginx snippet string if manual action needed, false on failure
      */
-    public function install(): bool|string {
-        return match (ServerDetector::detect()) {
-            ServerDetector::APACHE,
-            ServerDetector::LITESPEED => $this->writeHtaccess(),
-            ServerDetector::NGINX     => $this->nginxSnippet(),
-            default                   => false,
-        };
+    public function install() {
+        $server = ServerDetector::detect();
+
+        if ($server === ServerDetector::APACHE || $server === ServerDetector::LITESPEED) {
+            return $this->writeHtaccess();
+        }
+
+        if ($server === ServerDetector::NGINX) {
+            return $this->nginxSnippet();
+        }
+
+        return false;
     }
 
     /**

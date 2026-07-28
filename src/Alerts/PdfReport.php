@@ -367,19 +367,21 @@ class PdfReport {
     // ── Helpers ────────────────────────────────────────────────────────────
 
     private function levelAccent(string $level): string {
-        return match ($level) {
+        $accents = [
             'critical' => '#b32d2e',
             'medium'   => self::ORANGE,
-            default    => self::BLUE,
-        };
+        ];
+
+        return $accents[$level] ?? self::BLUE;
     }
 
     private function periodLabel(string $freq): string {
-        return match ($freq) {
+        $labels = [
             'daily'   => __('Daily', 'dpxl-shield'),
             'monthly' => __('Monthly', 'dpxl-shield'),
-            default   => __('Weekly', 'dpxl-shield'),
-        };
+        ];
+
+        return $labels[$freq] ?? __('Weekly', 'dpxl-shield');
     }
 
     /** Writable scratch dir — uploads when WordPress is loaded, system temp otherwise. */

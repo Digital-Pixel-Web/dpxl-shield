@@ -24,18 +24,38 @@ class JsonRule extends AbstractRule {
     /** Recognised targets → how the value(s) are pulled from the Request. */
     public const TARGETS = ['get', 'post', 'cookie', 'body', 'user_agent', 'referer', 'uri', 'query'];
 
+    /** @var string */
+    private $id;
+
+    /** @var int */
+    private $priority;
+
+    /** @var list<string> */
+    private $targets;
+
+    /** @var string */
+    private $pattern;
+
+    /** @var string */
+    private $severity;
+
     /**
      * @param list<string> $targets Lower-case entries from {@see self::TARGETS}.
      */
     public function __construct(
-        private readonly string $id,
-        private readonly int $priority,
-        private readonly array $targets,
-        private readonly string $pattern,
-        private readonly string $severity,
-        bool $enabled = true,
+        string $id,
+        int $priority,
+        array $targets,
+        string $pattern,
+        string $severity,
+        bool $enabled = true
     ) {
-        $this->enabled = $enabled;
+        $this->id       = $id;
+        $this->priority = $priority;
+        $this->targets  = $targets;
+        $this->pattern  = $pattern;
+        $this->severity = $severity;
+        $this->enabled  = $enabled;
     }
 
     public function getId(): string {
@@ -65,17 +85,32 @@ class JsonRule extends AbstractRule {
         $values = [];
 
         foreach ($this->targets as $target) {
-            $values = match ($target) {
-                'get'        => array_merge($values, $this->flattenValues($request->get)),
-                'post'       => array_merge($values, $this->flattenValues($request->post)),
-                'cookie'     => array_merge($values, $this->flattenValues($request->cookies)),
-                'body'       => array_merge($values, [$request->rawBody]),
-                'user_agent' => array_merge($values, [$request->userAgent]),
-                'referer'    => array_merge($values, [$request->referer]),
-                'uri'        => array_merge($values, [$request->uri]),
-                'query'      => array_merge($values, [$request->queryString]),
-                default      => $values,
-            };
+            switch ($target) {
+                case 'get':
+                    $values = array_merge($values, $this->flattenValues($request->get));
+                    break;
+                case 'post':
+                    $values = array_merge($values, $this->flattenValues($request->post));
+                    break;
+                case 'cookie':
+                    $values = array_merge($values, $this->flattenValues($request->cookies));
+                    break;
+                case 'body':
+                    $values[] = $request->rawBody;
+                    break;
+                case 'user_agent':
+                    $values[] = $request->userAgent;
+                    break;
+                case 'referer':
+                    $values[] = $request->referer;
+                    break;
+                case 'uri':
+                    $values[] = $request->uri;
+                    break;
+                case 'query':
+                    $values[] = $request->queryString;
+                    break;
+            }
         }
 
         return $values;

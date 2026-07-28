@@ -13,5 +13,20 @@
         <div id="diagnostics-container" class="dpxl-diagnostics-container">
             <div class="dpxl-loading-cell"><?php esc_html_e('Click "Run Diagnostics" to start.', 'dpxl-shield'); ?></div>
         </div>
+
+        <?php
+        // Required attribution: DPXL Shield redistributes the GeoLite2 database
+        // through its update feed, which makes MaxMind's attribution clause apply
+        // to us. Must stay visible wherever the geo data is used.
+        ?>
+        <p class="dpxl-attribution">
+            <?php
+            printf(
+                /* translators: %s: MaxMind website link. */
+                esc_html__('This product includes GeoLite2 data created by MaxMind, available from %s.', 'dpxl-shield'),
+                '<a href="https://www.maxmind.com" target="_blank" rel="noopener noreferrer">https://www.maxmind.com</a>'
+            );
+            ?>
+        </p>
     </div>
 </div>

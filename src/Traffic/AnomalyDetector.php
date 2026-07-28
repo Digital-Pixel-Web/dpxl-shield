@@ -46,7 +46,7 @@ class AnomalyDetector {
         $uri = $_SERVER['REQUEST_URI'] ?? '/';
 
         // Track unique URLs.
-        $this->increment($ip, 'unique_urls', $uri, track: true);
+        $this->increment($ip, 'unique_urls', $uri, true);
 
         // Track REST API hits.
         if (defined('REST_REQUEST') && REST_REQUEST) {

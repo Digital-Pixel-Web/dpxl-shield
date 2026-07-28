@@ -37,7 +37,7 @@ class TrafficLogger {
     }
 
     public static function setWafResult(RuleResult $result): void {
-        self::$wafAction = $result->decision->value;
+        self::$wafAction = $result->decision;
         self::$wafRuleId = $result->ruleId ?? '';
     }
 

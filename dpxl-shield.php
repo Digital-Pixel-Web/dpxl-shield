@@ -3,7 +3,7 @@
  * Plugin Name:       DPXL Shield
  * Plugin URI:        https://digitalpixel.com.br/dpxl-shield
  * Description:       Security that runs before WordPress does.
- * Version:           1.3.1
+ * Version:           1.4.0
  * Author:            Digital Pixel
  * Author URI:        https://digitalpixel.com.br/
  * License:           GPL-2.0-or-later
@@ -11,7 +11,7 @@
  * Text Domain:       dpxl-shield
  * Domain Path:       /languages
  * Requires at least: 6.4
- * Requires PHP:      8.1
+ * Requires PHP:      7.4
  */
 
 declare(strict_types=1);
@@ -20,7 +20,11 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('DPXL_SHIELD_VERSION', '1.3.1');
+// PHP 8 string helpers, polyfilled for the 7.4 floor. Required before anything
+// else — the code below uses str_contains() and does not wait for the autoloader.
+require_once __DIR__ . '/src/Compat/php-polyfill.php';
+
+define('DPXL_SHIELD_VERSION', '1.4.0');
 define('DPXL_SHIELD_PATH', plugin_dir_path(__FILE__));
 define('DPXL_SHIELD_URL', plugin_dir_url(__FILE__));
 define('DPXL_SHIELD_FILE', __FILE__);

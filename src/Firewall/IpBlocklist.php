@@ -33,7 +33,7 @@ class IpBlocklist {
         string $ip,
         string $reason,
         string $source = 'manual',
-        ?int   $durationSeconds = null,
+        ?int   $durationSeconds = null
     ): bool {
         global $wpdb;
 

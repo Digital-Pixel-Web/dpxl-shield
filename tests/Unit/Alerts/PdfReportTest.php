@@ -26,13 +26,12 @@ class PdfReportTest extends TestCase {
             'esc_html__'         => fn($t, $d = null) => htmlspecialchars((string) $t, ENT_QUOTES),
             '_n'                 => fn($s, $p, $n, $d = null) => (int) $n === 1 ? $s : $p,
             'number_format_i18n' => fn($n) => number_format((float) $n),
-            'get_option'         => fn($k, $def = false) => match ($k) {
+            'get_option'         => fn($k, $def = false) => [
                 'blogname'    => 'EABH',
                 'siteurl'     => 'https://eabh.com.br',
                 'date_format' => 'd/m/Y',
                 'time_format' => 'H:i',
-                default       => $def,
-            },
+            ][$k] ?? $def,
             'wp_parse_url'       => fn($url, $c = -1) => parse_url((string) $url, $c),
             'wp_date'            => fn($fmt, $ts = null) => gmdate($fmt, $ts ?? time()),
             'sanitize_file_name' => fn($n) => preg_replace('/[^A-Za-z0-9._-]/', '-', (string) $n),

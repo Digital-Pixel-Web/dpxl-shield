@@ -33,6 +33,26 @@ class EmailTemplate {
             ? '<br><span style="color:#a7aaad;">' . $footerNote . '</span>'
             : '';
 
+        // The footer is part of the shared shell, so it must localise like the
+        // rest of the email. Routed through __() (not baked into the heredoc)
+        // so the ReportI18n filter reaches it in cron, where the admin-only
+        // gettext filter never runs.
+        $link = 'style="color:#2271b1;text-decoration:none;"';
+
+        $sentBy = sprintf(
+            /* translators: 1: product name, 2: site host (linked). */
+            __('Sent by %1$s on %2$s.', 'dpxl-shield'),
+            '<strong style="color:#50575e;">DPXL Shield</strong>',
+            '<a href="' . esc_url($siteUrl) . '" ' . $link . '>' . $host . '</a>'
+        );
+
+        $manage = sprintf(
+            /* translators: %s: link to the plugin settings screen. */
+            __('Manage what triggers an email in %s.', 'dpxl-shield'),
+            '<a href="' . esc_url($settingsUrl) . '" ' . $link . '>'
+                . esc_html__('DPXL Shield settings', 'dpxl-shield') . '</a>'
+        );
+
         return <<<HTML
         <!DOCTYPE html>
         <html>
@@ -65,8 +85,8 @@ class EmailTemplate {
 
                   <tr>
                     <td style="padding:18px 28px;background:#f6f7f7;border-top:1px solid #f0f0f1;font-size:12px;line-height:1.7;color:#787c82;">
-                      Sent by <strong style="color:#50575e;">DPXL Shield</strong> on <a href="{$siteUrl}" style="color:#2271b1;text-decoration:none;">{$host}</a>.
-                      <br>Manage what triggers an email in <a href="{$settingsUrl}" style="color:#2271b1;text-decoration:none;">DPXL Shield settings</a>.{$footerNote}
+                      {$sentBy}
+                      <br>{$manage}{$footerNote}
                     </td>
                   </tr>
 
@@ -141,12 +161,14 @@ class EmailTemplate {
      * @return array{accent: string, tint: string, label: string}
      */
     public static function palette(string $level): array {
-        return match ($level) {
+        $palettes = [
             'critical' => ['accent' => '#b32d2e', 'tint' => '#fcf0f0', 'label' => __('Critical', 'dpxl-shield')],
             'high'     => ['accent' => '#bd5b00', 'tint' => '#fcf5ed', 'label' => __('High', 'dpxl-shield')],
             'medium'   => ['accent' => '#9a6700', 'tint' => '#fcf9e8', 'label' => __('Notice', 'dpxl-shield')],
-            default    => ['accent' => '#2271b1', 'tint' => '#f0f6fc', 'label' => __('Info', 'dpxl-shield')],
-        };
+        ];
+
+        return $palettes[$level]
+            ?? ['accent' => '#2271b1', 'tint' => '#f0f6fc', 'label' => __('Info', 'dpxl-shield')];
     }
 
     /** Site host without scheme — shorter and clearer than the full URL. */

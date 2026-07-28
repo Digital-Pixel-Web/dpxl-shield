@@ -30,11 +30,12 @@ class ReportData {
     public static function collect(string $freq): array {
         global $wpdb;
 
-        $since = match ($freq) {
-            'daily'   => date('Y-m-d H:i:s', strtotime('-1 day')),
-            'monthly' => date('Y-m-d H:i:s', strtotime('-30 days')),
-            default   => date('Y-m-d H:i:s', strtotime('-7 days')),
-        };
+        $windows = [
+            'daily'   => '-1 day',
+            'monthly' => '-30 days',
+        ];
+
+        $since = date('Y-m-d H:i:s', strtotime($windows[$freq] ?? '-7 days'));
 
         $logTable     = $wpdb->prefix . 'dpxl_shield_traffic_log';
         $loginTable   = $wpdb->prefix . 'dpxl_shield_login_events';

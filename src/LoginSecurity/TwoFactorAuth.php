@@ -5,7 +5,6 @@ namespace DPXL\Shield\LoginSecurity;
 
 use DPXL\Shield\Core\Options;
 use DPXL\Shield\Core\Logger;
-use OTPHP\TOTP;
 
 /**
  * TOTP-based Two-Factor Authentication (RFC 6238).
@@ -60,7 +59,7 @@ class TwoFactorAuth {
      * Users whose role requires 2FA but who haven't configured it yet are allowed
      * in and prompted to set it up from their profile — they are never hard-blocked.
      */
-    public function interceptLogin(\WP_User|\WP_Error $user): \WP_User|\WP_Error {
+    public function interceptLogin($user) {
         if (is_wp_error($user)) {
             return $user;
         }
@@ -157,7 +156,7 @@ class TwoFactorAuth {
         exit;
     }
 
-    private function renderForm(\WP_User $user, string $error = ''): never {
+    private function renderForm(\WP_User $user, string $error = ''): void {
         login_header(__('Two-Factor Authentication', 'dpxl-shield'));
 
         if ($error !== '') {
@@ -286,8 +285,8 @@ class TwoFactorAuth {
      * Generates a new TOTP secret for a user.
      * Returns the TOTP instance — caller is responsible for showing QR code.
      */
-    public function generateSecret(\WP_User $user): TOTP {
-        $totp = TOTP::generate();
+    public function generateSecret(\WP_User $user): Totp {
+        $totp = Totp::generate();
         $totp->setLabel($user->user_login);
         $totp->setIssuer(get_bloginfo('name') . ' (DPXL Shield)');
 
@@ -310,7 +309,7 @@ class TwoFactorAuth {
             return [];
         }
 
-        $totp = TOTP::createFromSecret($pendingSecret);
+        $totp = Totp::fromSecret($pendingSecret);
 
         if (!$totp->verify(preg_replace('/\s+/', '', $code), null, self::TOTP_WINDOW)) {
             return [];
@@ -360,7 +359,7 @@ class TwoFactorAuth {
             return false;
         }
 
-        $totp = TOTP::createFromSecret($secret);
+        $totp = Totp::fromSecret($secret);
 
         return $totp->verify($code, null, self::TOTP_WINDOW);
     }

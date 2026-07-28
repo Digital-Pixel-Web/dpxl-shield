@@ -43,7 +43,7 @@ class Loader {
         $engine   = new FirewallEngine($configFile, $blockedIpsFile);
         $result   = $engine->evaluate($request);
 
-        if ($result->decision->value === 'block') {
+        if ($result->decision === 'block') {
             self::sendBlockResponse($result->ruleId, $result->reason);
         }
     }
@@ -106,7 +106,7 @@ class Loader {
         return is_array($config) && !empty($config['firewall_enabled']);
     }
 
-    private static function sendBlockResponse(string $ruleId, string $reason): never {
+    private static function sendBlockResponse(string $ruleId, string $reason): void {
         http_response_code(403);
         header('Content-Type: text/html; charset=utf-8');
         header('X-DPXL-Shield: blocked');

@@ -2,9 +2,9 @@
 Contributors: digitalpixelbr
 Tags: security, firewall, malware scanner, login protection, two-factor authentication
 Requires at least: 6.4
-Tested up to: 6.7
-Requires PHP: 8.1
-Stable tag: 1.3.1
+Tested up to: 7.0
+Requires PHP: 7.4
+Stable tag: 1.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -78,8 +78,16 @@ DPXL Shield processes visitor IP addresses solely for security purposes and stor
 * `safebrowsing.googleapis.com` — site reputation check (requires free API key)
 * `raw.githubusercontent.com` — core file repair downloads
 * `wpscan.com` — known-CVE lookup for installed plugins/themes (only when a WPScan API token is configured; the base outdated-component check runs entirely offline)
+* `cdn.jsdelivr.net` — signed threat-feed manifest and WAF rule updates (daily; can be disabled)
+* `github.com` — GeoLite2 country database download, served as a release asset (only when a newer database is published; can be disabled)
 
-No data is sent to Digital Pixel servers.
+These are plain downloads: the plugin sends no site data, no identifiers, and no telemetry with them. No data is sent to Digital Pixel servers.
+
+= Third-party data =
+
+This product includes GeoLite2 data created by MaxMind, available from https://www.maxmind.com.
+
+The GeoLite2 Country database powers country blocking and the country breakdown in the dashboard and reports. It is distributed through the plugin's signed update feed and refreshed automatically so it stays current.
 
 == Installation ==
 
@@ -140,6 +148,16 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.4.0 =
+* **Now runs on PHP 7.4.** The minimum PHP version drops from 8.1 to 7.4 — the same floor WordPress itself sets — so the plugin installs on older shared hosting. Every PHP 8 construct in the codebase was rewritten, and a build-time check (`composer check-php74`) now fails the release if any creeps back in.
+* **Two-factor authentication no longer depends on an external library.** TOTP (RFC 6238) is now implemented in the plugin itself, verified against the RFC's official test vectors. This removed three dependencies — including one carrying two published security advisories — and keeps 2FA fully compatible with Google Authenticator, Authy, 1Password and every other standards-compliant app. Existing 2FA setups keep working; no need to re-enrol.
+* New: the GeoLite2 database row in Diagnostics now reports its version, last update status and age, and warns if it drifts past MaxMind's 30-day freshness rule instead of only saying "present".
+* New: MaxMind attribution is now shown in the admin, as required now that the plugin distributes the GeoLite2 database through its own feed.
+* Changed: requests with no User-Agent are classified as **Suspicious** rather than **Bot**. Every browser and every well-behaved crawler identifies itself, so an absent User-Agent is anomalous, not a crawler — it no longer hides among Googlebot traffic. Live Traffic gains a "Suspicious" filter.
+* Changed: alert emails now use the same Portuguese footer as the scheduled report, instead of falling back to English when sent from cron.
+* Changed: the release build now trims the unused DejaVu Serif and Mono fonts from the PDF engine, cutting about 3 MB from the download. Report rendering is byte-identical.
+* Fixed: `Tested up to` now reflects WordPress 7.0, and the privacy section documents the threat-feed and GeoLite2 downloads that were previously undisclosed.
 
 = 1.3.1 =
 * Fixed: the "Check now" button (All Options → Firewall) now also downloads/updates the GeoLite2 database on demand, not just the WAF rules — so you no longer have to wait for the scheduled job to install geolocation. The result of both is shown.

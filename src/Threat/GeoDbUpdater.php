@@ -46,7 +46,7 @@ class GeoDbUpdater {
     public function __construct(
         ?string $manifestUrl = null,
         ?string $publicKeyB64 = null,
-        ?string $dbPath = null,
+        ?string $dbPath = null
     ) {
         $configured = (string) Options::get('threat_feed_url', '');
 

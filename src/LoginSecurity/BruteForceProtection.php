@@ -45,8 +45,11 @@ class BruteForceProtection {
     /**
      * Runs on `authenticate` filter (priority 30 — after WP validates credentials).
      * Returns WP_Error to abort login if IP is locked out.
+     *
+     * @param  mixed $user WP_User, WP_Error or null, depending on the filter chain.
+     * @return mixed The user untouched, or a WP_Error when the IP is locked out.
      */
-    public function checkLockoutBeforeAuth(mixed $user, string $username, string $password): mixed {
+    public function checkLockoutBeforeAuth($user, string $username, string $password) {
         if (empty($username)) {
             return $user;
         }
@@ -126,12 +129,19 @@ class BruteForceProtection {
      *   ≥ base×4 → 24h · ≥ base×2 → 1h · ≥ base → 5min · below → 0
      */
     public static function lockoutDuration(int $failures, int $baseThreshold): int {
-        return match (true) {
-            $failures >= $baseThreshold * 4 => DAY_IN_SECONDS,
-            $failures >= $baseThreshold * 2 => HOUR_IN_SECONDS,
-            $failures >= $baseThreshold     => 5 * MINUTE_IN_SECONDS,
-            default                         => 0,
-        };
+        if ($failures >= $baseThreshold * 4) {
+            return DAY_IN_SECONDS;
+        }
+
+        if ($failures >= $baseThreshold * 2) {
+            return HOUR_IN_SECONDS;
+        }
+
+        if ($failures >= $baseThreshold) {
+            return 5 * MINUTE_IN_SECONDS;
+        }
+
+        return 0;
     }
 
     private function applyLockoutIfNeeded(string $ip, int $failures, string $username): void {

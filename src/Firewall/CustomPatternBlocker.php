@@ -114,22 +114,27 @@ class CustomPatternBlocker {
     }
 
     private static function targetValue(Request $request, string $field): ?string {
-        return match ($field) {
+        $values = [
             'user_agent' => $request->userAgent,
             'referer'    => $request->referer,
             'hostname'   => $request->host,
             'url'        => $request->uri,
-            default      => null,
-        };
+        ];
+
+        return $values[$field] ?? null;
     }
 
     private static function matches(string $value, string $pattern, string $type): bool {
-        return match ($type) {
-            'contains' => str_contains(strtolower($value), strtolower($pattern)),
-            'equals'   => strtolower($value) === strtolower($pattern),
-            'regex'    => @preg_match($pattern, $value) === 1,
-            default    => false,
-        };
+        switch ($type) {
+            case 'contains':
+                return str_contains(strtolower($value), strtolower($pattern));
+            case 'equals':
+                return strtolower($value) === strtolower($pattern);
+            case 'regex':
+                return @preg_match($pattern, $value) === 1;
+            default:
+                return false;
+        }
     }
 
     private static function isExpired(array $rule): bool {

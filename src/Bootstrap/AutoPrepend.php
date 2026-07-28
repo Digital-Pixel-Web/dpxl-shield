@@ -720,8 +720,8 @@ PHP;
         $activeLoader = $this->buildActivePrependLoader($wafFile);
         $userIniPath = $this->getUserIniPath();
 
-        return match ($server) {
-            ServerDetector::NGINX => <<<NGINX
+        if ($server === ServerDetector::NGINX) {
+            return <<<NGINX
 # DPXL Shield manual fallback for Nginx / PHP-FPM
 #
 # 1) Create this file first:
@@ -735,8 +735,10 @@ fastcgi_param PHP_VALUE "auto_prepend_file={$prependFile}";
 # Safety note:
 # If DPXL Shield is removed, keep {$prependFile} as a no-op file or remove the
 # fastcgi_param line before deleting the file.
-NGINX,
-            default => <<<HTACCESS
+NGINX;
+        }
+
+        return <<<HTACCESS
 # DPXL Shield manual fallback
 #
 # 1) Create this file first:
@@ -776,8 +778,7 @@ auto_prepend_file = "{$prependFile}"
 # Safety note:
 # Do not point auto_prepend_file directly to the plugin folder.
 # Use the safe loader above so the site does not go down if the plugin is deleted.
-HTACCESS,
-        };
+HTACCESS;
     }
 
     private function fail(string $code, string $message, array $extra = []): array {

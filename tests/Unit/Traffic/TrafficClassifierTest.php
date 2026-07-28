@@ -48,11 +48,24 @@ class TrafficClassifierTest extends TestCase {
     }
 
     /**
-     * An empty User-Agent is treated as a bot: no legitimate browser omits it,
-     * so the classifier flags it as automated (isKnownBot() returns true for '').
+     * An empty User-Agent is suspicious, not a bot. Browsers and well-behaved
+     * crawlers all identify themselves; omitting the header is anomalous, so it
+     * must not be filed next to Googlebot.
      */
-    public function testEmptyUserAgentClassifiedAsBot(): void {
-        $this->assertSame('bot', $this->classifier->classify('pass', '', '10.0.0.1', 200));
+    public function testEmptyUserAgentClassifiedAsSuspicious(): void {
+        $this->assertSame('suspicious', $this->classifier->classify('pass', '', '10.0.0.1', 200));
+        $this->assertSame('suspicious', $this->classifier->classify('pass', '   ', '10.0.0.1', 200));
+    }
+
+    /** A missing UA must not set the is_bot flag either — it is not a crawler. */
+    public function testEmptyUserAgentIsNotFlaggedAsBot(): void {
+        $this->assertFalse($this->classifier->isBot(''));
+        $this->assertTrue($this->classifier->isBot('curl/7.68.0'));
+    }
+
+    /** A blocked request stays 'blocked' even with no User-Agent. */
+    public function testBlockedWinsOverEmptyUserAgent(): void {
+        $this->assertSame('blocked', $this->classifier->classify('block', '', '10.0.0.1', 200));
     }
 
     public function test404ForNonBrowserClassifiedAsSuspicious(): void {

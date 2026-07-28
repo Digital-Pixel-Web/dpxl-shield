@@ -99,6 +99,17 @@
         }, delay);
     }
 
+    // Mirrors TrafficClassifier::classify() (src/Traffic/TrafficClassifier.php).
+    // Only is_bot is persisted, so 'suspicious' is derived here from the same
+    // signals the PHP classifier uses. Keep the two in sync.
+    function trafficType(row) {
+        if (row.waf_action === 'block') return 'blocked';
+        if (row.is_bot === '1' || row.is_bot === 1) return 'bot';
+        if (!String(row.user_agent || '').trim()) return 'suspicious';
+        if (row.waf_action === 'log_only' || Number(row.status_code) === 403) return 'suspicious';
+        return 'human';
+    }
+
     function dots(type) {
         const map = { human: 'green', bot: 'yellow', blocked: 'red', suspicious: 'orange', unknown: 'gray' };
         const color = map[type] || 'gray';
@@ -1147,7 +1158,7 @@
                 return;
             }
             tbody.innerHTML = items.map(row => {
-                const type = row.waf_action === 'block' ? 'blocked' : (row.is_bot === '1' ? 'bot' : 'human');
+                const type = trafficType(row);
                 const status = row.status_code;
                 const statusClass = status >= 400 ? 'color:var(--dpxl-error)' : 'color:var(--dpxl-ok)';
                 return `<tr data-row='${JSON.stringify(row).replace(/'/g, "&#39;")}'>

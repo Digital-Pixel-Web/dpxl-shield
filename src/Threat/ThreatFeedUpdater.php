@@ -49,7 +49,7 @@ class ThreatFeedUpdater {
     public function __construct(
         ?string $manifestUrl = null,
         ?string $publicKeyB64 = null,
-        ?string $activePath = null,
+        ?string $activePath = null
     ) {
         $configured = (string) Options::get('threat_feed_url', '');
 

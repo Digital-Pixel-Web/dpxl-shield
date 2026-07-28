@@ -4,15 +4,20 @@ declare(strict_types=1);
 namespace DPXL\Shield\Alerts;
 
 /**
- * Portuguese (pt-BR) strings for the activity report — email and PDF.
+ * Portuguese (pt-BR) strings for the emails DPXL Shield sends — activity report
+ * (email + PDF) and the shared shell around every alert.
  *
  * The plugin has no .mo catalogue; its UI is localised by an admin-only
  * `gettext` filter (AdminMenu::translatePluginStrings), which never runs during
  * WP-Cron — so a scheduled report would otherwise go out in English. This class
- * carries just the report's own strings and installs a *temporary* gettext /
- * ngettext filter around report generation, so the translation applies in both
- * the admin (download button) and cron (scheduled email) contexts without
- * putting a global filter on every __() call site-wide.
+ * carries just those strings and installs a *temporary* gettext / ngettext
+ * filter around rendering, so the translation applies in both the admin
+ * (download button) and cron (scheduled email) contexts without putting a
+ * global filter on every __() call site-wide.
+ *
+ * Scope note: alert *bodies* still come from EventCatalog, which is not mapped
+ * here — an alert arrives with a pt-BR shell and an English event title and
+ * summary. Translating the catalogue is a separate pass.
  *
  * Like the UI filter, this is unconditional (the plugin is pt-BR first). If the
  * plugin ever ships internationally, both filters need locale-gating together —
@@ -60,6 +65,15 @@ class ReportI18n {
         'High'                                      => 'Alto',
         'Notice'                                    => 'Aviso',
         'Info'                                      => 'Info',
+        // Shared email shell (EmailTemplate::render footer) — reaches both the
+        // scheduled report and every alert.
+        'Sent by %1$s on %2$s.'                     => 'Enviado por %1$s em %2$s.',
+        'Manage what triggers an email in %s.'      => 'Gerencie o que dispara um e-mail em %s.',
+        'DPXL Shield settings'                      => 'configurações do DPXL Shield',
+        // Alert shell (EmailChannel).
+        'Open DPXL Shield'                          => 'Abrir o DPXL Shield',
+        'When'                                      => 'Quando',
+        'Event ID: %s'                              => 'ID do evento: %s',
     ];
 
     /** @var array<string,array{0:string,1:string}> English singular → [pt singular, pt plural]. */
@@ -74,14 +88,31 @@ class ReportI18n {
         ],
     ];
 
-    /** Installs the temporary translation filters for the duration of report rendering. */
+    /**
+     * Nesting depth. An alert sent from inside report generation would other-
+     * wise deactivate the filters on its way out and leave the rest of the
+     * report in English, so only the outermost deactivate() actually unhooks.
+     */
+    private static int $depth = 0;
+
+    /** Installs the temporary translation filters for the duration of rendering. */
     public static function activate(): void {
+        if (self::$depth++ > 0) {
+            return;
+        }
+
         add_filter('gettext', [self::class, 'filterGettext'], 20, 3);
         add_filter('ngettext', [self::class, 'filterNgettext'], 20, 5);
     }
 
-    /** Removes the filters once the report is built. */
+    /** Removes the filters once the outermost caller is done. */
     public static function deactivate(): void {
+        if (self::$depth > 0 && --self::$depth > 0) {
+            return;
+        }
+
+        self::$depth = 0;
+
         remove_filter('gettext', [self::class, 'filterGettext'], 20);
         remove_filter('ngettext', [self::class, 'filterNgettext'], 20);
     }

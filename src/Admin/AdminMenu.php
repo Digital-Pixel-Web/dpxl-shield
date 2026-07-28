@@ -82,8 +82,12 @@ class AdminMenu {
      * non-strict callers. WordPress/Elementor can pass null to the gettext filter
      * (e.g. __( $variable ) where $variable is null). Accepting mixed + null-guarding
      * prevents the fatal 500 on any admin page.
+     *
+     * @param mixed $translated
+     * @param mixed $text
+     * @param mixed $domain
      */
-    public function translatePluginStrings(mixed $translated, mixed $text, mixed $domain): string {
+    public function translatePluginStrings($translated, $text, $domain): string {
         if (!is_string($domain) || $domain !== 'dpxl-shield') {
             return is_string($translated) ? $translated : (string) ($translated ?? '');
         }

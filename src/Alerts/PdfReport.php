@@ -126,7 +126,22 @@ class PdfReport {
                 . '<p class="range">' . $range . '</p>'
                 . $callout
                 . $this->statGrid($data)
+                . $this->updatesBlock($data)
                 . $this->topIpsTable((array) ($data['topIps'] ?? []))
+                . $this->twoColTable(
+                    esc_html__('Most blocked countries', 'dpxl-shield'),
+                    esc_html__('Country', 'dpxl-shield'),
+                    esc_html__('Blocks', 'dpxl-shield'),
+                    (array) ($data['topCountries'] ?? []),
+                    'country'
+                )
+                . $this->twoColTable(
+                    esc_html__('Top failed logins', 'dpxl-shield'),
+                    esc_html__('Username', 'dpxl-shield'),
+                    esc_html__('Attempts', 'dpxl-shield'),
+                    (array) ($data['topFailedUsers'] ?? []),
+                    'user_login'
+                )
                 . '<p class="stamp">' . esc_html(sprintf(
                     /* translators: %s: date/time the report was generated */
                     __('Report generated on %s.', 'dpxl-shield'),
@@ -183,6 +198,67 @@ class PdfReport {
             . '</table>';
     }
 
+    /** @param array<string,mixed> $data */
+    private function updatesBlock(array $data): string {
+        $count      = (int) ($data['updatesNeeded'] ?? 0);
+        $components = (array) ($data['vulnComponents'] ?? []);
+
+        $heading = '<h2>' . esc_html__('Updates needed', 'dpxl-shield') . '</h2>';
+
+        if ($count === 0) {
+            return $heading . '<p class="ok">' . esc_html__('All plugins and themes are up to date.', 'dpxl-shield') . '</p>';
+        }
+
+        $rows = '';
+        foreach ($components as $row) {
+            $label = (string) ($row['details'] ?? '');
+            $label = $label !== '' ? $label : (string) ($row['file_path'] ?? '');
+
+            if ($label === '') {
+                continue;
+            }
+
+            if (mb_strlen($label) > 140) {
+                $label = mb_substr($label, 0, 137) . '…';
+            }
+
+            $rows .= '<tr><td>' . esc_html($label) . '</td></tr>';
+        }
+
+        return $heading
+            . '<p class="warn">' . esc_html(sprintf(
+                /* translators: %d: number of components needing an update */
+                _n('%d component is running an outdated version.', '%d components are running an outdated version.', $count, 'dpxl-shield'),
+                $count
+            )) . '</p>'
+            . ($rows !== '' ? '<table class="ips">' . $rows . '</table>' : '');
+    }
+
+    /**
+     * Generic two-column "label / count" table.
+     *
+     * @param array<int,array<string,mixed>> $rowsData
+     */
+    private function twoColTable(string $title, string $col1, string $col2, array $rowsData, string $key): string {
+        if ($rowsData === []) {
+            return '';
+        }
+
+        $rows = '';
+        foreach ($rowsData as $row) {
+            $rows .= '<tr>'
+                . '<td>' . esc_html((string) ($row[$key] ?? '')) . '</td>'
+                . '<td class="r">' . number_format_i18n((int) ($row['hits'] ?? 0)) . '</td>'
+                . '</tr>';
+        }
+
+        return '<h2>' . esc_html($title) . '</h2>'
+            . '<table class="ips">'
+            . '<tr class="th"><td>' . esc_html($col1) . '</td><td class="r">' . esc_html($col2) . '</td></tr>'
+            . $rows
+            . '</table>';
+    }
+
     private function styles(string $accent): string {
         $ink    = self::INK;
         $orange = self::ORANGE;
@@ -222,6 +298,8 @@ class PdfReport {
                           text-transform: uppercase; letter-spacing: 1px; border-top: none; }
             .ips .r, .r { text-align: right; }
             .muted { color: #787c82; margin: 18px 0 0; }
+            .ok { color: #1a7f37; font-size: 12px; margin: 6px 0 0; }
+            .warn { color: {$accent}; font-size: 12px; margin: 6px 0 0; }
             .stamp { color: #a7aaad; font-size: 10px; margin: 26px 0 0; }
         ";
     }

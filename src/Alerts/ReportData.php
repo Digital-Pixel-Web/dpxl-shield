@@ -19,7 +19,10 @@ class ReportData {
      * @return array{
      *     freq: string, since: string, attacksBlocked: int,
      *     topIps: array<int,array<string,mixed>>, loginSuccess: int,
-     *     loginFailed: int, scanIssues: int, criticalIssues: int
+     *     loginFailed: int, scanIssues: int, criticalIssues: int,
+     *     updatesNeeded: int, vulnComponents: array<int,array<string,mixed>>,
+     *     topCountries: array<int,array<string,mixed>>,
+     *     topFailedUsers: array<int,array<string,mixed>>
      * }
      */
     public static function collect(string $freq): array {
@@ -86,10 +89,49 @@ class ReportData {
             )
         );
 
+        // Components running an outdated / vulnerable version (VulnerabilityScanner,
+        // stage 9). DISTINCT file_path so repeated daily scans don't inflate the count.
+        $updatesNeeded = (int) $wpdb->get_var(
+            "SELECT COUNT(DISTINCT file_path) FROM {$scanTable}
+             WHERE status='new' AND issue_type='vulnerable_version'"
+        );
+
+        // The components themselves (deduped), for a short "needs update" list.
+        $vulnComponents = $wpdb->get_results(
+            "SELECT file_path, MAX(details) AS details, MAX(severity) AS severity
+             FROM {$scanTable}
+             WHERE status='new' AND issue_type='vulnerable_version'
+             GROUP BY file_path ORDER BY MAX(scanned_at) DESC LIMIT 5",
+            ARRAY_A
+        ) ?? [];
+
+        // Top 5 blocked countries.
+        $topCountries = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT country, COUNT(*) as hits FROM {$logTable}
+                 WHERE waf_action='block' AND country IS NOT NULL AND country <> '' AND timestamp >= %s
+                 GROUP BY country ORDER BY hits DESC LIMIT 5",
+                $since
+            ),
+            ARRAY_A
+        ) ?? [];
+
+        // Top 5 usernames by failed-login attempts.
+        $topFailedUsers = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT user_login, COUNT(*) as hits FROM {$loginTable}
+                 WHERE result='failure' AND timestamp >= %s
+                 GROUP BY user_login ORDER BY hits DESC LIMIT 5",
+                $since
+            ),
+            ARRAY_A
+        ) ?? [];
+
         return compact(
             'freq', 'since', 'attacksBlocked',
             'topIps', 'loginSuccess', 'loginFailed',
-            'scanIssues', 'criticalIssues'
+            'scanIssues', 'criticalIssues',
+            'updatesNeeded', 'vulnComponents', 'topCountries', 'topFailedUsers'
         );
     }
 }

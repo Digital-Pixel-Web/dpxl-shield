@@ -123,7 +123,10 @@ class ActivityReport {
             . '</p>'
             . $headline
             . $this->buildStatGrid($data)
+            . $this->buildUpdatesTable($data)
             . $this->buildTopIpsTable((array) ($data['topIps'] ?? []))
+            . $this->buildTopCountriesTable((array) ($data['topCountries'] ?? []))
+            . $this->buildFailedUsersTable((array) ($data['topFailedUsers'] ?? []))
             . EmailTemplate::button(
                 (string) get_option('siteurl') . '/wp-admin/admin.php?page=dpxl-shield',
                 __('Open dashboard', 'dpxl-shield')
@@ -186,6 +189,107 @@ class ActivityReport {
             . '<tr>'
             . '<td style="padding:9px 14px;background:#f6f7f7;font-size:12px;color:#787c82;">' . esc_html__('IP address', 'dpxl-shield') . '</td>'
             . '<td align="right" style="padding:9px 14px;background:#f6f7f7;font-size:12px;color:#787c82;">' . esc_html__('Blocks', 'dpxl-shield') . '</td>'
+            . '</tr>'
+            . $rows
+            . '</table>';
+    }
+
+    /**
+     * "Updates needed" — components on an outdated/vulnerable version, or a
+     * reassuring line when there are none.
+     *
+     * @param array<string,mixed> $data
+     */
+    private function buildUpdatesTable(array $data): string {
+        $count      = (int) ($data['updatesNeeded'] ?? 0);
+        $components = (array) ($data['vulnComponents'] ?? []);
+
+        $heading = '<h2 style="margin:26px 0 0;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#787c82;">'
+            . esc_html__('Updates needed', 'dpxl-shield') . '</h2>';
+
+        if ($count === 0) {
+            return $heading
+                . '<p style="margin:8px 0 0;font-size:14px;line-height:1.6;color:#00a32a;">'
+                . esc_html__('All plugins and themes are up to date.', 'dpxl-shield') . '</p>';
+        }
+
+        $rows = '';
+
+        foreach ($components as $row) {
+            $label = (string) ($row['details'] ?? '');
+            $label = $label !== '' ? $label : (string) ($row['file_path'] ?? '');
+
+            if ($label === '') {
+                continue;
+            }
+
+            if (mb_strlen($label) > 120) {
+                $label = mb_substr($label, 0, 117) . '…';
+            }
+
+            $rows .= '<tr><td style="padding:10px 14px;border-top:1px solid #f0f0f1;color:#1d2327;">'
+                . esc_html($label) . '</td></tr>';
+        }
+
+        return $heading
+            . '<p style="margin:8px 0 0;font-size:14px;line-height:1.6;color:#bd5b00;">'
+            . esc_html(sprintf(
+                /* translators: %d: number of components needing an update */
+                _n('%d component is running an outdated version.', '%d components are running an outdated version.', $count, 'dpxl-shield'),
+                $count
+            )) . '</p>'
+            . ($rows !== ''
+                ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:10px;border:1px solid #f0f0f1;border-radius:8px;font-size:14px;">' . $rows . '</table>'
+                : '');
+    }
+
+    /** @param array<int,array<string,mixed>> $countries */
+    private function buildTopCountriesTable(array $countries): string {
+        if ($countries === []) {
+            return '';
+        }
+
+        $rows = '';
+
+        foreach ($countries as $row) {
+            $rows .= '<tr>'
+                . '<td style="padding:10px 14px;border-top:1px solid #f0f0f1;color:#1d2327;">' . esc_html((string) ($row['country'] ?? '')) . '</td>'
+                . '<td align="right" style="padding:10px 14px;border-top:1px solid #f0f0f1;color:#50575e;">' . number_format_i18n((int) ($row['hits'] ?? 0)) . '</td>'
+                . '</tr>';
+        }
+
+        return '<h2 style="margin:26px 0 0;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#787c82;">'
+            . esc_html__('Most blocked countries', 'dpxl-shield') . '</h2>'
+            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:10px;border:1px solid #f0f0f1;border-radius:8px;font-size:14px;">'
+            . '<tr>'
+            . '<td style="padding:9px 14px;background:#f6f7f7;font-size:12px;color:#787c82;">' . esc_html__('Country', 'dpxl-shield') . '</td>'
+            . '<td align="right" style="padding:9px 14px;background:#f6f7f7;font-size:12px;color:#787c82;">' . esc_html__('Blocks', 'dpxl-shield') . '</td>'
+            . '</tr>'
+            . $rows
+            . '</table>';
+    }
+
+    /** @param array<int,array<string,mixed>> $users */
+    private function buildFailedUsersTable(array $users): string {
+        if ($users === []) {
+            return '';
+        }
+
+        $rows = '';
+
+        foreach ($users as $row) {
+            $rows .= '<tr>'
+                . '<td style="padding:10px 14px;border-top:1px solid #f0f0f1;color:#1d2327;">' . esc_html((string) ($row['user_login'] ?? '')) . '</td>'
+                . '<td align="right" style="padding:10px 14px;border-top:1px solid #f0f0f1;color:#50575e;">' . number_format_i18n((int) ($row['hits'] ?? 0)) . '</td>'
+                . '</tr>';
+        }
+
+        return '<h2 style="margin:26px 0 0;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#787c82;">'
+            . esc_html__('Top failed logins', 'dpxl-shield') . '</h2>'
+            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:10px;border:1px solid #f0f0f1;border-radius:8px;font-size:14px;">'
+            . '<tr>'
+            . '<td style="padding:9px 14px;background:#f6f7f7;font-size:12px;color:#787c82;">' . esc_html__('Username', 'dpxl-shield') . '</td>'
+            . '<td align="right" style="padding:9px 14px;background:#f6f7f7;font-size:12px;color:#787c82;">' . esc_html__('Attempts', 'dpxl-shield') . '</td>'
             . '</tr>'
             . $rows
             . '</table>';

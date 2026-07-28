@@ -57,6 +57,10 @@ class PdfReportTest extends TestCase {
             'loginFailed'    => 3,
             'scanIssues'     => 2,
             'criticalIssues' => $criticals,
+            'updatesNeeded'  => 2,
+            'vulnComponents' => [['file_path' => 'wp-content/plugins/foo/foo.php', 'details' => 'Foo Plugin 1.2 → 1.3 available', 'severity' => 'medium']],
+            'topCountries'   => [['country' => 'RU', 'hits' => 40], ['country' => 'CN', 'hits' => 22]],
+            'topFailedUsers' => [['user_login' => 'admin', 'hits' => 15]],
         ];
     }
 
@@ -69,6 +73,24 @@ class PdfReportTest extends TestCase {
         $this->assertStringContainsString('1,234', $html, 'Attacks-blocked figure must be formatted and present');
         $this->assertStringContainsString('203.0.113.7', $html, 'Top blocked IP must be listed');
         $this->assertStringContainsString('#F68B00', $html, 'Digital Pixel orange must drive the brand accent');
+    }
+
+    public function testEnrichedSectionsRender(): void {
+        $html = (new PdfReport())->buildHtml($this->sampleData());
+
+        $this->assertStringContainsString('Foo Plugin 1.2', $html, 'Outdated component listed under Updates needed');
+        $this->assertStringContainsString('RU', $html, 'Top blocked country listed');
+        $this->assertStringContainsString('admin', $html, 'Top failed-login username listed');
+    }
+
+    public function testNoUpdatesShowsReassuringLine(): void {
+        $data = $this->sampleData();
+        $data['updatesNeeded'] = 0;
+        $data['vulnComponents'] = [];
+
+        $html = (new PdfReport())->buildHtml($data);
+
+        $this->assertStringContainsString('up to date', $html, 'A clean install gets the positive "up to date" line');
     }
 
     public function testCriticalIssuesRaiseACallout(): void {

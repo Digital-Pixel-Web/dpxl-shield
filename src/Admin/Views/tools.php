@@ -9,6 +9,7 @@
             'live-traffic'  => __('Tráfego ao vivo', 'dpxl-shield'),
             'audit-log'     => __('Log de auditoria', 'dpxl-shield'),
             'whois'         => __('Consulta Whois', 'dpxl-shield'),
+            'integrations'  => __('Integrações', 'dpxl-shield'),
             'import-export' => __('Importação/Exportação', 'dpxl-shield'),
             'diagnostics'   => __('Diagnóstico', 'dpxl-shield'),
         ];

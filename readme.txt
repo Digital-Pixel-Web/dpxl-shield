@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.4.1
+Stable tag: 1.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,7 +59,8 @@ Enterprise-grade WordPress security: WAF, malware scanner, 2FA, brute force prot
 
 **Alerts**
 * Configurable email alerts for critical security events
-* Webhook channel (premium)
+* Outbound webhooks to Slack, Discord, PagerDuty or any SIEM — up to 10 endpoints, each with its own severity threshold
+* HMAC-SHA256 signed payloads so your receiver can verify they came from your site
 * Weekly / monthly activity report email
 * Deactivation and deletion guard — alerts you even if a plugin is deleted
 
@@ -148,6 +149,14 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.5.0 =
+* **New: outbound webhooks (Tools → Integrations).** Push security events to Slack, Discord, PagerDuty or any SIEM as they happen. Up to 10 endpoints, each with its own severity threshold — so a chat channel can take only critical events while a SIEM takes everything. Each destination receives the payload shape it actually expects, and a "Test" button reports exactly what the endpoint answered.
+* New: generic (SIEM) payloads can be signed with HMAC-SHA256, including a timestamp so a captured payload cannot be replayed later.
+* Changed: webhook delivery is queued during the request and sent after the response reaches the browser, so a slow or unreachable endpoint never adds latency to your site. Failures are recorded and shown per endpoint instead of disappearing silently.
+* Changed: webhook endpoints are excluded from the settings export bundle. They carry live credentials — signing secrets, PagerDuty routing keys, and for Slack and Discord the URL itself — which do not belong in a file you download and forward.
+* Changed: endpoints must use HTTPS. These payloads describe attacks against your site and are not sent in the clear.
+* Note: the previous webhook implementation was never reachable — the setting it depended on had no interface and was never registered, so it could not fire. This release replaces it.
 
 = 1.4.1 =
 * Fixed: the Tools screen showed "View not found" on every tab in the 1.4.0 package. A packaging bug dropped the five tab templates from the zip — the plugin code was never affected, only the built archive. The build now verifies that every view is present before producing a zip.

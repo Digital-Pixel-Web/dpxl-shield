@@ -17,6 +17,10 @@ use DPXL\Shield\Bootstrap\AutoPrepend;
 use DPXL\Shield\LoginSecurity\TwoFactorAuth;
 use DPXL\Shield\LoginSecurity\LoginAudit;
 use DPXL\Shield\LoginSecurity\BackupCodes;
+use DPXL\Shield\Integrations\Event;
+use DPXL\Shield\Integrations\Severity;
+use DPXL\Shield\Integrations\WebhookDispatcher;
+use DPXL\Shield\Integrations\WebhookEndpoint;
 
 /**
  * Registers all REST API endpoints for the admin panel.
@@ -125,6 +129,12 @@ class RestApi {
         // Import / Export
         register_rest_route(self::NS, '/export',              ['methods' => 'GET',    'callback' => [$this, 'exportSettings'],      'permission_callback' => $auth]);
         register_rest_route(self::NS, '/import',              ['methods' => 'POST',   'callback' => [$this, 'importSettings'],      'permission_callback' => $auth]);
+
+        // Outbound integrations (webhooks)
+        register_rest_route(self::NS, '/webhooks',            ['methods' => 'GET',    'callback' => [$this, 'getWebhooks'],         'permission_callback' => $auth]);
+        register_rest_route(self::NS, '/webhooks',            ['methods' => 'POST',   'callback' => [$this, 'saveWebhook'],         'permission_callback' => $auth]);
+        register_rest_route(self::NS, '/webhooks/(?P<id>[A-Za-z0-9_-]+)',      ['methods' => 'DELETE', 'callback' => [$this, 'deleteWebhook'], 'permission_callback' => $auth]);
+        register_rest_route(self::NS, '/webhooks/(?P<id>[A-Za-z0-9_-]+)/test', ['methods' => 'POST',   'callback' => [$this, 'testWebhook'],   'permission_callback' => $auth]);
     }
 
     // ── Permission ─────────────────────────────────────────────────────────
@@ -897,5 +907,130 @@ class RestApi {
         $result = (new ImportExport())->import($json);
 
         return rest_ensure_response($result);
+    }
+
+    // ── Outbound integrations ──────────────────────────────────────────────
+
+    public function getWebhooks(): \WP_REST_Response {
+        $status = (array) Options::get('webhook_status', []);
+        $items  = [];
+
+        foreach (WebhookDispatcher::allEndpoints() as $endpoint) {
+            // toPublicArray() masks the secret. The URL still goes out, because
+            // the admin has to be able to see and edit what they configured —
+            // this endpoint is already behind manage_options.
+            $items[] = array_merge(
+                $endpoint->toPublicArray(),
+                ['last' => $status[$endpoint->id()] ?? null]
+            );
+        }
+
+        return rest_ensure_response([
+            'items'    => $items,
+            'formats'  => WebhookEndpoint::formats(),
+            'levels'   => Severity::all(),
+        ]);
+    }
+
+    public function saveWebhook(\WP_REST_Request $request): \WP_REST_Response {
+        $stored = (array) Options::get('webhook_endpoints', []);
+
+        $incoming = [
+            'id'        => (string) $request->get_param('id'),
+            'label'     => sanitize_text_field((string) $request->get_param('label')),
+            'url'       => esc_url_raw(trim((string) $request->get_param('url'))),
+            'format'    => sanitize_key((string) $request->get_param('format')),
+            'min_level' => sanitize_key((string) $request->get_param('min_level')),
+            'secret'    => (string) $request->get_param('secret'),
+            'enabled'   => (bool) $request->get_param('enabled'),
+        ];
+
+        $existingIndex = null;
+
+        foreach ($stored as $index => $row) {
+            if (is_array($row) && (string) ($row['id'] ?? '') === $incoming['id'] && $incoming['id'] !== '') {
+                $existingIndex = $index;
+                break;
+            }
+        }
+
+        // An empty secret on an update means "leave it alone", not "clear it" —
+        // the UI never receives the current value, so it cannot send it back.
+        if ($existingIndex !== null && $incoming['secret'] === '') {
+            $incoming['secret'] = (string) ($stored[$existingIndex]['secret'] ?? '');
+        }
+
+        $endpoint = WebhookEndpoint::fromArray($incoming);
+
+        if ($endpoint === null) {
+            return new \WP_REST_Response([
+                'error' => __('A valid HTTPS URL is required.', 'dpxl-shield'),
+            ], 400);
+        }
+
+        if ($existingIndex !== null) {
+            $stored[$existingIndex] = $endpoint->toArray();
+        } else {
+            if (count($stored) >= 10) {
+                return new \WP_REST_Response([
+                    'error' => __('Maximum of 10 endpoints reached.', 'dpxl-shield'),
+                ], 400);
+            }
+
+            $stored[] = $endpoint->toArray();
+        }
+
+        Options::set('webhook_endpoints', array_values($stored));
+
+        return rest_ensure_response(['success' => true, 'endpoint' => $endpoint->toPublicArray()]);
+    }
+
+    public function deleteWebhook(\WP_REST_Request $request): \WP_REST_Response {
+        $id     = (string) $request->get_param('id');
+        $stored = (array) Options::get('webhook_endpoints', []);
+
+        $remaining = array_values(array_filter(
+            $stored,
+            static function ($row) use ($id) {
+                return !is_array($row) || (string) ($row['id'] ?? '') !== $id;
+            }
+        ));
+
+        Options::set('webhook_endpoints', $remaining);
+
+        $status = (array) Options::get('webhook_status', []);
+        unset($status[$id]);
+        Options::set('webhook_status', $status);
+
+        return rest_ensure_response(['success' => true]);
+    }
+
+    /** Delivers a synthetic event so the admin sees the real result, not a guess. */
+    public function testWebhook(\WP_REST_Request $request): \WP_REST_Response {
+        $id = (string) $request->get_param('id');
+
+        foreach (WebhookDispatcher::allEndpoints() as $endpoint) {
+            if ($endpoint->id() !== $id) {
+                continue;
+            }
+
+            $event = new Event(
+                Severity::INFO,
+                'fw.rule_triggered',
+                __('Test delivery from DPXL Shield. If you can read this, the endpoint is wired up correctly.', 'dpxl-shield'),
+                ['test' => true]
+            );
+
+            $result = (new WebhookDispatcher())->deliverNow($endpoint, $event);
+
+            return rest_ensure_response([
+                'success' => $result['status'] === WebhookDispatcher::STATUS_OK,
+                'status'  => $result['status'],
+                'code'    => $result['code'],
+                'message' => $result['message'],
+            ]);
+        }
+
+        return new \WP_REST_Response(['error' => __('Endpoint not found.', 'dpxl-shield')], 404);
     }
 }

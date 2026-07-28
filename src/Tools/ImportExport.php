@@ -23,12 +23,31 @@ use DPXL\Shield\Firewall\AllowlistManager;
  *   - Scan results (too large)
  *   - TOTP secrets (security)
  *   - Encryption keys
+ *   - Webhook endpoints (they carry live credentials — see EXCLUDED_OPTS)
  */
 class ImportExport {
 
     private const FORMAT_VERSION = '1.0';
     private const HASH_ALGO      = 'sha256';
-    private const EXCLUDED_OPTS  = ['_site_check_enc_key', '_site_check_timeout_shwp'];
+
+    /**
+     * Options kept out of the bundle.
+     *
+     * `webhook_endpoints` holds live credentials: signing secrets, PagerDuty
+     * routing keys, and — for Slack and Discord — the URL itself, which is the
+     * credential. The bundle is a plain JSON file an administrator downloads and
+     * may forward, so none of that belongs in it. Excluding the endpoints also
+     * avoids the worse outcome of restoring one bundle across many sites and
+     * silently pointing all of them at a single channel.
+     *
+     * `webhook_status` is per-site delivery history — meaningless elsewhere.
+     */
+    private const EXCLUDED_OPTS = [
+        '_site_check_enc_key',
+        '_site_check_timeout_shwp',
+        'webhook_endpoints',
+        'webhook_status',
+    ];
 
     // ── Export ─────────────────────────────────────────────────────────────
 

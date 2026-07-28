@@ -6,6 +6,7 @@ namespace DPXL\Shield\Alerts;
 use DPXL\Shield\Audit\AuditLog;
 use DPXL\Shield\Audit\AuditEvents;
 use DPXL\Shield\Core\Options;
+use DPXL\Shield\Integrations\WebhookDispatcher;
 
 /**
  * Central alert dispatcher.
@@ -23,12 +24,15 @@ use DPXL\Shield\Core\Options;
  */
 class AlertManager {
 
-    private EmailChannel   $email;
-    private WebhookChannel $webhook;
+    /** @var EmailChannel */
+    private $email;
+
+    /** @var WebhookDispatcher */
+    private $webhooks;
 
     public function __construct() {
-        $this->email   = new EmailChannel();
-        $this->webhook = new WebhookChannel();
+        $this->email    = new EmailChannel();
+        $this->webhooks = new WebhookDispatcher();
     }
 
     public function registerHooks(): void {
@@ -63,8 +67,10 @@ class AlertManager {
             $this->email->send($level, $eventType, $description, $context);
         }
 
-        // Webhook (premium; no-op in free mode).
-        $this->webhook->send($level, $eventType, $description, $context);
+        // Outbound integrations. Queued here and delivered on shutdown, so a
+        // slow Slack or PagerDuty never shows up as page latency. Each endpoint
+        // applies its own severity threshold, so this hands over everything.
+        $this->webhooks->enqueue($level, $eventType, $description, $context);
     }
 
     // ── WordPress lifecycle → audit log ────────────────────────────────────

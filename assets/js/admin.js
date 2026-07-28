@@ -230,7 +230,7 @@
         } catch (e) {
             showNotice('Unable to load dashboard data. ' + e.message, 'error');
             const tc = document.getElementById('top-countries');
-            if (tc) tc.innerHTML = '<li class="dpxl-empty">Não foi possível carregar.</li>';
+            if (tc) tc.innerHTML = '<li class="dpxl-empty-state">Não foi possível carregar.</li>';
         }
     }
 
@@ -239,7 +239,7 @@
         if (!el) return;
 
         if (!items.length) {
-            el.innerHTML = `<li class="dpxl-empty">${geoipReady
+            el.innerHTML = `<li class="dpxl-empty-state">${geoipReady
                 ? 'Nenhum país bloqueado nos últimos 7 dias.'
                 : 'Geolocalização indisponível — configure o GeoLite2 (Ferramentas → Diagnostics).'}</li>`;
             return;
@@ -1382,6 +1382,185 @@
                 }
             } catch (e) { showNotice(e.message, 'error'); }
         });
+    }
+
+    // ── Tools: Integrations (outbound webhooks) ─────────────────────────────
+
+    if (page === 'dpxl-shield-tools' && tab === 'integrations') {
+        initIntegrations();
+    }
+
+    function initIntegrations() {
+        const container = document.getElementById('webhooks-container');
+        const formCard  = document.getElementById('webhook-form-card');
+
+        if (!container) return;
+
+        const field = (id) => document.getElementById(id);
+
+        const STATUS_LABELS = {
+            ok:        ['green',  'Delivered'],
+            http_fail: ['red',    'Rejected'],
+            net_fail:  ['orange', 'Unreachable'],
+            skipped:   ['gray',   'Skipped'],
+        };
+
+        function lastDelivery(last) {
+            if (!last) return '<span class="dpxl-muted">Never sent</span>';
+
+            const [colour, label] = STATUS_LABELS[last.status] || ['gray', last.status];
+            const when = last.time ? new Date(last.time * 1000).toLocaleString() : '';
+            const code = last.code ? ` (HTTP ${last.code})` : '';
+            const why  = last.message ? `<br><span class="dpxl-muted">${esc(last.message)}</span>` : '';
+
+            return `<span class="dpxl-dot dpxl-dot--${colour}"></span> ${esc(label)}${esc(code)}
+                    <br><span class="dpxl-muted">${esc(when)}</span>${why}`;
+        }
+
+        async function load() {
+            try {
+                const data  = await api.get('webhooks');
+                const items = data.items || [];
+
+                if (!items.length) {
+                    container.innerHTML = '<p class="dpxl-empty-state">No endpoints configured yet. Security events are not being pushed anywhere.</p>';
+                    return;
+                }
+
+                container.className = '';
+                container.innerHTML = `
+                    <table class="dpxl-table">
+                        <thead><tr>
+                            <th>Name</th><th>Destination</th><th>Sends</th><th>Last delivery</th><th></th>
+                        </tr></thead>
+                        <tbody>${items.map(row => `
+                            <tr>
+                                <td>
+                                    ${row.enabled ? '' : '<span class="dpxl-muted">(disabled)</span> '}
+                                    <strong>${esc(row.label)}</strong>
+                                    <br><code style="font-size:11px;">${esc(row.url.substring(0, 48))}${row.url.length > 48 ? '…' : ''}</code>
+                                </td>
+                                <td>${esc(row.format)}${row.has_secret ? ' <span class="dpxl-muted">· signed</span>' : ''}</td>
+                                <td>${esc(row.min_level)}+</td>
+                                <td>${lastDelivery(row.last)}</td>
+                                <td style="white-space:nowrap;">
+                                    <button class="dpxl-btn dpxl-btn--sm" data-test="${esc(row.id)}">Test</button>
+                                    <button class="dpxl-btn dpxl-btn--sm" data-edit="${esc(row.id)}">Edit</button>
+                                    <button class="dpxl-btn dpxl-btn--sm" data-remove="${esc(row.id)}">Remove</button>
+                                </td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>`;
+
+                container.querySelectorAll('[data-test]').forEach(b =>
+                    b.addEventListener('click', () => sendTest(b.dataset.test, b)));
+                container.querySelectorAll('[data-edit]').forEach(b =>
+                    b.addEventListener('click', () => openForm(items.find(i => i.id === b.dataset.edit))));
+                container.querySelectorAll('[data-remove]').forEach(b =>
+                    b.addEventListener('click', () => remove(b.dataset.remove)));
+            } catch (e) {
+                container.innerHTML = `<p class="dpxl-empty-state">${esc(e.message)}</p>`;
+            }
+        }
+
+        function openForm(row) {
+            formCard?.classList.remove('dpxl-hidden');
+
+            field('webhook-form-title').textContent = row ? 'Edit endpoint' : 'Add endpoint';
+            field('webhook-id').value        = row?.id || '';
+            field('webhook-label').value     = row?.label || '';
+            field('webhook-url').value       = row?.url || '';
+            field('webhook-format').value    = row?.format || 'slack';
+            field('webhook-min-level').value = row?.min_level || 'medium';
+            field('webhook-enabled').checked = row ? !!row.enabled : true;
+            field('webhook-secret').value    = '';
+
+            syncSecretField();
+            field('webhook-label').focus();
+        }
+
+        function closeForm() {
+            formCard?.classList.add('dpxl-hidden');
+        }
+
+        // PagerDuty's "secret" is really its routing key and is mandatory, so the
+        // field has to say so rather than sitting there labelled "optional".
+        function syncSecretField() {
+            const isPagerDuty = field('webhook-format').value === 'pagerduty';
+            const isGeneric   = field('webhook-format').value === 'generic';
+
+            field('webhook-secret-label').textContent = isPagerDuty
+                ? 'Integration routing key (required)'
+                : 'Signing secret (optional)';
+
+            field('webhook-secret-hint').textContent = isPagerDuty
+                ? 'From the PagerDuty service integration. Leave blank when editing to keep the current key.'
+                : (isGeneric
+                    ? 'Signs each payload so your receiver can verify it really came from this site. Leave blank when editing to keep the current value.'
+                    : 'Slack and Discord authenticate by URL, so a secret is not used for this destination.');
+
+            field('webhook-secret-field').style.opacity = (isPagerDuty || isGeneric) ? '1' : '0.5';
+        }
+
+        async function save() {
+            try {
+                await api.post('webhooks', {
+                    id:        field('webhook-id').value,
+                    label:     field('webhook-label').value,
+                    url:       field('webhook-url').value,
+                    format:    field('webhook-format').value,
+                    min_level: field('webhook-min-level').value,
+                    secret:    field('webhook-secret').value,
+                    enabled:   field('webhook-enabled').checked,
+                });
+
+                closeForm();
+                showNotice('Endpoint saved.');
+                load();
+            } catch (e) { showNotice(e.message, 'error'); }
+        }
+
+        async function remove(id) {
+            if (!confirm('Remove this endpoint? Events will stop being sent to it.')) return;
+
+            try {
+                await api.delete(`webhooks/${encodeURIComponent(id)}`);
+                showNotice('Endpoint removed.');
+                load();
+            } catch (e) { showNotice(e.message, 'error'); }
+        }
+
+        async function sendTest(id, button) {
+            const original = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Sending…';
+
+            try {
+                const res = await api.post(`webhooks/${encodeURIComponent(id)}/test`);
+
+                if (res.success) {
+                    showNotice('Test delivered.');
+                } else {
+                    // Say what the endpoint actually answered — "failed" alone
+                    // gives the admin nothing to act on.
+                    showNotice(`Test failed: ${res.status}${res.code ? ' HTTP ' + res.code : ''}${res.message ? ' — ' + res.message : ''}`, 'error');
+                }
+
+                load();
+            } catch (e) {
+                showNotice(e.message, 'error');
+            } finally {
+                button.disabled = false;
+                button.textContent = original;
+            }
+        }
+
+        document.getElementById('btn-add-webhook')?.addEventListener('click', () => openForm(null));
+        document.getElementById('btn-save-webhook')?.addEventListener('click', save);
+        document.getElementById('btn-cancel-webhook')?.addEventListener('click', closeForm);
+        document.getElementById('webhook-format')?.addEventListener('change', syncSecretField);
+
+        load();
     }
 
     // ── Tools: Diagnostics ──────────────────────────────────────────────────

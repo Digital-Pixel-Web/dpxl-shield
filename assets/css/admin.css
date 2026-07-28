@@ -515,3 +515,26 @@
     color: var(--dpxl-muted);
 }
 .dpxl-attribution a { color: inherit; text-decoration: underline; }
+
+/* Integrations (outbound webhooks) */
+.dpxl-muted { color: var(--dpxl-muted); }
+
+.dpxl-card__intro {
+    margin: 0 0 12px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--dpxl-muted);
+    max-width: 68ch;
+}
+
+.dpxl-field-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--dpxl-muted);
+    font-weight: 400;
+}
+
+/* Full-width row inside the two-column form grid (long URLs need the space). */
+.dpxl-form-grid__wide { grid-column: 1 / -1; }

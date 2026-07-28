@@ -39,6 +39,8 @@ class Options {
         'geo_db_enabled'               => true,
         'geo_db_sha'                   => '',
         'geo_db_version'               => '',
+        'webhook_endpoints'            => [],
+        'webhook_status'               => [],
     ];
 
     public static function setDefaults(): void {

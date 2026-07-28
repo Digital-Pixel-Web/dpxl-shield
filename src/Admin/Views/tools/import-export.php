@@ -9,7 +9,7 @@
             <p><?php esc_html_e('Download all DPXL Shield settings as a signed JSON file.', 'dpxl-shield'); ?></p>
             <ul class="dpxl-ie-list">
                 <li><?php \DPXL\Shield\Admin\Icons::render('check', 'dpxl-icon--ok'); ?> <?php esc_html_e('WAF rules, blocking config, scan settings, alert preferences, login security settings', 'dpxl-shield'); ?></li>
-                <li><?php \DPXL\Shield\Admin\Icons::render('x', 'dpxl-icon--critical'); ?> <?php esc_html_e('Logs, scan results, TOTP secrets are NOT exported', 'dpxl-shield'); ?></li>
+                <li><?php \DPXL\Shield\Admin\Icons::render('x', 'dpxl-icon--critical'); ?> <?php esc_html_e('Logs, scan results, TOTP secrets and webhook endpoints are NOT exported', 'dpxl-shield'); ?></li>
             </ul>
             <button class="dpxl-btn dpxl-btn--primary" id="btn-export">
                 <?php esc_html_e('Export Options', 'dpxl-shield'); ?>

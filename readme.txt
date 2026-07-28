@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 1.3.0
+Stable tag: 1.3.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -140,6 +140,9 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.3.1 =
+* Fixed: the "Check now" button (All Options → Firewall) now also downloads/updates the GeoLite2 database on demand, not just the WAF rules — so you no longer have to wait for the scheduled job to install geolocation. The result of both is shown.
 
 = 1.3.0 =
 * New: the GeoLite2 geolocation database now installs and updates itself automatically through the signed feed — no manual per-site upload. Country data (dashboard widget, activity report, country blocking) starts working on its own after the next scheduled update. The database is verified (SHA-256 + signed manifest) before use and kept fresh automatically. Includes GeoLite2 data created by MaxMind (https://www.maxmind.com).

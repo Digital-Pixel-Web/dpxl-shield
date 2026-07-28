@@ -15,18 +15,40 @@
         $feedStatus = get_transient('dpxl_shield_feed_check_' . get_current_user_id());
         delete_transient('dpxl_shield_feed_check_' . get_current_user_id());
 
-        if (is_string($feedStatus) && $feedStatus !== '') {
-            $version  = (string) \DPXL\Shield\Core\Options::get('threat_feed_version', '');
-            [$class, $msg] = match ($feedStatus) {
-                'ok'        => ['success', sprintf(__('Threat feed updated to version %s.', 'dpxl-shield'), $version)],
-                'no_change' => ['success', __('Threat feed is already up to date.', 'dpxl-shield')],
-                'net_fail'  => ['warning', __('Could not reach the threat feed. Try again later.', 'dpxl-shield')],
-                'sig_fail', 'hash_fail' => ['error', __('Feed verification failed — the update was rejected.', 'dpxl-shield')],
-                'no_pubkey' => ['warning', __('Feed cannot be verified on this server (missing key or sodium).', 'dpxl-shield')],
-                'disabled'  => ['warning', __('The threat feed is disabled.', 'dpxl-shield')],
-                default     => ['warning', sprintf(__('Threat feed check finished: %s.', 'dpxl-shield'), $feedStatus)],
+        // Back-compat: an old single-string result is treated as the rules status.
+        if (is_string($feedStatus)) {
+            $feedStatus = ['rules' => $feedStatus];
+        }
+
+        if (is_array($feedStatus)) {
+            $rulesVersion = (string) \DPXL\Shield\Core\Options::get('threat_feed_version', '');
+            $geoVersion   = (string) \DPXL\Shield\Core\Options::get('geo_db_version', '');
+
+            $rulesMsg = match ($feedStatus['rules'] ?? '') {
+                'ok'                    => ['success', sprintf(__('WAF rules updated to version %s.', 'dpxl-shield'), $rulesVersion)],
+                'no_change'             => ['success', __('WAF rules are already up to date.', 'dpxl-shield')],
+                'net_fail'              => ['warning', __('Could not reach the feed for WAF rules.', 'dpxl-shield')],
+                'sig_fail', 'hash_fail' => ['error',   __('WAF rules verification failed — rejected.', 'dpxl-shield')],
+                'no_pubkey'             => ['warning', __('Feed cannot be verified on this server (missing key or sodium).', 'dpxl-shield')],
+                'disabled'              => ['warning', __('The threat feed is disabled.', 'dpxl-shield')],
+                default                 => null,
             };
-            printf('<div class="dpxl-notice dpxl-notice--%s">%s</div>', esc_attr($class), esc_html($msg));
+
+            $geoMsg = match ($feedStatus['geo'] ?? '') {
+                'ok'                    => ['success', sprintf(__('GeoLite2 database installed/updated (%s).', 'dpxl-shield'), $geoVersion)],
+                'no_change'             => ['success', __('GeoLite2 database is already up to date.', 'dpxl-shield')],
+                'net_fail'              => ['warning', __('Could not download the GeoLite2 database.', 'dpxl-shield')],
+                'sig_fail', 'hash_fail' => ['error',   __('GeoLite2 database verification failed — rejected.', 'dpxl-shield')],
+                'no_geo'                => ['warning', __('No GeoLite2 database is available in the feed yet.', 'dpxl-shield')],
+                'disabled'              => ['warning', __('GeoLite2 auto-update is disabled.', 'dpxl-shield')],
+                default                 => null,
+            };
+
+            foreach ([$rulesMsg, $geoMsg] as $m) {
+                if ($m !== null) {
+                    printf('<div class="dpxl-notice dpxl-notice--%s">%s</div>', esc_attr($m[0]), esc_html($m[1]));
+                }
+            }
         }
     }
     ?>

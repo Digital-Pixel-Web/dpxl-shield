@@ -9,6 +9,7 @@ use DPXL\Shield\Alerts\ReportData;
 use DPXL\Shield\Alerts\PdfReport;
 use DPXL\Shield\Alerts\ReportI18n;
 use DPXL\Shield\Threat\ThreatFeedUpdater;
+use DPXL\Shield\Threat\GeoDbUpdater;
 
 /**
  * Registers the plugin admin menu and all sub-pages.
@@ -560,8 +561,14 @@ class AdminMenu {
 
         check_admin_referer('dpxl_shield_check_feed');
 
-        $status = (new ThreatFeedUpdater())->run();
-        set_transient('dpxl_shield_feed_check_' . get_current_user_id(), $status, 60);
+        // "Check now" covers the whole feed: WAF rules and the GeoLite2 database.
+        $status    = (new ThreatFeedUpdater())->run();
+        $geoStatus = (new GeoDbUpdater())->run();
+        set_transient(
+            'dpxl_shield_feed_check_' . get_current_user_id(),
+            ['rules' => $status, 'geo' => $geoStatus],
+            60
+        );
 
         wp_safe_redirect(add_query_arg(
             ['dpxl_feed_checked' => '1'],

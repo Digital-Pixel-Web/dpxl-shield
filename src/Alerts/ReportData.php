@@ -22,7 +22,9 @@ class ReportData {
      *     loginFailed: int, scanIssues: int, criticalIssues: int,
      *     updatesNeeded: int, vulnComponents: array<int,array<string,mixed>>,
      *     topCountries: array<int,array<string,mixed>>,
-     *     topFailedUsers: array<int,array<string,mixed>>
+     *     topFailedUsers: array<int,array<string,mixed>>,
+     *     recentAttacks: array<int,array<string,mixed>>,
+     *     modifiedFiles: array<int,array<string,mixed>>
      * }
      */
     public static function collect(string $freq): array {
@@ -127,11 +129,34 @@ class ReportData {
             ARRAY_A
         ) ?? [];
 
+        // Most recent blocked attacks (time / IP / rule).
+        $recentAttacks = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT timestamp, ip, waf_rule_id FROM {$logTable}
+                 WHERE waf_action='block' AND timestamp >= %s
+                 ORDER BY timestamp DESC LIMIT 8",
+                $since
+            ),
+            ARRAY_A
+        ) ?? [];
+
+        // Recently changed files flagged by the integrity scan (deduped by path).
+        $modifiedFiles = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT file_path, MAX(scanned_at) AS scanned_at, MAX(issue_type) AS issue_type FROM {$scanTable}
+                 WHERE issue_type IN ('modified_core','modified_plugin') AND scanned_at >= %s
+                 GROUP BY file_path ORDER BY scanned_at DESC LIMIT 8",
+                $since
+            ),
+            ARRAY_A
+        ) ?? [];
+
         return compact(
             'freq', 'since', 'attacksBlocked',
             'topIps', 'loginSuccess', 'loginFailed',
             'scanIssues', 'criticalIssues',
-            'updatesNeeded', 'vulnComponents', 'topCountries', 'topFailedUsers'
+            'updatesNeeded', 'vulnComponents', 'topCountries', 'topFailedUsers',
+            'recentAttacks', 'modifiedFiles'
         );
     }
 }

@@ -142,6 +142,8 @@ class PdfReport {
                     (array) ($data['topFailedUsers'] ?? []),
                     'user_login'
                 )
+                . $this->recentAttacksTable((array) ($data['recentAttacks'] ?? []))
+                . $this->modifiedFilesTable((array) ($data['modifiedFiles'] ?? []))
                 . '<p class="stamp">' . esc_html(sprintf(
                     /* translators: %s: date/time the report was generated */
                     __('Report generated on %s.', 'dpxl-shield'),
@@ -255,6 +257,64 @@ class PdfReport {
         return '<h2>' . esc_html($title) . '</h2>'
             . '<table class="ips">'
             . '<tr class="th"><td>' . esc_html($col1) . '</td><td class="r">' . esc_html($col2) . '</td></tr>'
+            . $rows
+            . '</table>';
+    }
+
+    /** @param array<int,array<string,mixed>> $attacks */
+    private function recentAttacksTable(array $attacks): string {
+        if ($attacks === []) {
+            return '';
+        }
+
+        $rows = '';
+        foreach ($attacks as $row) {
+            $when = EmailTemplate::localTime(strtotime((string) ($row['timestamp'] ?? '')) ?: null);
+            $rule = (string) ($row['waf_rule_id'] ?? '');
+
+            $rows .= '<tr>'
+                . '<td>' . esc_html($when) . '</td>'
+                . '<td>' . esc_html((string) ($row['ip'] ?? '')) . '</td>'
+                . '<td>' . esc_html($rule !== '' ? $rule : '—') . '</td>'
+                . '</tr>';
+        }
+
+        return '<h2>' . esc_html__('Recently blocked attacks', 'dpxl-shield') . '</h2>'
+            . '<table class="ips">'
+            . '<tr class="th"><td>' . esc_html__('Time', 'dpxl-shield') . '</td>'
+            . '<td>' . esc_html__('IP', 'dpxl-shield') . '</td>'
+            . '<td>' . esc_html__('Rule', 'dpxl-shield') . '</td></tr>'
+            . $rows
+            . '</table>';
+    }
+
+    /** @param array<int,array<string,mixed>> $files */
+    private function modifiedFilesTable(array $files): string {
+        if ($files === []) {
+            return '';
+        }
+
+        $rows = '';
+        foreach ($files as $row) {
+            $path = (string) ($row['file_path'] ?? '');
+
+            if ($path === '') {
+                continue;
+            }
+
+            if (mb_strlen($path) > 80) {
+                $path = '…' . mb_substr($path, -77);
+            }
+
+            $when = EmailTemplate::localTime(strtotime((string) ($row['scanned_at'] ?? '')) ?: null);
+
+            $rows .= '<tr><td>' . esc_html($path) . '</td><td class="r">' . esc_html($when) . '</td></tr>';
+        }
+
+        return '<h2>' . esc_html__('Recently modified files', 'dpxl-shield') . '</h2>'
+            . '<table class="ips">'
+            . '<tr class="th"><td>' . esc_html__('File', 'dpxl-shield') . '</td>'
+            . '<td class="r">' . esc_html__('Changed', 'dpxl-shield') . '</td></tr>'
             . $rows
             . '</table>';
     }

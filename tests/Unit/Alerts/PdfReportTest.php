@@ -61,6 +61,8 @@ class PdfReportTest extends TestCase {
             'vulnComponents' => [['file_path' => 'wp-content/plugins/foo/foo.php', 'details' => 'Foo Plugin 1.2 → 1.3 available', 'severity' => 'medium']],
             'topCountries'   => [['country' => 'RU', 'hits' => 40], ['country' => 'CN', 'hits' => 22]],
             'topFailedUsers' => [['user_login' => 'admin', 'hits' => 15]],
+            'recentAttacks'  => [['timestamp' => '2026-07-27 10:00:00', 'ip' => '198.51.100.9', 'waf_rule_id' => 'sqli-001']],
+            'modifiedFiles'  => [['file_path' => 'wp-includes/functions.php', 'scanned_at' => '2026-07-27 09:00:00', 'issue_type' => 'modified_core']],
         ];
     }
 
@@ -81,6 +83,8 @@ class PdfReportTest extends TestCase {
         $this->assertStringContainsString('Foo Plugin 1.2', $html, 'Outdated component listed under Updates needed');
         $this->assertStringContainsString('RU', $html, 'Top blocked country listed');
         $this->assertStringContainsString('admin', $html, 'Top failed-login username listed');
+        $this->assertStringContainsString('198.51.100.9', $html, 'Recent attack IP listed');
+        $this->assertStringContainsString('wp-includes/functions.php', $html, 'Recently modified file listed');
     }
 
     public function testNoUpdatesShowsReassuringLine(): void {

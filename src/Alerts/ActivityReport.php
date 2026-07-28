@@ -127,6 +127,8 @@ class ActivityReport {
             . $this->buildTopIpsTable((array) ($data['topIps'] ?? []))
             . $this->buildTopCountriesTable((array) ($data['topCountries'] ?? []))
             . $this->buildFailedUsersTable((array) ($data['topFailedUsers'] ?? []))
+            . $this->buildRecentAttacksTable((array) ($data['recentAttacks'] ?? []))
+            . $this->buildModifiedFilesTable((array) ($data['modifiedFiles'] ?? []))
             . EmailTemplate::button(
                 (string) get_option('siteurl') . '/wp-admin/admin.php?page=dpxl-shield',
                 __('Open dashboard', 'dpxl-shield')
@@ -290,6 +292,75 @@ class ActivityReport {
             . '<tr>'
             . '<td style="padding:9px 14px;background:#f6f7f7;font-size:12px;color:#787c82;">' . esc_html__('Username', 'dpxl-shield') . '</td>'
             . '<td align="right" style="padding:9px 14px;background:#f6f7f7;font-size:12px;color:#787c82;">' . esc_html__('Attempts', 'dpxl-shield') . '</td>'
+            . '</tr>'
+            . $rows
+            . '</table>';
+    }
+
+    /** @param array<int,array<string,mixed>> $attacks */
+    private function buildRecentAttacksTable(array $attacks): string {
+        if ($attacks === []) {
+            return '';
+        }
+
+        $rows = '';
+
+        foreach ($attacks as $row) {
+            $when = EmailTemplate::localTime(strtotime((string) ($row['timestamp'] ?? '')) ?: null);
+            $rule = (string) ($row['waf_rule_id'] ?? '');
+
+            $rows .= '<tr>'
+                . '<td style="padding:10px 14px;border-top:1px solid #f0f0f1;color:#50575e;white-space:nowrap;">' . esc_html($when) . '</td>'
+                . '<td style="padding:10px 14px;border-top:1px solid #f0f0f1;color:#1d2327;">' . esc_html((string) ($row['ip'] ?? '')) . '</td>'
+                . '<td style="padding:10px 14px;border-top:1px solid #f0f0f1;color:#787c82;">' . esc_html($rule !== '' ? $rule : '—') . '</td>'
+                . '</tr>';
+        }
+
+        return '<h2 style="margin:26px 0 0;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#787c82;">'
+            . esc_html__('Recently blocked attacks', 'dpxl-shield') . '</h2>'
+            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:10px;border:1px solid #f0f0f1;border-radius:8px;font-size:13px;">'
+            . '<tr>'
+            . '<td style="padding:9px 14px;background:#f6f7f7;font-size:12px;color:#787c82;">' . esc_html__('Time', 'dpxl-shield') . '</td>'
+            . '<td style="padding:9px 14px;background:#f6f7f7;font-size:12px;color:#787c82;">' . esc_html__('IP', 'dpxl-shield') . '</td>'
+            . '<td style="padding:9px 14px;background:#f6f7f7;font-size:12px;color:#787c82;">' . esc_html__('Rule', 'dpxl-shield') . '</td>'
+            . '</tr>'
+            . $rows
+            . '</table>';
+    }
+
+    /** @param array<int,array<string,mixed>> $files */
+    private function buildModifiedFilesTable(array $files): string {
+        if ($files === []) {
+            return '';
+        }
+
+        $rows = '';
+
+        foreach ($files as $row) {
+            $path = (string) ($row['file_path'] ?? '');
+
+            if ($path === '') {
+                continue;
+            }
+
+            if (mb_strlen($path) > 70) {
+                $path = '…' . mb_substr($path, -67);
+            }
+
+            $when = EmailTemplate::localTime(strtotime((string) ($row['scanned_at'] ?? '')) ?: null);
+
+            $rows .= '<tr>'
+                . '<td style="padding:10px 14px;border-top:1px solid #f0f0f1;color:#1d2327;word-break:break-all;">' . esc_html($path) . '</td>'
+                . '<td align="right" style="padding:10px 14px;border-top:1px solid #f0f0f1;color:#50575e;white-space:nowrap;">' . esc_html($when) . '</td>'
+                . '</tr>';
+        }
+
+        return '<h2 style="margin:26px 0 0;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#787c82;">'
+            . esc_html__('Recently modified files', 'dpxl-shield') . '</h2>'
+            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:10px;border:1px solid #f0f0f1;border-radius:8px;font-size:13px;">'
+            . '<tr>'
+            . '<td style="padding:9px 14px;background:#f6f7f7;font-size:12px;color:#787c82;">' . esc_html__('File', 'dpxl-shield') . '</td>'
+            . '<td align="right" style="padding:9px 14px;background:#f6f7f7;font-size:12px;color:#787c82;">' . esc_html__('Changed', 'dpxl-shield') . '</td>'
             . '</tr>'
             . $rows
             . '</table>';

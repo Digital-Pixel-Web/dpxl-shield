@@ -87,7 +87,18 @@ class BruteForceProtection {
         return $user;
     }
 
-    public function onLoginFailed(string $username, \WP_Error $error): void {
+    /**
+     * `wp_login_failed`.
+     *
+     * $error is optional and untyped on purpose. Core has passed it since WP 5.4,
+     * but WooCommerce and custom login forms still fire this action with only the
+     * username — and a required, typed second parameter turns that into a fatal
+     * ArgumentCountError, which would take the whole login page down rather than
+     * just skipping a count.
+     *
+     * @param mixed $error WP_Error when the caller supplies one.
+     */
+    public function onLoginFailed(string $username, $error = null): void {
         $ip = $this->currentIp();
 
         $failures = $this->incrementFailures($ip);

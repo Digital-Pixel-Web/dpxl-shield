@@ -44,22 +44,42 @@ class PasswordAudit {
         $this->flagIfPreviouslyPwned($user->ID);
     }
 
-    public function onProfileUpdate(\WP_Error $errors, bool $update, \WP_User $user): \WP_Error {
+    /**
+     * `user_profile_update_errors` — blocks the save when a breached password is chosen.
+     *
+     * $user is a bare **stdClass** that edit_user() is still assembling, not a
+     * WP_User: that is what WordPress documents and passes. Type-hinting WP_User
+     * here threw an uncaught TypeError under strict_types and broke every
+     * password change from the profile screen.
+     *
+     * It is also incomplete when creating a user: `ID` does not exist yet, and
+     * `user_login` only appears on updates. Both are treated as optional below.
+     *
+     * @param object $user Partial user object, passed by reference by WordPress.
+     */
+    public function onProfileUpdate(\WP_Error $errors, bool $update, $user): \WP_Error {
         $password = $_POST['pass1'] ?? '';
 
         if ($password === '' || $password !== ($_POST['pass2'] ?? '')) {
             return $errors;
         }
 
+        $userId = (is_object($user) && isset($user->ID)) ? (int) $user->ID : 0;
+        $login  = (is_object($user) && isset($user->user_login)) ? (string) $user->user_login : '(new user)';
+
         $count = $this->pwnedCount($password);
 
         if ($count > 0) {
-            Logger::error("PasswordAudit: user {$user->user_login} chose a password seen {$count}× in HIBP.");
+            Logger::error("PasswordAudit: user {$login} chose a password seen {$count}× in HIBP.");
 
-            update_user_meta($user->ID, self::META_KEY, [
-                'detected_at' => time(),
-                'count'       => $count,
-            ]);
+            // On creation there is no user row yet to attach meta to — the
+            // password is still rejected, which is the part that matters.
+            if ($userId > 0) {
+                update_user_meta($userId, self::META_KEY, [
+                    'detected_at' => time(),
+                    'count'       => $count,
+                ]);
+            }
 
             $errors->add(
                 'dpxl_pwned_password',
@@ -69,8 +89,8 @@ class PasswordAudit {
                     $count
                 )
             );
-        } else {
-            delete_user_meta($user->ID, self::META_KEY);
+        } elseif ($userId > 0) {
+            delete_user_meta($userId, self::META_KEY);
         }
 
         return $errors;

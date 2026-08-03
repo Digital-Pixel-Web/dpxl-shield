@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.6.0
+Stable tag: 1.6.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,11 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.6.1 =
+* **Fixed: changing a user's password from the profile screen failed with a fatal error.** The breached-password check declared the wrong type for one of its arguments — WordPress passes a partially built object there, not a full user — and the mismatch aborted the save. Present since 1.0.3 and triggered on every password change through the profile screen.
+* Fixed: creating a new user could also fail in the same check, which assumed a user ID that does not exist yet at that point. The weak-password rejection still applies on creation; only the bookkeeping is skipped.
+* Fixed: two login-failure handlers required an argument that WooCommerce and custom login forms do not always send, which could produce a fatal error on the login page. They now tolerate its absence.
 
 = 1.6.0 =
 * **New: read-only integration API.** Systems that prefer to pull rather than receive can now read the audit log, traffic log, scan results and firewall status over REST, authenticated with a bearer token. This completes the integrations work started in 1.5.0.

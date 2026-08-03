@@ -46,7 +46,15 @@ class LoginAudit {
         }
     }
 
-    public function onLoginFailure(string $username, \WP_Error $error): void {
+    /**
+     * `wp_login_failed`. $error is optional and untyped — see the matching note
+     * in BruteForceProtection::onLoginFailed(): third-party login forms fire this
+     * action with the username alone, and a required typed parameter would turn
+     * that into a fatal instead of a missed log entry.
+     *
+     * @param mixed $error WP_Error when the caller supplies one.
+     */
+    public function onLoginFailure(string $username, $error = null): void {
         $this->record($username, $this->currentIp(), 'failure');
     }
 

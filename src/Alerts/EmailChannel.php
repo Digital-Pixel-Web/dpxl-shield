@@ -276,7 +276,7 @@ class EmailChannel {
      */
     private static function stringify($value): string {
         if (is_bool($value)) {
-            return $value ? 'yes' : 'no';
+            return $value ? 'sim' : 'não';
         }
 
         if (!is_array($value)) {

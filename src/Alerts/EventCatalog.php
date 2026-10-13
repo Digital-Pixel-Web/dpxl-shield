@@ -214,8 +214,11 @@ class EventCatalog {
                 'Rode uma varredura completa.',
                 'Se o conflito continuar depois dela, acione o suporte da Digital Pixel.',
             ],
+            // Severity-neutral on purpose: since 1.8.1 this alert also fires
+            // when the worst finding is `high`, so "trate o que está marcado
+            // como crítico" would point at a section that is not there.
             'scan_found_criticals' => [
-                'Abra os resultados e trate primeiro o que está marcado como crítico.',
+                'Abra os resultados e trate primeiro os achados de maior severidade.',
                 'Plugins e temas desatualizados aparecem como recomendação: atualize-os quando puder.',
             ],
         ];
@@ -268,32 +271,60 @@ class EventCatalog {
     }
 
     /**
+     * Context field keys the dispatchers send, and what a reader sees.
+     *
+     * A constant rather than a local so FieldLabelCoverageTest can compare it
+     * against the keys actually dispatched across src/ — a key with no entry
+     * here falls back to a humanised slug and lands in English inside an
+     * otherwise pt-BR email, which is the half-translation 1.8.0 set out to
+     * remove.
+     *
+     * @var array<string,string>
+     */
+    private const FIELD_LABELS = [
+        'username'    => 'Usuário',
+        'user_login'  => 'Usuário',
+        'user_id'     => 'ID do usuário',
+        'ip'          => 'Endereço IP',
+        'hostname'    => 'Nome do host',
+        'country'     => 'País',
+        'uri'         => 'URL',
+        'url'         => 'URL',
+        'user_agent'  => 'Navegador',
+        'referer'     => 'Veio de',
+        'rule_id'     => 'Regra',
+        'reason'      => 'Motivo',
+        'file'        => 'Arquivo',
+        'file_path'   => 'Arquivo',
+        'plugin'      => 'Plugin',
+        'scan_id'     => 'ID da varredura',
+        'attempts'    => 'Tentativas',
+        'new_role'    => 'Novo papel',
+        'old_roles'   => 'Papéis anteriores',
+
+        // Every other key the dispatchers actually send. Without an entry
+        // here the fallback humanises the slug and the row lands in English
+        // ("Lockout seconds") inside an otherwise pt-BR email.
+        'count'                => 'Quantidade',
+        'critical'             => 'Críticos',
+        'domain'               => 'Domínio',
+        'failures'             => 'Falhas',
+        'files'                => 'Arquivos',
+        'hibp_count'           => 'Aparições em vazamentos',
+        'lockout_seconds'      => 'Bloqueio (segundos)',
+        'method'               => 'Método',
+        'metric'               => 'Métrica',
+        'network_deactivating' => 'Desativação em toda a rede',
+        'our_plugin'           => 'É o DPXL Shield',
+        'results'              => 'Resultados',
+        'timestamp'            => 'Horário',
+    ];
+
+    /**
      * Human label for a context field key (`user_id` → `ID do usuário`).
      */
     public static function fieldLabel(string $key): string {
-        $labels = [
-            'username'    => 'Usuário',
-            'user_login'  => 'Usuário',
-            'user_id'     => 'ID do usuário',
-            'ip'          => 'Endereço IP',
-            'hostname'    => 'Nome do host',
-            'country'     => 'País',
-            'uri'         => 'URL',
-            'url'         => 'URL',
-            'user_agent'  => 'Navegador',
-            'referer'     => 'Veio de',
-            'rule_id'     => 'Regra',
-            'reason'      => 'Motivo',
-            'file'        => 'Arquivo',
-            'file_path'   => 'Arquivo',
-            'plugin'      => 'Plugin',
-            'scan_id'     => 'ID da varredura',
-            'attempts'    => 'Tentativas',
-            'new_role'    => 'Novo papel',
-            'old_roles'   => 'Papéis anteriores',
-        ];
-
-        return isset($labels[$key]) ? $labels[$key] : self::humanise($key);
+        return isset(self::FIELD_LABELS[$key]) ? self::FIELD_LABELS[$key] : self::humanise($key);
     }
 
     /**

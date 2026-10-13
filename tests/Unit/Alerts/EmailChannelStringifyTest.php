@@ -44,8 +44,10 @@ class EmailChannelStringifyTest extends TestCase {
     }
 
     public function testBooleansReadAsWords(): void {
-        $this->assertSame('yes', $this->stringify(true));
-        $this->assertSame('no', $this->stringify(false));
+        // pt-BR since 1.8.2: `our_plugin` and `network_deactivating` are the
+        // booleans that reach a reader, inside an otherwise Portuguese email.
+        $this->assertSame('sim', $this->stringify(true));
+        $this->assertSame('não', $this->stringify(false));
     }
 
     public function testAssociativeKeysArePreserved(): void {

@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.8.1
+Stable tag: 1.8.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,10 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.8.2 =
+* **Fixed: three pieces of English left behind by 1.8.0.** The alert for a finished scan opened with "deal first with what is marked critical", but 1.8.1 widened that alert to fire on high findings too, so it could arrive pointing at a section that was not there; it now says to start with the most severe findings, whatever those turn out to be. Thirteen context fields the detectors send — the lockout duration, the breach count, the number of findings, whether the plugin being deactivated was this one — had no Portuguese label, so each arrived as a humanised English slug ("Lockout seconds", "Hibp count") inside an otherwise Portuguese email. And a true/false field still read "yes" or "no". All three are the same half-translation 1.8.0 set out to remove.
+* **Added: a check that reads the detectors instead of trusting a list.** Those labels went missing because a change elsewhere added two context keys and nothing connected the two sides. A test now walks every alert payload in the source, collects the keys each one sends, and fails naming any key that has no label — the same kind of guard the icon lists got in 1.7.4.
 
 = 1.8.1 =
 * **Fixed: the dashboard's security gauge read 100% with a malware signature open, and no email ever went out about it.** The gauge, and the alert sent when a scan finishes, both asked whether anything was *critical*. The one finding open on two installs was a matched malware signature rated high — so from July onwards the panel reported perfect health over an open finding the Scan screen was listing all along, and not one alert email was sent about it. Both now treat high the same as critical, which is the line the threat count itself already drew. Medium is deliberately left out: those are the findings the scan says it is unsure about, and turning the gauge red for each of them is the same crying-wolf problem from the other side. They are still listed and still counted.

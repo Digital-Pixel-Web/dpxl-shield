@@ -32,10 +32,24 @@ use PHPUnit\Framework\TestCase;
  * against one shared set of rows. That is the point: the two numbers are not
  * compared as constants, they are folded from the same rows, so they cannot
  * drift apart again without this failing.
+ *
+ * 1.7.7 is the next chapter. Once the two screens agreed, what they agreed on
+ * turned out to be wrong: of the 19, exactly one was critical/high and the
+ * other 18 were components with an update available. The other staging install
+ * read 40, of which 34 were PHP files WPML compiles into its own cache — the
+ * scanner itself calls those "not evidence of a compromise on its own" and then
+ * counted them. So php_in_uploads and vulnerable_version became gated on
+ * severity, the way 'unknown' already was. The dataset below carries both
+ * installs' rows, and /scan/status joins the two endpoints as a third reader of
+ * the same rows, because admin.js writes its issue_count into the very element
+ * the results query fills.
  */
 class ScanThreatCountTest extends TestCase {
 
     private const LAST_SCAN_ID = 'scan-10-nothing-new';
+
+    /** What dpxl_shield_last_scan_issue_count still claims after the upgrade. */
+    private const STALE_SNAPSHOT = 19;
 
     /** @var FakeScanWpdb */
     private $wpdb;
@@ -50,9 +64,12 @@ class ScanThreatCountTest extends TestCase {
         Functions\when('sanitize_text_field')->returnArg(1);
         Functions\when('current_time')->justReturn('2026-10-13 18:40:39');
         Functions\when('rest_ensure_response')->alias(fn($data) => new \WP_REST_Response($data));
-        Functions\when('get_option')->alias(
-            fn($name, $default = null) => $name === 'dpxl_shield_last_scan_id' ? self::LAST_SCAN_ID : $default
-        );
+        Functions\when('get_option')->alias(fn($name, $default = null) => [
+            'dpxl_shield_last_scan_id'         => self::LAST_SCAN_ID,
+            // The snapshot finalize() left behind under the old classification.
+            // /scan/status must not hand it back.
+            'dpxl_shield_last_scan_issue_count' => self::STALE_SNAPSHOT,
+        ][$name] ?? $default);
 
         $GLOBALS['wpdb'] = $this->wpdb = new FakeScanWpdb(self::stagingRows());
     }
@@ -64,12 +81,21 @@ class ScanThreatCountTest extends TestCase {
     }
 
     /**
-     * The staging install's scan_results table, in shape.
+     * The staging installs' scan_results table, in shape.
      *
-     * 19 open threats, none of them carrying the last scan's id: ten
+     * The 1.7.6 half, from the first install: 19 rows that both screens used to
+     * count, none of them carrying the last scan's id — ten
      * vulnerable_version findings from one July scan, a malware_signature open
      * since July, and the rest trickled in over six later scans. Plus the
-     * advisory rows and the resolved history that sit alongside them.
+     * advisory rows and the resolved history alongside them.
+     *
+     * The 1.7.7 half: the other install's 34 WPML cache files, and one row on
+     * each side of both new gates — PHP where media actually lands, and a CVE
+     * left unpatched — so the gate is pinned in both directions rather than
+     * just downward.
+     *
+     * Four rows are therefore threats: the malware signature, the exposed
+     * .env, the real PHP upload, and the unpatched CVE.
      *
      * @return list<array<string,mixed>>
      */
@@ -99,12 +125,19 @@ class ScanThreatCountTest extends TestCase {
         $add('scan-01-july', 'malware_signature', 'high', 'new');
         $add('scan-04-august', 'vulnerable_version', 'medium', 'new');
         $add('scan-04-august', 'vulnerable_version', 'medium', 'new');
+        // A CVE with no fix available: scored high, so it stays a threat while
+        // the merely-outdated rows around it do not.
+        $add('scan-04-august', 'vulnerable_version', 'high', 'new');
         $add('scan-05-august', 'vulnerable_version', 'medium', 'new');
         $add('scan-06-august', 'vulnerable_version', 'medium', 'new');
         $add('scan-06-august', 'vulnerable_version', 'medium', 'new');
         $add('scan-07-august', 'vulnerable_version', 'medium', 'new');
         $add('scan-08-october', 'vulnerable_version', 'medium', 'new');
         $add('scan-08-october', 'unknown', 'critical', 'new');
+
+        // PHP where media actually lands — the finding php_in_uploads exists
+        // for. Critical, so it survives the gate.
+        $add('scan-08-october', 'php_in_uploads', 'critical', 'new');
 
         // Open advisory rows: real findings, but not threats, so they belong to
         // the recommendations list and must stay out of both counts.
@@ -113,6 +146,13 @@ class ScanThreatCountTest extends TestCase {
         }
 
         $add('scan-09-october', 'unknown', 'low', 'new');
+
+        // The other install's WPML Twig cache: compiled templates under
+        // uploads/cache/, rated medium by the directory guard, which is the
+        // scanner saying this is a plugin doing its job.
+        for ($i = 0; $i < 34; $i++) {
+            $add('scan-09-october', 'php_in_uploads', 'medium', 'new');
+        }
 
         // Closed history. The last scan resolved what it stopped seeing, which is
         // the reason status='new' can be trusted as "what the last scan found".
@@ -138,7 +178,7 @@ class ScanThreatCountTest extends TestCase {
         $panel = $this->dashboard()['scan_issues']['total'];
         $scan  = $this->scanResults()['total'];
 
-        $this->assertSame(19, $panel, 'The panel counts every open threat.');
+        $this->assertSame(4, $panel, 'The panel counts every open threat, and only those.');
         $this->assertSame(
             $panel,
             $scan,
@@ -184,7 +224,8 @@ class ScanThreatCountTest extends TestCase {
     public function testAnExplicitScanIdStillNarrowsToThatScan(): void {
         $data = $this->scanResults(['scan_id' => 'scan-04-august']);
 
-        $this->assertSame(2, $data['total'], 'Asking for one scan still answers for that scan alone.');
+        $this->assertSame(1, $data['total'], 'That scan found one threat: the unpatched CVE.');
+        $this->assertSame(2, $data['recommendation_total'], 'Its two outdated components narrow too.');
         $this->assertSame('scan-04-august', $data['scan_id']);
     }
 
@@ -195,9 +236,13 @@ class ScanThreatCountTest extends TestCase {
     public function testAdvisoryRowsAreCountedAsRecommendationsNotThreats(): void {
         $data = $this->scanResults();
 
-        $this->assertSame(9, $data['recommendation_total'], 'The eight heuristics plus the low "unknown" row.');
-        $this->assertCount(19, $data['items']);
-        $this->assertCount(9, $data['recommendations']);
+        $this->assertSame(
+            60,
+            $data['recommendation_total'],
+            'Eight heuristics, the low "unknown" row, 17 outdated components and 34 WPML cache files.'
+        );
+        $this->assertCount(4, $data['items']);
+        $this->assertCount(60, $data['recommendations']);
 
         foreach ($data['items'] as $item) {
             $this->assertTrue(ScanClassifier::isThreat($item), 'The threats list holds threats only.');
@@ -219,12 +264,64 @@ class ScanThreatCountTest extends TestCase {
         );
     }
 
+    /**
+     * The 1.7.7 decision, read off the badge the owner actually looks at: the
+     * two gated types count at critical/high and not below. Asserted through
+     * the endpoints, so threatWhereSql() carries it and not just isThreat().
+     */
+    public function testTheGatedTypesCountOnlyAtCriticalOrHigh(): void {
+        $threats = $this->scanResults()['items'];
+
+        $byType = [];
+
+        foreach ($threats as $row) {
+            $byType[$row['issue_type']][] = $row['severity'];
+        }
+
+        $this->assertSame(['critical'], $byType['php_in_uploads'] ?? [], 'Only the real upload counts.');
+        $this->assertSame(['high'], $byType['vulnerable_version'] ?? [], 'Only the unpatched CVE counts.');
+
+        $gated = array_filter(
+            $this->scanResults()['recommendations'],
+            fn($r) => in_array($r['issue_type'], ['php_in_uploads', 'vulnerable_version'], true)
+        );
+
+        $this->assertCount(51, $gated, 'The 34 cache files and the 17 outdated components.');
+
+        foreach ($gated as $row) {
+            $this->assertSame('medium', $row['severity'], 'Everything demoted was rated medium.');
+        }
+    }
+
+    /**
+     * /scan/status is the third screen reading these rows, and the one that
+     * used to answer from a cached option. admin.js writes its issue_count into
+     * the same stat and badge that the results query fills, so a snapshot taken
+     * under the old classification would have made the scan screen show 19 or 4
+     * depending on which request answered last.
+     */
+    public function testTheStatusEndpointCountsLiveInsteadOfReplayingTheSnapshot(): void {
+        $status = (new RestApi())->getScanStatus()->get_data();
+
+        $this->assertSame(
+            $this->scanResults()['total'],
+            $status['issue_count'],
+            'The status endpoint folds the same open rows as the results screen.'
+        );
+        $this->assertNotSame(
+            self::STALE_SNAPSHOT,
+            $status['issue_count'],
+            'dpxl_shield_last_scan_issue_count still claims the old total and must not be echoed.'
+        );
+    }
+
     /** A clean install must not be told it has problems. */
     public function testAnInstallWithNothingOpenCountsZeroOnBothScreens(): void {
         $GLOBALS['wpdb'] = $this->wpdb = new FakeScanWpdb([]);
 
         $this->assertSame(0, $this->dashboard()['scan_issues']['total']);
         $this->assertSame(0, $this->scanResults()['total']);
+        $this->assertSame(0, (new RestApi())->getScanStatus()->get_data()['issue_count']);
         $this->assertTrue($this->dashboard()['scan_ok']);
     }
 }

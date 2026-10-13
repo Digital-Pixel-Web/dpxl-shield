@@ -9,16 +9,23 @@ namespace DPXL\Shield\Scanner;
  *
  *   THREAT          High-confidence findings that warrant action and count as
  *                   "problems": modified core/plugin files, matched malware
- *                   signatures, PHP in uploads, exposed secrets (.env/.git),
- *                   reputation/blocklist hits, and the one heuristic that is
- *                   genuinely high-confidence (shell exec from user input).
+ *                   signatures, PHP where media belongs, exposed secrets
+ *                   (.env/.git), reputation/blocklist hits, serious or
+ *                   unpatched component vulnerabilities, and the one heuristic
+ *                   that is genuinely high-confidence (shell exec from user
+ *                   input).
  *
  *   RECOMMENDATION  Advisory items — worth surfacing, but NOT a compromise and
  *                   NOT counted as a threat: server hardening notices
  *                   (WP_DEBUG on, file editor enabled), low-confidence broad
  *                   heuristics in plugin/theme code, suspicious-looking post
- *                   content, and cosmetic public files (wp-config-sample.php,
- *                   debug.log).
+ *                   content, components that merely have an update available,
+ *                   PHP a plugin generates in its own cache directory, and
+ *                   cosmetic public files (wp-config-sample.php, debug.log).
+ *
+ * Three issue types are therefore gated on severity rather than being threats
+ * outright. Severity is where the scanners already record how sure they are, so
+ * the split reuses that judgement instead of inventing a second one.
  *
  * Both accessors below MUST stay in sync: isThreat() is the PHP source of
  * truth, threatWhereSql() is its SQL translation for COUNT queries. There are
@@ -27,8 +34,17 @@ namespace DPXL\Shield\Scanner;
  */
 class ScanClassifier {
 
-    /** Issue types that are always high-confidence threats. */
-    private const THREAT_TYPES = ['modified_core', 'modified_plugin', 'malware_signature', 'php_in_uploads', 'vulnerable_version'];
+    /** Issue types that are threats whatever the severity. */
+    private const THREAT_TYPES = ['modified_core', 'modified_plugin', 'malware_signature'];
+
+    /**
+     * Issue types that are threats only when the scanner rated them
+     * critical/high. See isThreat() for why each one is on this list.
+     */
+    private const SEVERITY_GATED_TYPES = ['php_in_uploads', 'vulnerable_version', 'unknown'];
+
+    /** The severities that make a gated type count as a threat. */
+    private const THREAT_SEVERITIES = ['critical', 'high'];
 
     /**
      * @param array<string,mixed> $row  A scan_results row (issue_type, severity, ...)
@@ -48,11 +64,32 @@ class ScanClassifier {
             return $severity === 'critical';
         }
 
-        // 'unknown' covers both real exposures (.env, .git, phpinfo, config
-        // backups, reputation hit — critical/high) and hardening advisories
-        // (server/*, wp-config-sample.php, debug.log — medium/low).
-        if ($type === 'unknown') {
-            return in_array($severity, ['critical', 'high'], true);
+        // The severity-gated types, and why each one is gated:
+        //
+        //   php_in_uploads      MalwareScanner rates it critical where media
+        //                       actually lands, and medium inside a directory a
+        //                       plugin compiles into — writing, in the finding
+        //                       itself, that it is "not evidence of a compromise
+        //                       on its own". Counting that as a threat
+        //                       contradicted the plugin's own words: WPML's Twig
+        //                       cache alone put 34 of them on the badge.
+        //
+        //   vulnerable_version  VulnerabilityScanner emits two different things
+        //                       under one type. A component that merely has an
+        //                       update available is hardcoded medium; a CVE
+        //                       match is scored from CVSS, so critical/high
+        //                       means severe or unpatched. Severity is already
+        //                       the line between "update when you can" and
+        //                       "this is being exploited". The weekly report
+        //                       lists outdated components from its own query, so
+        //                       nothing stops being visible.
+        //
+        //   unknown             Covers both real exposures (.env, .git, phpinfo,
+        //                       config backups, reputation hit — critical/high)
+        //                       and hardening advisories (server/*,
+        //                       wp-config-sample.php, debug.log — medium/low).
+        if (in_array($type, self::SEVERITY_GATED_TYPES, true)) {
+            return in_array($severity, self::THREAT_SEVERITIES, true);
         }
 
         return false;
@@ -68,9 +105,10 @@ class ScanClassifier {
      */
     public static function threatWhereSql(): string {
         return "("
-            . "issue_type IN ('modified_core','modified_plugin','malware_signature','php_in_uploads','vulnerable_version')"
+            . "issue_type IN ('modified_core','modified_plugin','malware_signature')"
             . " OR (issue_type = 'heuristic' AND severity = 'critical')"
-            . " OR (issue_type = 'unknown' AND severity IN ('critical','high'))"
+            . " OR (issue_type IN ('php_in_uploads','vulnerable_version','unknown')"
+            . " AND severity IN ('critical','high'))"
             . ")";
     }
 

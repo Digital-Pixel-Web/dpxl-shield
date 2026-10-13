@@ -774,6 +774,8 @@ class RestApi {
     }
 
     public function getScanStatus(): \WP_REST_Response {
+        global $wpdb;
+
         ScanOrchestrator::resetStaleScanIfNeeded();
 
         $filesScanned = (int) get_option('dpxl_shield_scan_files_scanned', 0);
@@ -787,6 +789,20 @@ class RestApi {
 
         $percent = $filesTotal > 0 ? min(100, (int) floor(($filesScanned / $filesTotal) * 100)) : 0;
 
+        // Open threats, counted live rather than read back from
+        // dpxl_shield_last_scan_issue_count. That option is a snapshot taken by
+        // finalize(), so it only tells the truth until the classification
+        // changes under it: 1.7.7 narrowed what counts as a threat, and the
+        // snapshot would have kept claiming the old total until the next full
+        // scan — on the same screen where admin.js writes it into the very
+        // element the live scan/results query fills. One source of truth, the
+        // same threatWhereSql() the dashboard badge and the results screen
+        // fold, and no classification change can go stale here again. While a
+        // scan runs, the live progress counter stays in charge.
+        $scanTable   = $wpdb->prefix . 'dpxl_shield_scan_results';
+        $threatSql   = \DPXL\Shield\Scanner\ScanClassifier::threatWhereSql();
+        $openThreats = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$scanTable} WHERE status='new' AND {$threatSql}");
+
         return rest_ensure_response([
             'running'        => $running,
             'current_stage'  => (string) get_option('dpxl_shield_scan_current_stage', 'idle'),
@@ -798,7 +814,7 @@ class RestApi {
             'started_at'     => (string) get_option('dpxl_shield_scan_started_at', ''),
             'updated_at'     => (string) get_option('dpxl_shield_scan_updated_at', ''),
             'last_scan_at'   => (string) get_option('dpxl_shield_last_scan_at', ''),
-            'issue_count'    => (int) get_option('dpxl_shield_last_scan_issue_count', 0),
+            'issue_count'    => $openThreats,
             'issues_found'   => (int) get_option('dpxl_shield_scan_issues_found', 0),
             'last_error'     => (string) get_option('dpxl_shield_scan_last_error', ''),
         ]);

@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.4
+Stable tag: 1.7.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,9 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.7.5 =
+* **Fixed: a filtered Live Traffic request reported a total of zero matches.** The traffic endpoint builds one set of conditions and uses it twice — once for the page of rows it returns, once to count how many rows match in total. The count ran without binding the filter values, so the placeholders for the IP and URL filters reached the database as literal text, the query failed, and the total came back as zero while the rows themselves came back correctly. The count now binds the same values as the page query. Nothing in the panel displayed this total yet, so no screen was showing a wrong number; the figure was simply waiting to be wrong for whoever used it first.
 
 = 1.7.4 =
 * **Fixed: the Live Traffic tab never loaded.** It sat on "Loading…" for as long as you left it open, made no request at all, and the "Show Advanced Filters" button did nothing. Two variables the loader needs were declared just below the line that called it, so reading one threw before the first request was built; the error escaped the loader's error handling, and the code that attaches the filter and live-update controls was never reached. Both symptoms had the same single cause, which is why the tab was inert rather than merely slow.

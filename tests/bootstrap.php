@@ -17,6 +17,11 @@ defined('WEEK_IN_SECONDS')   || define('WEEK_IN_SECONDS', 604800);
 defined('DPXL_SHIELD_PATH')  || define('DPXL_SHIELD_PATH', dirname(__DIR__) . '/');
 defined('DPXL_SHIELD_VERSION') || define('DPXL_SHIELD_VERSION', '1.0.0');
 
+// wpdb output formats.
+defined('OBJECT')  || define('OBJECT', 'OBJECT');
+defined('ARRAY_A') || define('ARRAY_A', 'ARRAY_A');
+defined('ARRAY_N') || define('ARRAY_N', 'ARRAY_N');
+
 /**
  * Minimal WP_Error stand-in.
  *
@@ -56,6 +61,62 @@ if (!class_exists('WP_Error')) {
 
         public function has_errors(): bool {
             return $this->errors !== [];
+        }
+    }
+}
+
+/**
+ * Minimal WP_REST_Request / WP_REST_Response stand-ins.
+ *
+ * Same reason as WP_Error above: the REST controllers are type-hinted against
+ * these because that is genuinely what WordPress hands them. Only the surface
+ * the plugin touches is implemented.
+ */
+if (!class_exists('WP_REST_Request')) {
+    class WP_REST_Request {
+
+        /** @var array<string,mixed> */
+        private $params;
+
+        /** @param array<string,mixed> $params */
+        public function __construct(array $params = []) {
+            $this->params = $params;
+        }
+
+        /** @return mixed */
+        public function get_param(string $key) {
+            return $this->params[$key] ?? null;
+        }
+
+        /** @param mixed $value */
+        public function set_param(string $key, $value): void {
+            $this->params[$key] = $value;
+        }
+    }
+}
+
+if (!class_exists('WP_REST_Response')) {
+    class WP_REST_Response {
+
+        /** @var mixed */
+        private $data;
+
+        /** @var int */
+        private $status;
+
+        /** @param mixed $data */
+        public function __construct($data = null, int $status = 200) {
+            $this->data   = $data;
+            $this->status = $status;
+        }
+
+        /** @return mixed */
+        public function get_data() {
+            return $this->data;
+        }
+
+        public function get_status(): int {
+            return $this->status;
         }
     }
 }

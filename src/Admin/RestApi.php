@@ -445,6 +445,10 @@ class RestApi {
         $wc  = $where ? 'WHERE ' . implode(' AND ', $where) : '';
         $tbl = $wpdb->prefix . 'dpxl_shield_traffic_log';
 
+        // Kept before $limit/$offset are appended: the COUNT below repeats the same
+        // WHERE and therefore needs the same values, but not the pagination ones.
+        $whereValues = $values;
+
         $values[] = $limit;
         $values[] = $offset;
 
@@ -453,7 +457,13 @@ class RestApi {
             ARRAY_A
         ) ?? [];
 
-        $total = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$tbl} {$wc}");
+        // $wc carries the %s placeholders of the ip / uri filters. Without prepare
+        // they reached the database verbatim, the COUNT failed, get_var returned
+        // null and the total came back as 0 for every filtered request.
+        $countSql = "SELECT COUNT(*) FROM {$tbl} {$wc}";
+        $total    = (int) $wpdb->get_var(
+            $whereValues === [] ? $countSql : $wpdb->prepare($countSql, ...$whereValues)
+        );
 
         return rest_ensure_response(['items' => $rows, 'total' => $total]);
     }

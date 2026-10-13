@@ -87,7 +87,7 @@ $extendedActive     = !empty($extendedStatus['active']);
                     <tr><td><?php esc_html_e('.htaccess path', 'dpxl-shield'); ?></td><td><code><?php echo esc_html((string) $extendedStatus['htaccess_path']); ?></code></td></tr>
                     <tr><td><?php esc_html_e('Safe prepend loader', 'dpxl-shield'); ?></td><td><code><?php echo esc_html((string) ($extendedStatus['prepend_loader_file'] ?? '')); ?></code></td></tr>
                     <tr><td><?php esc_html_e('Plugin WAF file', 'dpxl-shield'); ?></td><td><code><?php echo esc_html((string) $extendedStatus['waf_file']); ?></code></td></tr>
-                    <tr><td><?php esc_html_e('Writable', 'dpxl-shield'); ?></td><td id="extended-writable-status"><?php echo !empty($extendedStatus['htaccess_writable']) ? esc_html__('Yes', 'dpxl-shield') : esc_html__('No', 'dpxl-shield'); ?></td></tr>
+                    <tr><td><?php esc_html_e('Writable', 'dpxl-shield'); ?></td><td id="extended-writable-status"><?php echo !empty($extendedStatus['htaccess_writable']) ? esc_html__('Sim', 'dpxl-shield') : esc_html__('Não', 'dpxl-shield'); ?></td></tr>
                 </tbody>
             </table>
 
@@ -134,8 +134,8 @@ $extendedActive     = !empty($extendedStatus['active']);
                 <?php \DPXL\Shield\Admin\Icons::render('activity'); ?> <?php esc_html_e('Top IPs Blocked', 'dpxl-shield'); ?>
                 <span class="dpxl-tab-bar">
                     <button class="dpxl-tab active" data-period="24h">24h</button>
-                    <button class="dpxl-tab" data-period="7d">7 Days</button>
-                    <button class="dpxl-tab" data-period="30d">30 Days</button>
+                    <button class="dpxl-tab" data-period="7d">7 dias</button>
+                    <button class="dpxl-tab" data-period="30d">30 dias</button>
                 </span>
             </h2>
             <table class="dpxl-table" id="top-ips-table">

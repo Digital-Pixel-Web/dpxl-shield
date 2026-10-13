@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.8.3
+Stable tag: 1.8.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,9 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.8.4 =
+* **Fixed: the last English labels on the dashboard and firewall screens.** Looking at 1.8.3 running on a real install turned up four more: the empty notifications panel, the writable/not-writable answer for the .htaccess file, and the 7-day and 30-day range buttons.
 
 = 1.8.3 =
 * **Changed: the dashboard gauges count what is actually on, instead of printing 100%.** `firewall_ok` was `Options::get('firewall_enabled')` and nothing else, so a site with Extended Protection off, no firewall rules loaded and not one administrator using two-factor still showed three green rings at 100%. Each ring is now the share of that module's checks that pass — five for the firewall, three for the scan, three for login — and the line underneath names the first one that does not, as a link straight to it. A module cannot reach 100% while anything it covers is switched off.

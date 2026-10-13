@@ -418,7 +418,7 @@
 
         el.innerHTML = items.length
             ? items.map(i => `<div class="dpxl-notice dpxl-notice--${i.type === 'error' ? 'error' : 'warning'}">${esc(i.msg)}</div>`).join('')
-            : '<p style="color:#666;font-size:13px;">No notifications.</p>';
+            : '<p style="color:#666;font-size:13px;">Nenhuma notificação no momento.</p>';
     }
 
     // Login tab filter
@@ -630,7 +630,7 @@
             }
 
             const writable = document.getElementById('extended-writable-status');
-            if (writable) writable.textContent = data.htaccess_writable ? 'Yes' : 'No';
+            if (writable) writable.textContent = data.htaccess_writable ? 'Sim' : 'Não';
 
             const btn = document.getElementById('btn-enable-extended');
             if (btn) {

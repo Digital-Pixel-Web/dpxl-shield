@@ -164,9 +164,30 @@ class RestApi {
         $week     = date('Y-m-d H:i:s', strtotime('-7 days'));
         $month    = date('Y-m-d H:i:s', strtotime('-30 days'));
 
-        $attacksToday = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$logTable} WHERE waf_action='block' AND timestamp >= %s", $day));
-        $attacksWeek  = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$logTable} WHERE waf_action='block' AND timestamp >= %s", $week));
-        $attacksMonth = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$logTable} WHERE waf_action='block' AND timestamp >= %s", $month));
+        // Blocks per type for the three windows, in one grouped pass. The per-type
+        // rows and the Total are folded from the same rows on purpose: through
+        // 1.7.3 the four per-type rows of "Resumo do Firewall" were hardcoded zeros
+        // in admin.js while the Total showed real data, so the first real attack
+        // made the table contradict itself. Sharing one query makes that
+        // impossible.
+        $blockRows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT COALESCE(waf_rule_id, '') AS rule_id,
+                        SUM(timestamp >= %s) AS today,
+                        SUM(timestamp >= %s) AS week,
+                        SUM(timestamp >= %s) AS month
+                 FROM {$logTable}
+                 WHERE waf_action='block' AND timestamp >= %s
+                 GROUP BY waf_rule_id",
+                $day, $week, $month, $month
+            ),
+            ARRAY_A
+        ) ?? [];
+
+        $blocks       = $this->summariseBlocks($blockRows);
+        $attacksToday = $blocks['total']['today'];
+        $attacksWeek  = $blocks['total']['week'];
+        $attacksMonth = $blocks['total']['month'];
 
         // Count real threats only. Advisory/hardening recommendations are
         // surfaced separately and must not inflate the dashboard problem badge.
@@ -206,6 +227,7 @@ class RestApi {
 
         return rest_ensure_response([
             'attacks'       => ['today' => $attacksToday, 'week' => $attacksWeek, 'month' => $attacksMonth],
+            'blocks'        => $blocks,
             'scan_issues'   => ['total' => $openIssues, 'critical' => $criticalIssues],
             'recent_logins' => $recentLogins,
             'attack_chart'  => $attackChart,
@@ -218,6 +240,99 @@ class RestApi {
         ]);
     }
 
+
+    /**
+     * Rule IDs the firewall records for its non-WAF block paths, as set in
+     * FirewallEngine::evaluate(). Any other rule ID comes from a WAF rule via
+     * AbstractRule::getId() (e.g. "sqli-001"), so "waf" is the fallback.
+     */
+    private const BLOCK_TYPE_BY_RULE = [
+        'ip-blocklist'   => 'blocklist',
+        'rate-limit'     => 'rate-limit',
+        'custom-pattern' => 'custom-pattern',
+        'country-block'  => 'country',
+        'country-allow'  => 'country',
+    ];
+
+    /**
+     * Folds grouped block counts into the rows of the dashboard summary table.
+     *
+     * Only types that actually blocked something within the retention window are
+     * returned, so an install with no attacks gets an empty state with a reason
+     * instead of a grid of zeros that looks like a broken widget.
+     *
+     * Brute-force, honeypot and anomaly lockouts land under "lista de bloqueio"
+     * because that is how the firewall records them: they add the offending IP to
+     * the blocklist, and the request that is then refused carries the
+     * "ip-blocklist" rule ID, not one of their own.
+     *
+     * @param array<int,array<string,mixed>> $rows
+     * @return array{rows:array<int,array<string,mixed>>,total:array<string,int>,reason:string|null}
+     */
+    private function summariseBlocks(array $rows): array {
+        $labels = [
+            'waf'            => __('Regras do WAF', 'dpxl-shield'),
+            'blocklist'      => __('Lista de bloqueio de IPs', 'dpxl-shield'),
+            'rate-limit'     => __('Limite de taxa', 'dpxl-shield'),
+            'custom-pattern' => __('Padrões personalizados', 'dpxl-shield'),
+            'country'        => __('Bloqueio por país', 'dpxl-shield'),
+        ];
+
+        $windows = ['today', 'week', 'month'];
+        $counts  = array_fill_keys(array_keys($labels), array_fill_keys($windows, 0));
+        $total   = array_fill_keys($windows, 0);
+
+        foreach ($rows as $row) {
+            $type = self::BLOCK_TYPE_BY_RULE[(string) ($row['rule_id'] ?? '')] ?? 'waf';
+
+            foreach ($windows as $window) {
+                $n = (int) ($row[$window] ?? 0);
+
+                $counts[$type][$window] += $n;
+                $total[$window]         += $n;
+            }
+        }
+
+        $out = [];
+
+        foreach ($labels as $type => $label) {
+            if ($counts[$type]['month'] === 0) {
+                continue;
+            }
+
+            $out[] = ['type' => $type, 'label' => $label] + $counts[$type];
+        }
+
+        return [
+            'rows'   => $out,
+            'total'  => $total,
+            'reason' => $out === [] ? $this->noBlocksReason() : null,
+        ];
+    }
+
+    /** Why the firewall summary has nothing to show — more useful than zeros. */
+    private function noBlocksReason(): string {
+        if (!Options::get('firewall_enabled', true)) {
+            return __('O firewall está desativado, portanto nenhum bloqueio é registrado.', 'dpxl-shield');
+        }
+
+        if (!Options::get('traffic_log_enabled', true)) {
+            return __('O registro de tráfego está desativado, portanto os bloqueios não são contabilizados.', 'dpxl-shield');
+        }
+
+        $hours = (int) Options::get('traffic_log_retention_hours', 24);
+
+        return sprintf(
+            /* translators: %d = traffic log retention window, in hours. */
+            _n(
+                'Nenhum bloqueio registrado na última %d hora.',
+                'Nenhum bloqueio registrado nas últimas %d horas.',
+                $hours,
+                'dpxl-shield'
+            ),
+            $hours
+        );
+    }
 
     // ── Firewall overview / Extended Protection ───────────────────────────────
 

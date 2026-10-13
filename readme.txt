@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.3
+Stable tag: 1.7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,12 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.7.4 =
+* **Fixed: the Live Traffic tab never loaded.** It sat on "Loading…" for as long as you left it open, made no request at all, and the "Show Advanced Filters" button did nothing. Two variables the loader needs were declared just below the line that called it, so reading one threw before the first request was built; the error escaped the loader's error handling, and the code that attaches the filter and live-update controls was never reached. Both symptoms had the same single cause, which is why the tab was inert rather than merely slow.
+* **Fixed: the Firewall Summary table contradicted itself.** The four per-type rows were zeros written into the panel's JavaScript, while the Total row below them counted real blocks — so the first genuine attack produced a table reporting a total of blocks and, immediately above it, nothing in any category. The rows and the Total are now folded from one query over the same records, so they cannot disagree. Types that blocked nothing are left out, and an install with no blocks at all says why instead of showing a grid of zeros.
+* **Fixed: the Location column of Live Traffic was always empty.** The firewall already geolocates every logged request, and the dashboard's blocked-countries widget was reading it, but the traffic table rendered a dash in every row regardless. It now shows the country the request came from, where it is known.
+* **Fixed: four icons rendered as a generic information circle.** The panel keeps its icon set in two places — one for markup built on the server, one for rows built in the browser — and the browser copy was missing `lock`, `sliders`, `upload-cloud` and `users`. Each fell back to the info glyph without any error, so the drift was invisible. The two lists are now identical and a test fails if they ever diverge again.
 
 = 1.7.3 =
 * **Fixed: keeping Akismet up to date was reported as modified core files.** WordPress ships Akismet and the default themes, so its checksum manifest lists them — 444 files under wp-content in 7.1.3. Those components update on their own schedule, independently of core, which is how they are meant to work; comparing them against the core release therefore reported a well-maintained site as having 21 modified core files. Core integrity now covers what is actually core: wp-admin, wp-includes and the root.

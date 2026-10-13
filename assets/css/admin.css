@@ -254,7 +254,7 @@
 .dpxl-summary-table th, .dpxl-summary-table td { padding: 6px 8px; text-align: right; }
 .dpxl-summary-table th:first-child, .dpxl-summary-table td:first-child { text-align: left; }
 .dpxl-summary-table tbody tr:nth-child(odd) td { background: var(--dpxl-bg); }
-.dpxl-summary-table tfoot td { font-weight: 700; border-top: 1px solid var(--dpxl-border); }
+.dpxl-summary-table tfoot td, .dpxl-summary-table tr.dpxl-summary-total td { font-weight: 700; border-top: 1px solid var(--dpxl-border); }
 
 /* ── Country list ────────────────────────────────────────────── */
 .dpxl-country-list { list-style: none; margin: 0; padding: 0; }

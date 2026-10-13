@@ -150,6 +150,10 @@
         'bell': '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
         'list': '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
         'search': '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+        'lock': '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+        'sliders': '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
+        'upload-cloud': '<polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>',
+        'users': '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     };
 
     function icon(name, cls = '', size = 16) {
@@ -201,19 +205,7 @@
             setGaugeStatus('gauge-login',    data.login_ok    ? 'ok' : 'error', data.login_ok    ? '100%' : '—', null);
 
             // Firewall summary
-            const tbody = document.getElementById('firewall-summary-tbody');
-            if (tbody) {
-                const rows = [
-                    ['Complex (WAF rules)', 0, 0, 0],
-                    ['Brute Force',         0, 0, 0],
-                    ['Blocklist',           0, 0, 0],
-                    ['Country',             0, 0, 0],
-                ];
-                const total = [0, 0, 0];
-                tbody.innerHTML = rows.map(r =>
-                    `<tr><td>${esc(r[0])}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`
-                ).join('') + `<tfoot><tr><td><strong>Total</strong></td><td>${data.attacks.today}</td><td>${data.attacks.week}</td><td>${data.attacks.month}</td></tr></tfoot>`;
-            }
+            renderFirewallSummary(data.blocks);
 
             // Attack chart (simple canvas bar chart — no library needed)
             drawAttackChart(data.attack_chart || []);
@@ -232,6 +224,30 @@
             const tc = document.getElementById('top-countries');
             if (tc) tc.innerHTML = '<li class="dpxl-empty-state">Não foi possível carregar.</li>';
         }
+    }
+
+    // Rows and Total both come from /dashboard's `blocks`, which the REST endpoint
+    // folds from a single query. Through 1.7.3 the rows were hardcoded zeros here
+    // while Total showed real data, so the table contradicted itself on the first
+    // real attack.
+    function renderFirewallSummary(blocks) {
+        const tbody = document.getElementById('firewall-summary-tbody');
+        if (!tbody) return;
+
+        const rows = blocks?.rows || [];
+
+        if (!rows.length) {
+            const reason = blocks?.reason || 'Nenhum bloqueio registrado.';
+            tbody.innerHTML = `<tr><td colspan="4" class="dpxl-empty-state">${esc(reason)}</td></tr>`;
+            return;
+        }
+
+        const total = blocks.total || { today: 0, week: 0, month: 0 };
+
+        tbody.innerHTML = rows.map(r =>
+            `<tr><td>${esc(r.label)}</td><td>${esc(r.today)}</td><td>${esc(r.week)}</td><td>${esc(r.month)}</td></tr>`
+        ).join('') + `<tr class="dpxl-summary-total"><td><strong>Total</strong></td>`
+            + `<td>${esc(total.today)}</td><td>${esc(total.week)}</td><td>${esc(total.month)}</td></tr>`;
     }
 
     function renderTopCountries(items, geoipReady) {
@@ -1107,12 +1123,18 @@
 
     // ── Tools: Live Traffic ─────────────────────────────────────────────────
 
+    // Declared before the initTraffic() call below: `let` bindings are hoisted but
+    // uninitialised, and loadTraffic() reads trafficPage while building `params`,
+    // outside its try/catch. With the call placed first, that read threw a
+    // temporal-dead-zone ReferenceError which rejected initTraffic()'s promise
+    // before any listener was registered — the tab sat on "Loading…" forever and
+    // the filter buttons did nothing, from 1.7.1 through 1.7.3.
+    let trafficPollTimer = null;
+    let trafficPage = 0;
+
     if (page === 'dpxl-shield-tools' && (!tab || tab === 'live-traffic')) {
         initTraffic();
     }
-
-    let trafficPollTimer = null;
-    let trafficPage = 0;
 
     async function initTraffic() {
         await loadTraffic();
@@ -1164,7 +1186,7 @@
                 return `<tr data-row='${JSON.stringify(row).replace(/'/g, "&#39;")}'>
                     <td>${dots(type)}</td>
                     <td>${esc(type)}</td>
-                    <td>—</td>
+                    <td>${esc(row.country || '—')}</td>
                     <td><code style="font-size:11px;">${esc(row.uri?.substring(0, 40))}</code></td>
                     <td><code>${esc(row.ip)}</code></td>
                     <td style="${statusClass}">${esc(status)}</td>

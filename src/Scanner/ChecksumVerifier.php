@@ -77,7 +77,7 @@ class ChecksumVerifier {
                     'file_path'  => $absolutePath,
                     'issue_type' => 'modified_core',
                     'severity'   => 'critical',
-                    'details'    => "Core file differs from WordPress repository. Expected: {$expectedMd5}, actual: {$actualMd5}",
+                    'details'    => "O arquivo difere da versão oficial do WordPress. Esperado: {$expectedMd5}, encontrado: {$actualMd5}",
                 ];
             }
         }

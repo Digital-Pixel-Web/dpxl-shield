@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.9.2
+Stable tag: 1.9.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,11 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.9.3 =
+* **Changed: the rest of the plugin speaks Portuguese.** Sixty-four strings the screens asked the translation layer for were not in it, so they reached the user in English inside otherwise Portuguese pages — every paragraph explaining webhooks, API tokens, the Spamhaus key and the GeoLite2 feed, along with the filter labels, the severity thresholds and a dozen buttons. The Diagnostics tab was English end to end: thirty-two labels, values and recommendations. And the scan findings themselves — the sentence describing what was found, which is also what the weekly report and the alert email carry — were written in English at the point each detector produced them.
+* **Added: a check that no English sentence can reach a screen again.** The translation layer has no way to know a string was forgotten, so a test now reads every string the views ask for, and fails naming any that looks like an English sentence and has no translation. It is the third guard of this kind, after the icon lists and the alert field labels; all three exist because the same class of regression came back.
+* **Fixed: an outdated theme was reported as "Theme"** in the middle of a Portuguese sentence, because the component type came straight from WordPress.
 
 = 1.9.2 =
 * **Fixed: the Live Traffic table named its own categories in English.** Each row read "human", "bot" or "blocked" — raw slugs straight from the code — while the colour legend added in 1.9.0 named the same four categories in Portuguese right below them, and the filter above used a third wording. All three now agree. The dot's tooltip was showing the slug too.

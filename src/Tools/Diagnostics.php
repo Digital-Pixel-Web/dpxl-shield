@@ -44,7 +44,7 @@ class Diagnostics {
     /** @return array{status:string,label:string,value:string,note:string} */
     private function checkThreatFeed(): array {
         if (!get_option('dpxl_shield_threat_feed_enabled', true)) {
-            return ['status' => 'warning', 'label' => 'Threat Feed', 'value' => 'Disabled', 'note' => ''];
+            return ['status' => 'warning', 'label' => 'Feed de ameaças', 'value' => 'Desligado', 'note' => ''];
         }
 
         $version    = (string) get_option('dpxl_shield_threat_feed_version', '');
@@ -74,7 +74,7 @@ class Diagnostics {
 
         $note = $notes[$lastStatus] ?? '';
 
-        return ['status' => $status, 'label' => 'Threat Feed', 'value' => $value, 'note' => $note];
+        return ['status' => $status, 'label' => 'Feed de ameaças', 'value' => $value, 'note' => $note];
     }
 
     /** @return array{status:string,label:string,value:string,note:string} */
@@ -84,9 +84,9 @@ class Diagnostics {
 
         return [
             'status' => $status,
-            'label'  => 'PHP Version',
+            'label'  => 'Versão do PHP',
             'value'  => $version,
-            'note'   => $status === 'error' ? 'PHP 8.1 or higher is required.' : '',
+            'note'   => $status === 'error' ? 'É necessário PHP 8.1 ou superior.' : '',
         ];
     }
 
@@ -98,9 +98,9 @@ class Diagnostics {
 
         return [
             'status' => $status,
-            'label'  => 'WordPress Version',
+            'label'  => 'Versão do WordPress',
             'value'  => $current,
-            'note'   => $status === 'error' ? 'WordPress 6.4 or higher is required.' : '',
+            'note'   => $status === 'error' ? 'É necessário WordPress 6.4 ou superior.' : '',
         ];
     }
 
@@ -110,9 +110,9 @@ class Diagnostics {
 
         return [
             'status' => $loaded ? 'ok' : 'error',
-            'label'  => "PHP Extension: {$name}",
-            'value'  => $loaded ? 'Loaded' : 'Not loaded',
-            'note'   => $loaded ? '' : "The {$name} extension is required by DPXL Shield.",
+            'label'  => "Extensão PHP: {$name}",
+            'value'  => $loaded ? 'Carregada' : 'Não carregada',
+            'note'   => $loaded ? '' : "O DPXL Shield precisa da extensão {$name}.",
         ];
     }
 
@@ -123,9 +123,9 @@ class Diagnostics {
 
         return [
             'status' => ($loaded && $enabled) ? 'ok' : 'warning',
-            'label'  => 'APCu Cache',
-            'value'  => ($loaded && $enabled) ? 'Available' : ($loaded ? 'Loaded but disabled' : 'Not available'),
-            'note'   => (!$loaded || !$enabled) ? 'APCu is recommended for rate limiting performance.' : '',
+            'label'  => 'Cache APCu',
+            'value'  => ($loaded && $enabled) ? 'Disponível' : ($loaded ? 'Carregado, mas desligado' : 'Indisponível'),
+            'note'   => (!$loaded || !$enabled) ? 'O APCu é recomendado para o desempenho da limitação de taxa.' : '',
         ];
     }
 
@@ -137,8 +137,8 @@ class Diagnostics {
         return [
             'status' => ($loaded && $enabled) ? 'ok' : 'warning',
             'label'  => 'OPcache',
-            'value'  => ($loaded && $enabled) ? 'Enabled' : 'Disabled/Not available',
-            'note'   => (!$loaded || !$enabled) ? 'OPcache improves overall PHP performance.' : '',
+            'value'  => ($loaded && $enabled) ? 'Ativado' : 'Desligado ou indisponível',
+            'note'   => (!$loaded || !$enabled) ? 'O OPcache melhora o desempenho geral do PHP.' : '',
         ];
     }
 
@@ -148,16 +148,16 @@ class Diagnostics {
 
         return [
             'status' => $active ? 'ok' : 'warning',
-            'label'  => 'Extended Protection (WAF)',
-            'value'  => $active ? 'Active' : 'Inactive (Basic Mode)',
-            'note'   => $active ? '' : 'Extended Protection intercepts requests before WordPress loads. Go to Firewall → Extended Protection to enable it.',
+            'label'  => 'Proteção Estendida (WAF)',
+            'value'  => $active ? 'Ativa' : 'Inativa (modo básico)',
+            'note'   => $active ? '' : 'A Proteção Estendida intercepta requisições antes do WordPress carregar. Ative em Firewall → Proteção Estendida.',
         ];
     }
 
     /** @return array{status:string,label:string,value:string,note:string} */
     private function checkFilePerms(string $path, string $expectedRange): array {
         if (!file_exists($path)) {
-            return ['status' => 'warning', 'label' => 'File Permissions: ' . basename($path), 'value' => 'File not found', 'note' => ''];
+            return ['status' => 'warning', 'label' => 'Permissões do arquivo: ' . basename($path), 'value' => 'Arquivo não encontrado', 'note' => ''];
         }
 
         $perms  = substr(sprintf('%o', fileperms($path)), -4);
@@ -166,16 +166,16 @@ class Diagnostics {
 
         return [
             'status' => $status,
-            'label'  => 'File Permissions: ' . basename($path),
+            'label'  => 'Permissões do arquivo: ' . basename($path),
             'value'  => $perms,
-            'note'   => $status === 'warning' ? "Recommended: {$expectedRange}. Current permissions may be too permissive." : '',
+            'note'   => $status === 'warning' ? "Recomendado: {$expectedRange}. As permissões atuais podem estar abertas demais." : '',
         ];
     }
 
     /** @return array{status:string,label:string,value:string,note:string} */
     private function checkDirPerms(string $path, string $expected): array {
         if (!is_dir($path)) {
-            return ['status' => 'warning', 'label'  => 'Directory: uploads', 'value'  => 'Not found', 'note' => ''];
+            return ['status' => 'warning', 'label'  => 'Diretório: uploads', 'value'  => 'Não encontrado', 'note' => ''];
         }
 
         $perms  = substr(sprintf('%o', fileperms($path)), -4);
@@ -184,9 +184,9 @@ class Diagnostics {
 
         return [
             'status' => $status,
-            'label'  => 'Directory: uploads',
+            'label'  => 'Diretório: uploads',
             'value'  => $perms,
-            'note'   => $status === 'warning' ? "Recommended: {$expected}." : '',
+            'note'   => $status === 'warning' ? "Recomendado: {$expected}." : '',
         ];
     }
 
@@ -205,8 +205,8 @@ class Diagnostics {
         if (!$exists) {
             return [
                 'status' => 'warning',
-                'label'  => 'MaxMind GeoLite2 DB',
-                'value'  => $enabled ? 'Not installed yet' : 'Not installed (auto-update off)',
+                'label'  => 'Base GeoLite2 da MaxMind',
+                'value'  => $enabled ? 'Ainda não instalada' : 'Não instalada (atualização automática desligada)',
                 'note'   => $enabled
                     ? 'Country features stay idle until the database downloads. It installs itself on the daily update — or use "Check now" in All Options to fetch it immediately.'
                     : 'Auto-update is disabled, so the database will never download. Enable it in All Options → Firewall.',
@@ -248,7 +248,7 @@ class Diagnostics {
 
         return [
             'status' => $status,
-            'label'  => 'MaxMind GeoLite2 DB',
+            'label'  => 'Base GeoLite2 da MaxMind',
             'value'  => $value,
             'note'   => $note,
         ];
@@ -265,7 +265,7 @@ class Diagnostics {
             'status' => $status,
             'label'  => 'WP Cron',
             'value'  => $label,
-            'note'   => $status === 'error' ? 'DPXL Shield cron has not run in >2 hours. Check WP-Cron configuration.' : '',
+            'note'   => $status === 'error' ? 'O cron do DPXL Shield não roda há mais de 2 horas. Confira a configuração do WP-Cron.' : '',
         ];
     }
 
@@ -276,9 +276,9 @@ class Diagnostics {
 
         return [
             'status' => $status,
-            'label'  => 'Disk Space (wp-content)',
-            'value'  => $this->humanSize((int) $free) . ' free',
-            'note'   => $status !== 'ok' ? 'Low disk space may affect scan results and log storage.' : '',
+            'label'  => 'Espaço em disco (wp-content)',
+            'value'  => $this->humanSize((int) $free) . ' livres',
+            'note'   => $status !== 'ok' ? 'Pouco espaço em disco pode atrapalhar a varredura e o armazenamento dos logs.' : '',
         ];
     }
 
@@ -290,9 +290,9 @@ class Diagnostics {
 
         return [
             'status' => $status,
-            'label'  => 'MySQL / MariaDB Version',
+            'label'  => 'Versão do MySQL / MariaDB',
             'value'  => $version,
-            'note'   => $status === 'warning' ? 'MySQL 5.7+ or MariaDB 10.4+ recommended.' : '',
+            'note'   => $status === 'warning' ? 'Recomendado MySQL 5.7+ ou MariaDB 10.4+.' : '',
         ];
     }
 

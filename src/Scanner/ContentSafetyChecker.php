@@ -102,7 +102,7 @@ class ContentSafetyChecker {
             $src = html_entity_decode((string) $src, ENT_QUOTES | ENT_HTML5);
 
             if (preg_match('/^(?:data|javascript):/i', $src)) {
-                $issues[] = ['severity' => 'high', 'detail' => 'Dangerous iframe protocol detected: ' . substr($src, 0, 120)];
+                $issues[] = ['severity' => 'high', 'detail' => 'Protocolo de iframe perigoso detectado: ' . substr($src, 0, 120)];
                 continue;
             }
 
@@ -111,7 +111,7 @@ class ContentSafetyChecker {
             }
 
             // External iframes can be legitimate; keep as medium review item, not critical.
-            $issues[] = ['severity' => 'medium', 'detail' => 'External iframe requires review: ' . substr($src, 0, 120)];
+            $issues[] = ['severity' => 'medium', 'detail' => 'Iframe externo precisa de revisão: ' . substr($src, 0, 120)];
         }
 
         return $issues;
@@ -129,7 +129,7 @@ class ContentSafetyChecker {
                 continue;
             }
 
-            $issues[] = ['severity' => 'medium', 'detail' => 'External script requires review: ' . substr($src, 0, 120)];
+            $issues[] = ['severity' => 'medium', 'detail' => 'Script externo precisa de revisão: ' . substr($src, 0, 120)];
         }
 
         // Inline obfuscation is more relevant than a normal external URL.
@@ -141,7 +141,7 @@ class ContentSafetyChecker {
 
         foreach ($obfuscation as $pattern) {
             if (@preg_match($pattern, $content) === 1) {
-                $issues[] = ['severity' => 'high', 'detail' => 'Obfuscated inline script detected in post content.'];
+                $issues[] = ['severity' => 'high', 'detail' => 'Script embutido ofuscado detectado no conteúdo do post.'];
                 break;
             }
         }
@@ -165,7 +165,7 @@ class ContentSafetyChecker {
             }
 
             if (preg_match('/(?:display\s*:\s*none|font-size\s*:\s*0|opacity\s*:\s*0|visibility\s*:\s*hidden|color\s*:\s*transparent)/i', $style)) {
-                $issues[] = ['severity' => 'high', 'detail' => 'Hidden external link detected: ' . substr($href, 0, 120)];
+                $issues[] = ['severity' => 'high', 'detail' => 'Link externo escondido detectado: ' . substr($href, 0, 120)];
             }
         }
 
@@ -192,7 +192,7 @@ class ContentSafetyChecker {
 
             foreach (self::SUSPECT_TLDS as $tld) {
                 if (@preg_match('/' . $tld . '/i', $host) === 1) {
-                    $issues[] = ['severity' => 'low', 'detail' => 'External link uses a commonly abused TLD and should be reviewed: ' . esc_html($href)];
+                    $issues[] = ['severity' => 'low', 'detail' => 'O link externo usa um domínio de topo frequentemente abusado e merece revisão: ' . esc_html($href)];
                     break;
                 }
             }

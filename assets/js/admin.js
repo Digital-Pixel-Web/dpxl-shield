@@ -216,10 +216,17 @@
         return 'human';
     }
 
+    /** The slugs trafficType() returns, as the reader sees them. */
+    const TRAFFIC_LABEL = { human: 'Humano', bot: 'Robô', blocked: 'Bloqueado', suspicious: 'Suspeito', unknown: 'Desconhecido' };
+
+    function trafficLabel(type) {
+        return TRAFFIC_LABEL[type] || TRAFFIC_LABEL.unknown;
+    }
+
     function dots(type) {
         const map = { human: 'green', bot: 'yellow', blocked: 'red', suspicious: 'orange', unknown: 'gray' };
         const color = map[type] || 'gray';
-        return `<span class="dpxl-dot dpxl-dot--${color}" title="${esc(type)}"></span>`;
+        return `<span class="dpxl-dot dpxl-dot--${color}" title="${esc(trafficLabel(type))}"></span>`;
     }
 
     function auditDot(category) {
@@ -1439,7 +1446,7 @@
                 const statusClass = status >= 400 ? 'color:var(--dpxl-error)' : 'color:var(--dpxl-ok)';
                 return `<tr data-row='${JSON.stringify(row).replace(/'/g, "&#39;")}'>
                     <td>${dots(type)}</td>
-                    <td>${esc(type)}</td>
+                    <td>${esc(trafficLabel(type))}</td>
                     <td>${esc(row.country || '—')}</td>
                     <td><code style="font-size:11px;">${esc(row.uri?.substring(0, 40))}</code></td>
                     <td><code>${esc(row.ip)}</code></td>

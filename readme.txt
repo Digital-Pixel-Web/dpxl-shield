@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.9.1
+Stable tag: 1.9.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,9 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.9.2 =
+* **Fixed: the Live Traffic table named its own categories in English.** Each row read "human", "bot" or "blocked" — raw slugs straight from the code — while the colour legend added in 1.9.0 named the same four categories in Portuguese right below them, and the filter above used a third wording. All three now agree. The dot's tooltip was showing the slug too.
 
 = 1.9.1 =
 * **Fixed: the Firewall screen's status line was rewritten in English by the browser.** The page renders it in Portuguese and then refreshes it over REST so the status can change without a reload — and that second copy had never been translated, so it quietly overwrote the first one on every page load. It now matches, and names the detected server, which is the one fact worth keeping from the setup step that 1.9.0 folded away.

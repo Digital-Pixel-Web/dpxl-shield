@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.9.0
+Stable tag: 1.9.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,9 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.9.1 =
+* **Fixed: the Firewall screen's status line was rewritten in English by the browser.** The page renders it in Portuguese and then refreshes it over REST so the status can change without a reload — and that second copy had never been translated, so it quietly overwrote the first one on every page load. It now matches, and names the detected server, which is the one fact worth keeping from the setup step that 1.9.0 folded away.
 
 = 1.9.0 =
 * **Changed: every scan finding now offers something to do about it.** The only button on a finding was Ignore — including on a critical one, and including on an outdated plugin, which is most of what a scan turns up on a real site. A product whose single affordance is dismissing the warning is teaching people to dismiss warnings. Repairable files keep Repair; an outdated component gets Update now, straight to the WordPress updates screen; and every finding gets a "How to fix" step list written for its own kind of doubt — delete-it advice for a confirmed signature, look-before-you-act advice for a heuristic that is not sure. The file path can be copied in one click, for work done over FTP or SSH. Ignore is still there, as a quiet link rather than the main button.

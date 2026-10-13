@@ -613,9 +613,13 @@
 
             const status = document.getElementById('extended-status');
             if (status) {
+                // The view already renders this line in pt-BR; it is rewritten
+                // here because the status can change without a reload. Keep the
+                // two wordings in step — this one used to be English and simply
+                // overwrote the translated one on every page load.
                 status.innerHTML = data.extended_active
-                    ? `${statusIcon('ok')} Extended Protection active (${esc(data.extended_method || 'auto_prepend_file')}). O WAF está sendo carregado antes do WordPress.`
-                    : `${statusIcon('warning')} Proteção Estendida inativa. Siga as etapas de backup + ativação abaixo.`;
+                    ? `${statusIcon('ok')} Proteção Estendida ativa — o WAF carrega antes do WordPress. Servidor: ${esc(data.server || '—')}.`
+                    : `${statusIcon('warning')} Proteção Estendida inativa. Siga as etapas de backup e ativação abaixo.`;
             }
 
             const backupStatus = document.getElementById('extended-backup-status');
@@ -649,7 +653,7 @@
             }
         } catch (e) {
             const status = document.getElementById('extended-status');
-            if (status) status.textContent = 'Unable to load firewall status: ' + e.message;
+            if (status) status.textContent = 'Não foi possível ler o estado do firewall: ' + e.message;
         }
     }
 

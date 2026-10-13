@@ -54,6 +54,16 @@ class ChecksumVerifier {
                 continue;
             }
 
+            // The manifest also lists what WordPress *ships* under wp-content:
+            // Akismet and the default themes, 444 files in 7.1.3. Those update
+            // independently of core — updating Akismet is correct maintenance —
+            // so comparing them against the core release reports a well-run site
+            // as having 21 modified core files. Core integrity means wp-admin,
+            // wp-includes and the root; wp-content is not core.
+            if (strpos($relativePath, 'wp-content/') === 0) {
+                continue;
+            }
+
             $absolutePath = ABSPATH . $relativePath;
 
             if (!file_exists($absolutePath)) {

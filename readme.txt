@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.2
+Stable tag: 1.7.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,10 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.7.3 =
+* **Fixed: keeping Akismet up to date was reported as modified core files.** WordPress ships Akismet and the default themes, so its checksum manifest lists them — 444 files under wp-content in 7.1.3. Those components update on their own schedule, independently of core, which is how they are meant to work; comparing them against the core release therefore reported a well-maintained site as having 21 modified core files. Core integrity now covers what is actually core: wp-admin, wp-includes and the root.
+* **Fixed: the "Silence is golden" index.php was reported as executable code in uploads.** WordPress and most plugins drop one of these into every directory they create, to stop the folder being listed — it is a protection, not a payload. A file named index.php containing nothing but an opening tag and comments is no longer reported. One carrying actual code still is.
 
 = 1.7.2 =
 * **Fixed: findings piled up instead of being updated.** Every scan recorded its findings again, so a file that kept matching produced one row per scan indefinitely — on one site 34 files had become 2,380 open findings across 70 scans. The number of critical issues on the dashboard is what tells you whether to worry, and at that size it tells you nothing. Scans now reconcile: a finding already open keeps its original detection date, one that has gone away is marked resolved, duplicates left by earlier scans are collapsed, and a corrected severity reaches the existing record.

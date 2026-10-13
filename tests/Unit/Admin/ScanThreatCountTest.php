@@ -64,6 +64,10 @@ class ScanThreatCountTest extends TestCase {
         Functions\when('sanitize_text_field')->returnArg(1);
         Functions\when('current_time')->justReturn('2026-10-13 18:40:39');
         Functions\when('rest_ensure_response')->alias(fn($data) => new \WP_REST_Response($data));
+        // 1.8.3: the dashboard payload now reports how much of each module is
+        // actually on, and the login module asks how many administrators have
+        // finished setting 2FA up.
+        Functions\when('get_users')->justReturn([]);
         Functions\when('get_option')->alias(fn($name, $default = null) => [
             'dpxl_shield_last_scan_id'         => self::LAST_SCAN_ID,
             // The snapshot finalize() left behind under the old classification.

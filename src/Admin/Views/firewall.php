@@ -101,17 +101,29 @@ $extendedActive     = !empty($extendedStatus['active']);
         <!-- Status gauges -->
         <div class="dpxl-gauges-row dpxl-gauges-row--4">
             <?php
+            // A ring is for a percentage. "14 regras" and "0 IPs bloqueados"
+            // are counts, and drawing them inside a full circle read as "14%
+            // of something, and all of it is fine". They are plain figures now.
             $gauges = [
-                ['id' => 'waf',      'label' => 'WAF',          'sub' => 'Web Application Firewall'],
-                ['id' => 'rules',    'label' => 'Rules',         'sub' => 'Active WAF rules'],
-                ['id' => 'blocklist','label' => 'IP Blocklist',  'sub' => 'Blocked IPs'],
-                ['id' => 'brute',    'label' => 'Brute Force',   'sub' => 'Login protection'],
+                ['id' => 'waf',   'label' => __('WAF', 'dpxl-shield'),         'sub' => __('Web Application Firewall', 'dpxl-shield')],
+                ['id' => 'brute', 'label' => __('Força bruta', 'dpxl-shield'), 'sub' => __('Proteção de login', 'dpxl-shield')],
+            ];
+            $stats = [
+                ['id' => 'rules',     'label' => __('Regras do WAF', 'dpxl-shield'),  'sub' => __('em vigor agora', 'dpxl-shield')],
+                ['id' => 'blocklist', 'label' => __('IPs bloqueados', 'dpxl-shield'), 'sub' => __('bloqueios ativos', 'dpxl-shield')],
             ];
             foreach ($gauges as $g) : ?>
                 <div class="dpxl-gauge dpxl-gauge--sm" id="gauge-<?php echo esc_attr($g['id']); ?>">
                     <div class="dpxl-gauge__circle"><span class="dpxl-gauge__pct">—</span></div>
                     <div class="dpxl-gauge__label"><?php echo esc_html($g['label']); ?></div>
                     <div class="dpxl-gauge__sub"><?php echo esc_html($g['sub']); ?></div>
+                </div>
+            <?php endforeach; ?>
+            <?php foreach ($stats as $s) : ?>
+                <div class="dpxl-stat" id="stat-<?php echo esc_attr($s['id']); ?>">
+                    <div class="dpxl-stat__value dpxl-stat__value--muted">—</div>
+                    <div class="dpxl-stat__label"><?php echo esc_html($s['label']); ?></div>
+                    <div class="dpxl-stat__sub"><?php echo esc_html($s['sub']); ?></div>
                 </div>
             <?php endforeach; ?>
         </div>

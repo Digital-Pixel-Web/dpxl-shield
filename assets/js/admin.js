@@ -65,6 +65,112 @@
         if (s && label) s.textContent = label;
     }
 
+    // ── Module coverage: gauges and banner ──────────────────────────────────
+
+    // Backend states → the CSS states the stylesheet draws.
+    const MODULE_STATE_CLASS = { ok: 'ok', warning: 'warning', critical: 'error', unverified: 'unverified' };
+    const MODULE_STATE_ICON  = { ok: 'check-circle', warning: 'alert-triangle', critical: 'alert-circle', unverified: 'minus-circle' };
+
+    /**
+     * The ring counts the checks that pass; the line under it names the first
+     * one that does not.
+     *
+     * It used to print a hardcoded "100%" whenever an option was ticked, which
+     * is how a site with no Extended Protection and no 2FA showed three green
+     * rings. A module whose checks could not run reads "—" in grey: not
+     * verified is not the same as fine.
+     */
+    function renderModuleGauge(id, module) {
+        const g = document.getElementById(id);
+        if (!g) return;
+
+        if (!module) {
+            g.dataset.status = 'unverified';
+            const p = g.querySelector('.dpxl-gauge__pct');
+            if (p) p.textContent = '—';
+            return;
+        }
+
+        g.dataset.status = MODULE_STATE_CLASS[module.state] || 'unverified';
+
+        const pct = g.querySelector('.dpxl-gauge__pct');
+        if (pct) pct.textContent = module.state === 'unverified' ? '—' : `${module.percent}%`;
+
+        const sub = g.querySelector('.dpxl-gauge__sub');
+        if (!sub) return;
+
+        if (module.met === module.total && module.state === 'ok') {
+            sub.textContent = `${module.met} de ${module.total} proteções ativas`;
+            return;
+        }
+
+        const label = esc(module.headline || `${module.met} de ${module.total} proteções ativas`);
+
+        sub.innerHTML = module.action
+            ? `<a href="${esc(adminUrl(module.action.query))}">${label}</a>`
+            : label;
+    }
+
+    /**
+     * Four states, and every one that is not green carries the next step.
+     *
+     * The old banner had two — "ativa" and "degradada — veja as notificações
+     * abaixo", which asked the reader to go hunting. A site that has never been
+     * scanned is now its own state instead of being reported as protected.
+     */
+    function renderProtectionBanner(modules) {
+        const banner = document.getElementById('dpxl-protection-banner');
+        if (!banner) return;
+
+        const list = ['firewall', 'scan', 'login'].map(k => modules?.[k]).filter(Boolean);
+
+        if (!list.length) {
+            banner.className = 'dpxl-banner dpxl-banner--loading';
+            banner.innerHTML = '<span class="dpxl-banner__text">Não foi possível ler o estado da proteção.</span>';
+            return;
+        }
+
+        const worst = ['critical', 'warning', 'unverified', 'ok'].find(s => list.some(m => m.state === s)) || 'ok';
+        const owner = list.find(m => m.state === worst);
+
+        const met   = list.reduce((n, m) => n + m.met, 0);
+        const total = list.reduce((n, m) => n + m.total, 0);
+
+        const text = worst === 'ok'
+            ? `Proteção ativa — ${met} de ${total} verificações em dia`
+            : esc(owner.headline);
+
+        const action = worst !== 'ok' && owner.action
+            ? `<a class="dpxl-banner__action" href="${esc(adminUrl(owner.action.query))}">${esc(owner.action.label)}</a>`
+            : '';
+
+        banner.className = `dpxl-banner dpxl-banner--${MODULE_STATE_CLASS[worst] || 'unverified'}`;
+        banner.innerHTML = icon(MODULE_STATE_ICON[worst] || 'info', '', 20)
+            + `<span class="dpxl-banner__text">${text}</span>` + action;
+    }
+
+    /** A plain figure: no ring, because a count is not a percentage. */
+    function setStat(id, value, sub) {
+        const el = document.getElementById(id);
+        if (!el) return;
+
+        const v = el.querySelector('.dpxl-stat__value');
+        const s = el.querySelector('.dpxl-stat__sub');
+
+        if (v) {
+            const known = value !== null && value !== undefined;
+            v.textContent = known ? Number(value).toLocaleString('pt-BR') : '—';
+            v.classList.toggle('dpxl-stat__value--muted', !known || Number(value) === 0);
+        }
+
+        if (s && sub) s.textContent = sub;
+    }
+
+    /** `dpxlShield.adminUrl` is already the full admin.php URL. */
+    function adminUrl(query) {
+        return `${dpxlShield.adminUrl}?${query}`;
+    }
+
     function showNotice(msg, type = 'success') {
         const el = document.createElement('div');
         el.className = `dpxl-notice dpxl-notice--${type}`;
@@ -132,6 +238,9 @@
         'alert-triangle': '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
         'alert-circle': '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
         'info': '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+        'minus-circle': '<circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/>',
+        'wifi-off': '<line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>',
+        'refresh-cw': '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
         'check': '<polyline points="20 6 9 17 4 12"/>',
         'check-circle': '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
         'x': '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
@@ -188,21 +297,12 @@
         try {
             const data = await api.get('dashboard');
 
-            // Banner
-            const banner = document.getElementById('dpxl-protection-banner');
-            if (banner) {
-                const ok = data.firewall_ok && data.scan_ok && data.login_ok;
-                banner.className = `dpxl-banner dpxl-banner--${ok ? 'ok' : 'error'}`;
-                banner.innerHTML = (ok ? icon('shield', '', 20) : statusIcon('error'))
-                    + `<span class="dpxl-banner__text">${ok
-                        ? 'Proteção do DPXL Shield ativa'
-                        : 'Proteção degradada — veja as notificações abaixo'}</span>`;
-            }
+            renderProtectionBanner(data.modules);
 
             // Gauges
-            setGaugeStatus('gauge-firewall', data.firewall_ok ? 'ok' : 'error', data.firewall_ok ? '100%' : '—', null);
-            setGaugeStatus('gauge-scan',     data.scan_ok     ? 'ok' : 'error', data.scan_ok     ? '100%' : data.scan_issues?.total + ' issues', null);
-            setGaugeStatus('gauge-login',    data.login_ok    ? 'ok' : 'error', data.login_ok    ? '100%' : '—', null);
+            renderModuleGauge('gauge-firewall', data.modules?.firewall);
+            renderModuleGauge('gauge-scan',     data.modules?.scan);
+            renderModuleGauge('gauge-login',    data.modules?.login);
 
             // Firewall summary
             renderFirewallSummary(data.blocks);
@@ -278,7 +378,7 @@
         if (!data.length) {
             ctx.fillStyle = '#999';
             ctx.textAlign = 'center';
-            ctx.fillText('No attack data for the last 24h', W / 2, 40);
+            ctx.fillText('Nenhum ataque bloqueado nas últimas 24 horas.', W / 2, 40);
             return;
         }
 
@@ -495,10 +595,21 @@
         try {
             const data = await api.get('firewall/status');
 
-            setGaugeStatus('gauge-waf', data.waf_enabled ? 'ok' : 'error', data.waf_enabled ? '100%' : '—', data.extended_active ? 'Extended protection active' : 'Basic mode active');
-            setGaugeStatus('gauge-rules', data.rules_count > 0 ? 'ok' : 'warning', data.rules_count > 0 ? String(data.rules_count) : '—', data.rules_count > 0 ? 'Regras ativas do WAF' : 'Nenhuma regra carregada');
-            setGaugeStatus('gauge-blocklist', 'ok', String(data.blocked_count ?? 0), 'IPs bloqueados');
+            // The WAF ring is two checks, not one: being switched on and
+            // loading before WordPress. 100% used to mean only the first.
+            const wafChecks = (data.waf_enabled ? 1 : 0) + (data.extended_active ? 1 : 0);
+            setGaugeStatus(
+                'gauge-waf',
+                data.waf_enabled ? (data.extended_active ? 'ok' : 'warning') : 'error',
+                data.waf_enabled ? `${wafChecks * 50}%` : '—',
+                data.waf_enabled
+                    ? (data.extended_active ? 'Proteção Estendida ativa' : 'Modo básico: carrega depois do WordPress')
+                    : 'Firewall desligado'
+            );
             setGaugeStatus('gauge-brute', data.brute_enabled ? 'ok' : 'warning', data.brute_enabled ? '100%' : '—', data.brute_enabled ? 'Proteção de login ativa' : 'Proteção de login desativada');
+
+            setStat('stat-rules', data.rules_count, data.rules_count > 0 ? 'em vigor agora' : 'nenhuma regra carregada');
+            setStat('stat-blocklist', data.blocked_count ?? 0, 'bloqueios ativos');
 
             const status = document.getElementById('extended-status');
             if (status) {
@@ -553,7 +664,7 @@
             const items = data.items || [];
 
             if (!items.length) {
-                tbody.innerHTML = '<tr><td colspan="4" class="dpxl-loading-cell">No blocked IPs in this period.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" class="dpxl-loading-cell">Nenhum IP bloqueado neste período.</td></tr>';
                 return;
             }
 
@@ -858,11 +969,62 @@
         }
     }
 
+    /**
+     * The three gauges on the Scan screen, from what actually happened.
+     *
+     * They used to be written by hand: '100%' and 'Loaded' for the signatures,
+     * '100%' and 'Blacklist checks' for the reputation — printed whether or not
+     * a check had ever run, and printed over the `not_configured` and
+     * `unavailable` states that 1.7.0 introduced precisely so the plugin would
+     * stop claiming a site was verified when nothing had been verified.
+     */
     function setScannerGauges(s) {
         const hasError = !!s.last_error && ['failed', 'cancelled'].includes(s.current_stage);
-        setGaugeStatus('gauge-scan-type', hasError ? 'warning' : 'ok', s.running ? (s.progress ? s.progress + '%' : '…') : '100%', s.running ? 'Running' : 'Standard');
-        setGaugeStatus('gauge-signatures', 'ok', '100%', 'Loaded');
-        setGaugeStatus('gauge-reputation', hasError ? 'warning' : 'ok', hasError ? '!' : '100%', hasError ? 'Needs attention' : 'Blacklist checks');
+
+        // Scan: a percentage only while one is running; otherwise how long ago.
+        if (s.running) {
+            setGaugeStatus('gauge-scan-type', 'ok', s.progress ? s.progress + '%' : '…', 'Varredura em andamento');
+        } else if (hasError) {
+            setGaugeStatus('gauge-scan-type', 'warning', '!', 'A última varredura não terminou');
+        } else if (!s.last_scan_at) {
+            setGaugeStatus('gauge-scan-type', 'unverified', '—', 'Nenhuma varredura concluída ainda');
+        } else {
+            setGaugeStatus('gauge-scan-type', 'ok', '✓', 'Última varredura ' + relativeTime(s.last_scan_at));
+        }
+
+        // Signatures: the count, not a percentage.
+        const sig = s.signatures || {};
+        setGaugeStatus(
+            'gauge-signatures',
+            sig.state === 'ok' ? 'ok' : 'unverified',
+            sig.count != null ? String(sig.count) : '—',
+            sig.state === 'ok' ? 'assinaturas carregadas' : 'Nenhuma assinatura carregada'
+        );
+
+        // Reputation: clean, listed, or never answered.
+        const rep = s.reputation || {};
+        const repState = { ok: 'ok', listed: 'error', unverified: 'unverified' }[rep.state] || 'unverified';
+        setGaugeStatus(
+            'gauge-reputation',
+            repState,
+            { ok: '✓', listed: '!', unverified: '—' }[rep.state] || '—',
+            rep.detail || 'Checagem de reputação não verificada'
+        );
+    }
+
+    /** "há 2 dias" / "há 3 horas" from a UTC MySQL datetime. */
+    function relativeTime(mysqlUtc) {
+        const t = Date.parse(String(mysqlUtc).replace(' ', 'T') + 'Z');
+        if (!t) return '';
+
+        const mins = Math.max(0, Math.round((Date.now() - t) / 60000));
+
+        if (mins < 60)    return `há ${mins} min`;
+        if (mins < 1440)  return `há ${Math.round(mins / 60)} h`;
+
+        const days = Math.round(mins / 1440);
+
+        return days === 1 ? 'ontem' : `há ${days} dias`;
     }
 
     function updateScanStats(s) {
@@ -1176,7 +1338,7 @@
             const data = await api.get('traffic', params);
             const items = data.items || [];
             if (!items.length) {
-                tbody.innerHTML = '<tr><td colspan="7" class="dpxl-loading-cell">No traffic logged yet.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="dpxl-loading-cell">Nenhum tráfego registrado ainda. O registro cobre apenas eventos de segurança.</td></tr>';
                 return;
             }
             tbody.innerHTML = items.map(row => {

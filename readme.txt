@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.8.2
+Stable tag: 1.8.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,14 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.8.3 =
+* **Changed: the dashboard gauges count what is actually on, instead of printing 100%.** `firewall_ok` was `Options::get('firewall_enabled')` and nothing else, so a site with Extended Protection off, no firewall rules loaded and not one administrator using two-factor still showed three green rings at 100%. Each ring is now the share of that module's checks that pass — five for the firewall, three for the scan, three for login — and the line underneath names the first one that does not, as a link straight to it. A module cannot reach 100% while anything it covers is switched off.
+* **Added: "not verified" as a state of its own, in grey.** A check that never ran is no longer folded into either green or red. A site nobody has scanned yet reads "no scan has been completed on this site" rather than showing a healthy ring; a blocklist that refused the query reads as unanswered rather than clean. This is the same distinction the reputation checker started making in 1.7.0, finally drawn on screen. Grey never turns green on its own.
+* **Changed: the protection banner has four states, and every one of them that is not green carries the next step.** It used to have two — "active" and "degraded, see the notifications below", which asked the reader to go hunting. It now says which protection is missing and puts the button to fix it in the banner itself.
+* **Changed: the Scan screen's three gauges report what happened.** The malware signatures read "100% / Loaded" and the reputation check read "100% / Blacklist checks", both written by hand regardless of what had run. They now show the real signature count, the real reputation result (clean, listed, or unanswered, naming the service that did not answer) and how long ago the last scan finished.
+* **Changed: counts no longer sit inside a ring.** "14 rules" and "0 blocked IPs" were drawn in the same circle used for percentages, which read as "14% of something, and all of it fine". They are plain figures now. The WAF ring covers two checks rather than one: being switched on, and loading before WordPress.
+* **Fixed: three empty states and several labels were still in English** on otherwise Portuguese screens — the attack chart, the blocked-IP table and live traffic among them.
 
 = 1.8.2 =
 * **Fixed: three pieces of English left behind by 1.8.0.** The alert for a finished scan opened with "deal first with what is marked critical", but 1.8.1 widened that alert to fire on high findings too, so it could arrive pointing at a section that was not there; it now says to start with the most severe findings, whatever those turn out to be. Thirteen context fields the detectors send — the lockout duration, the breach count, the number of findings, whether the plugin being deactivated was this one — had no Portuguese label, so each arrived as a humanised English slug ("Lockout seconds", "Hibp count") inside an otherwise Portuguese email. And a true/false field still read "yes" or "no". All three are the same half-translation 1.8.0 set out to remove.

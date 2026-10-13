@@ -239,10 +239,228 @@ class RestApi {
             'top_countries' => $topCountries,
             'geoip_ready'   => file_exists((defined('DPXL_SHIELD_PATH') ? DPXL_SHIELD_PATH : '') . 'data/GeoLite2-Country.mmdb'),
             'extended_mode' => defined('DPXL_SHIELD_EXTENDED_ACTIVE'),
+            'modules'       => $this->moduleCoverage($severeIssues),
+            // Kept for anything still reading the old shape. They are the
+            // coarse answer; `modules` is the honest one.
             'firewall_ok'   => Options::get('firewall_enabled', true),
             'scan_ok'       => $severeIssues === 0,
             'login_ok'      => (bool) Options::get('brute_force_enabled', true),
         ]);
+    }
+
+    // ── Module coverage ──────────────────────────────────────────────────────
+
+    /**
+     * How much of each module's protection is actually on, and verified.
+     *
+     * The dashboard used to render "100%" whenever an option was ticked:
+     * `firewall_ok` was `Options::get('firewall_enabled')` and nothing else, so
+     * a site with Extended Protection off, no rules loaded and not one
+     * administrator using 2FA still showed three green rings. The ring now
+     * counts the checks that pass, and the subtitle names the first one that
+     * does not.
+     *
+     * A check that could not run is its own state (`unverified`) rather than a
+     * failure or a pass — same distinction ReputationChecker drew in 1.7.0
+     * between "not configured" and "unavailable". Grey never silently becomes
+     * green.
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    private function moduleCoverage(int $severeIssues): array {
+        return [
+            'firewall' => $this->summariseModule($this->firewallChecks(), 'ok'),
+            'scan'     => $this->summariseModule($this->scanChecks($severeIssues), $severeIssues > 0 ? 'critical' : 'ok'),
+            'login'    => $this->summariseModule($this->loginChecks(), 'ok'),
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>> $checks
+     * @return array<string,mixed>
+     */
+    private function summariseModule(array $checks, string $stateWhenComplete): array {
+        $total = count($checks);
+        $met   = count(array_filter($checks, static function (array $c): bool {
+            return $c['state'] === 'ok';
+        }));
+
+        $unverified = array_values(array_filter($checks, static function (array $c): bool {
+            return $c['state'] === 'unverified';
+        }));
+
+        $firstUnmet = null;
+
+        foreach ($checks as $check) {
+            if ($check['state'] !== 'ok') {
+                $firstUnmet = $check;
+                break;
+            }
+        }
+
+        if ($met === $total) {
+            $state = $stateWhenComplete;
+        } elseif ($stateWhenComplete === 'critical') {
+            $state = 'critical';
+        } elseif ($firstUnmet !== null && $firstUnmet['state'] === 'unverified' && count($unverified) === ($total - $met)) {
+            // Nothing is switched off; the only gaps are checks that could not
+            // run. That is "not verified", not "degraded".
+            $state = 'unverified';
+        } else {
+            $state = 'warning';
+        }
+
+        return [
+            'state'    => $state,
+            'met'      => $met,
+            'total'    => $total,
+            'percent'  => $total > 0 ? (int) round(($met / $total) * 100) : 0,
+            'headline' => $firstUnmet !== null ? $firstUnmet['label'] : '',
+            'action'   => $firstUnmet !== null ? ($firstUnmet['action'] ?? null) : null,
+            'checks'   => $checks,
+        ];
+    }
+
+    /**
+     * @param array{label: string, state: string, action?: array{label: string, query: string}} $check
+     * @return array<string,mixed>
+     */
+    private static function check(string $label, string $state, ?array $action = null): array {
+        return ['label' => $label, 'state' => $state, 'action' => $action];
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function firewallChecks(): array {
+        $firewall = ['label' => 'Abrir o firewall', 'query' => 'page=dpxl-shield-firewall'];
+
+        $rules = 0;
+
+        try {
+            $rules = count((new \DPXL\Shield\Firewall\Rules\RuleEngine())->getRules());
+        } catch (\Throwable $e) {
+            $rules = -1; // Could not be determined — reported as unverified below.
+        }
+
+        $feedEnabled = (bool) Options::get('threat_feed_enabled', true);
+        $feedRun     = (int) Options::get('threat_feed_last_run', 0);
+        $feedFresh   = $feedRun > 0 && (time() - $feedRun) < (7 * DAY_IN_SECONDS);
+
+        return [
+            self::check(
+                'O firewall está desligado',
+                Options::get('firewall_enabled', true) ? 'ok' : 'off',
+                $firewall
+            ),
+            self::check(
+                'Proteção Estendida inativa — o firewall carrega depois do WordPress',
+                defined('DPXL_SHIELD_EXTENDED_ACTIVE') ? 'ok' : 'off',
+                $firewall
+            ),
+            self::check(
+                $rules < 0 ? 'Não foi possível ler as regras do firewall' : 'Nenhuma regra do WAF carregada',
+                $rules > 0 ? 'ok' : ($rules < 0 ? 'unverified' : 'off'),
+                $firewall
+            ),
+            self::check(
+                $feedEnabled
+                    ? ($feedRun === 0 ? 'O feed de ameaças ainda não rodou' : 'O feed de ameaças está parado há mais de 7 dias')
+                    : 'O feed de ameaças está desligado',
+                $feedEnabled && $feedFresh ? 'ok' : ($feedEnabled && $feedRun === 0 ? 'unverified' : 'off'),
+                ['label' => 'Abrir as opções', 'query' => 'page=dpxl-shield-options']
+            ),
+            self::check(
+                'Proteção contra força bruta desligada',
+                Options::get('brute_force_enabled', true) ? 'ok' : 'off',
+                ['label' => 'Abrir segurança de login', 'query' => 'page=dpxl-shield-login']
+            ),
+        ];
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function scanChecks(int $severeIssues): array {
+        $scan = ['label' => 'Abrir a varredura', 'query' => 'page=dpxl-shield-scan'];
+
+        // Stored by ScanOrchestrator as a UTC MySQL datetime, not a timestamp:
+        // casting it to int would read "2026-10-13 21:19:41" as the year 2026
+        // and call every scan fresh.
+        $lastScanAt = (string) get_option('dpxl_shield_last_scan_at', '');
+        $lastScan   = $lastScanAt !== '' ? (int) strtotime($lastScanAt . ' UTC') : 0;
+        $scanFresh  = $lastScan > 0 && (time() - $lastScan) < (7 * DAY_IN_SECONDS);
+
+        $reputation = get_option('dpxl_shield_reputation_cache');
+        $repState   = 'unverified';
+
+        if (is_array($reputation) && isset($reputation['checked_at'])) {
+            $stale = (time() - (int) strtotime((string) $reputation['checked_at'])) > (7 * DAY_IN_SECONDS);
+            $blind = !empty($reputation['unavailable']);
+
+            $repState = ($stale || $blind) ? 'unverified' : 'ok';
+        }
+
+        return [
+            self::check(
+                $lastScan === 0
+                    ? 'Nenhuma varredura concluída neste site ainda'
+                    : 'A última varredura foi há mais de 7 dias',
+                $scanFresh ? 'ok' : 'unverified',
+                $scan
+            ),
+            self::check(
+                $severeIssues === 1 ? '1 ameaça aberta' : $severeIssues . ' ameaças abertas',
+                $severeIssues === 0 ? 'ok' : 'off',
+                $scan
+            ),
+            self::check(
+                'A checagem de reputação não pôde ser concluída',
+                $repState,
+                ['label' => 'Abrir as opções', 'query' => 'page=dpxl-shield-options']
+            ),
+        ];
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function loginChecks(): array {
+        $login = ['label' => 'Abrir segurança de login', 'query' => 'page=dpxl-shield-login'];
+
+        $roles = Options::get('two_factor_required_roles', ['administrator']);
+        $roles = is_array($roles) ? $roles : [];
+
+        return [
+            self::check(
+                'Proteção contra força bruta desligada',
+                Options::get('brute_force_enabled', true) ? 'ok' : 'off',
+                $login
+            ),
+            self::check(
+                'Nenhum administrador com verificação em duas etapas ativa',
+                $this->administratorsWithTwoFactor() > 0 ? 'ok' : 'off',
+                $login
+            ),
+            self::check(
+                'A verificação em duas etapas não é exigida dos administradores',
+                in_array('administrator', $roles, true) ? 'ok' : 'off',
+                $login
+            ),
+        ];
+    }
+
+    /**
+     * Administrators who have actually finished setting 2FA up.
+     *
+     * The role being on the "enforce" list says what should happen; this says
+     * what is true. The dashboard claimed 100% on the first for years while the
+     * second was zero.
+     */
+    private function administratorsWithTwoFactor(): int {
+        $admins = get_users([
+            'role'       => 'administrator',
+            'fields'     => 'ID',
+            'meta_key'   => 'dpxl_shield_totp_enabled',
+            'meta_value' => '1',
+            'number'     => 50,
+        ]);
+
+        return is_array($admins) ? count($admins) : 0;
     }
 
 
@@ -822,7 +1040,72 @@ class RestApi {
             'issue_count'    => $openThreats,
             'issues_found'   => (int) get_option('dpxl_shield_scan_issues_found', 0),
             'last_error'     => (string) get_option('dpxl_shield_scan_last_error', ''),
+            // The three gauges on the Scan screen used to be hardcoded: "100% /
+            // Loaded" for the signatures and "100% / Blacklist checks" for the
+            // reputation, whatever had actually happened. These are the real
+            // figures behind them.
+            'signatures'     => $this->signatureStatus(),
+            'reputation'     => $this->reputationStatus(),
         ]);
+    }
+
+    /**
+     * How many malware signatures are loaded, and whether any are.
+     *
+     * @return array{count: int, state: string}
+     */
+    private function signatureStatus(): array {
+        try {
+            $count = (new \DPXL\Shield\Scanner\SignatureDatabase())->count();
+        } catch (\Throwable $e) {
+            return ['count' => 0, 'state' => 'unverified'];
+        }
+
+        return ['count' => $count, 'state' => $count > 0 ? 'ok' : 'unverified'];
+    }
+
+    /**
+     * Reputation: clean, listed, or never actually answered.
+     *
+     * `not_configured` and `unavailable` were introduced in 1.7.0/1.7.1 so the
+     * checker would stop reporting a refused query as a clean site. The screen
+     * went on drawing 100% over all three.
+     *
+     * @return array{state: string, detail: string, checked_at: string}
+     */
+    private function reputationStatus(): array {
+        $cache = get_option('dpxl_shield_reputation_cache');
+
+        if (!is_array($cache) || !isset($cache['checked_at'])) {
+            return ['state' => 'unverified', 'detail' => 'Nenhuma checagem concluída ainda.', 'checked_at' => ''];
+        }
+
+        $checkedAt = (string) $cache['checked_at'];
+        $results   = isset($cache['results']) && is_array($cache['results']) ? $cache['results'] : [];
+
+        $listed = array_keys(array_filter($results, static function ($r): bool {
+            return !empty($r['listed']);
+        }));
+
+        if ($listed !== []) {
+            return [
+                'state'      => 'listed',
+                'detail'     => 'Listado em: ' . implode(', ', $listed),
+                'checked_at' => $checkedAt,
+            ];
+        }
+
+        $blind = isset($cache['unavailable']) && is_array($cache['unavailable']) ? $cache['unavailable'] : [];
+
+        if ($blind !== []) {
+            return [
+                'state'      => 'unverified',
+                'detail'     => 'Sem resposta de: ' . implode(', ', $blind),
+                'checked_at' => $checkedAt,
+            ];
+        }
+
+        return ['state' => 'ok', 'detail' => 'Nenhuma listagem encontrada.', 'checked_at' => $checkedAt];
     }
 
     public function triggerScan(): \WP_REST_Response {

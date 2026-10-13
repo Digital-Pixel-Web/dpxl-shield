@@ -52,6 +52,12 @@
 .dpxl-gauge[data-status="ok"]      .dpxl-gauge__circle { border-color: var(--dpxl-ok); }
 .dpxl-gauge[data-status="warning"] .dpxl-gauge__circle { border-color: var(--dpxl-warn); }
 .dpxl-gauge[data-status="error"]   .dpxl-gauge__circle { border-color: var(--dpxl-error); }
+/* Not verified is its own state: a check that never ran must not read as a
+   check that passed. Grey, dashed, and it never becomes green on its own. */
+.dpxl-gauge[data-status="unverified"] .dpxl-gauge__circle { border-color: var(--dpxl-muted); border-style: dashed; }
+.dpxl-gauge[data-status="unverified"] .dpxl-gauge__pct    { color: var(--dpxl-muted); }
+.dpxl-gauge__sub a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.dpxl-gauge__sub a:hover { color: var(--dpxl-primary); }
 .dpxl-gauge__pct { font-size: 18px; font-weight: 700; }
 .dpxl-gauge__label { font-weight: 600; font-size: 13px; }
 .dpxl-gauge__sub { font-size: 11px; color: #666; margin: 2px 0 6px; }
@@ -64,7 +70,24 @@
 .dpxl-banner .dpxl-icon { width: 20px; height: 20px; }
 .dpxl-banner--ok      { background: #edfaee; color: #0a6b1c; border: 1px solid #b8e6c0; }
 .dpxl-banner--error   { background: #fcf0f0; color: #9a2325; border: 1px solid #f0c4c5; }
+.dpxl-banner--warning { background: #fcf9e8; color: #7a5200; border: 1px solid #f0e2a8; }
+.dpxl-banner--unverified { background: var(--dpxl-bg); color: #50575e; border: 1px solid var(--dpxl-border); }
 .dpxl-banner--loading { background: var(--dpxl-bg); color: var(--dpxl-muted); border: 1px solid var(--dpxl-border); }
+/* Every state that is not green carries its next step, in the banner itself.
+   The old one said "veja as notificações abaixo" and left the reader to hunt. */
+.dpxl-banner__action {
+    margin-left: 4px; padding: 6px 14px; border-radius: var(--dpxl-radius);
+    background: var(--dpxl-primary); color: #fff; font-size: 13px; font-weight: 600;
+    text-decoration: none; white-space: nowrap;
+}
+.dpxl-banner__action:hover, .dpxl-banner__action:focus { background: #135e96; color: #fff; }
+
+/* A count is not a percentage, so it does not go inside a ring. */
+.dpxl-stat { background: var(--dpxl-surface); border: 1px solid var(--dpxl-border); border-radius: var(--dpxl-radius-lg); padding: 20px 16px; text-align: center; flex: 1; box-shadow: var(--dpxl-shadow); }
+.dpxl-stat__value { font-size: 30px; font-weight: 700; line-height: 1.1; color: var(--dpxl-heading); }
+.dpxl-stat__value--muted { color: var(--dpxl-muted); }
+.dpxl-stat__label { font-weight: 600; font-size: 13px; margin-top: 6px; }
+.dpxl-stat__sub   { font-size: 11px; color: var(--dpxl-muted); margin: 2px 0 6px; }
 
 /* ── Notices ─────────────────────────────────────────────────── */
 .dpxl-notice { padding: 10px 14px; border-radius: var(--dpxl-radius); margin-bottom: 12px; border-left: 4px solid transparent; }

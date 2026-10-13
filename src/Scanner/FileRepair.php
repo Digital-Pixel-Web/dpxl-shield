@@ -57,29 +57,21 @@ class FileRepair {
     public function repairAll(): array {
         global $wpdb;
 
-        $lastScanId = (string) get_option('dpxl_shield_last_scan_id', '');
-
-        if ($lastScanId !== '') {
-            $results = $wpdb->get_results(
-                $wpdb->prepare(
-                    "SELECT id, file_path, issue_type FROM {$wpdb->prefix}dpxl_shield_scan_results
-                     WHERE status = 'new'
-                     AND scan_id = %s
-                     AND issue_type IN ('modified_core', 'modified_plugin')
-                     ORDER BY id ASC",
-                    $lastScanId
-                ),
-                ARRAY_A
-            ) ?? [];
-        } else {
-            $results = $wpdb->get_results(
-                "SELECT id, file_path, issue_type FROM {$wpdb->prefix}dpxl_shield_scan_results
-                 WHERE status = 'new'
-                 AND issue_type IN ('modified_core', 'modified_plugin')
-                 ORDER BY id ASC",
-                ARRAY_A
-            ) ?? [];
-        }
+        // Every open repairable finding, not just the ones the last scan
+        // inserted. This used to filter by dpxl_shield_last_scan_id, which since
+        // the 1.7.2 reconciliation means "detected for the first time by the last
+        // scan": a modified core file that keeps being re-detected holds its
+        // original row, with its original scan_id, so "Repair all" could never
+        // reach it. The count the button shows comes from the open rows too, so
+        // the two have to be drawn from the same set.
+        $results = $wpdb->get_results(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            "SELECT id, file_path, issue_type FROM {$wpdb->prefix}dpxl_shield_scan_results
+             WHERE status = 'new'
+             AND issue_type IN ('modified_core', 'modified_plugin')
+             ORDER BY id ASC",
+            ARRAY_A
+        ) ?? [];
 
         $repaired = $failed = $skipped = 0;
 

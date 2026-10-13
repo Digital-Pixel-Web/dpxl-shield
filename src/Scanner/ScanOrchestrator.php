@@ -152,7 +152,9 @@ class ScanOrchestrator {
 
         if (!empty($this->results)) {
             $this->results = $this->normalizeResults($this->results);
-            $this->persistResults();
+            // Insert-only: this pass opened just the files modified since the
+            // last scan, so it has no opinion on findings elsewhere.
+            $this->persistResults(false);
         }
 
         update_option('dpxl_shield_last_incremental_scan_at', current_time('mysql', true));
@@ -445,8 +447,20 @@ class ScanOrchestrator {
      * So: a finding already open is left alone (its original detection date is
      * the honest one), a finding that has gone away is marked resolved, and only
      * genuinely new ones are inserted.
+     *
+     * Resolving requires having looked everywhere, so only a full scan may do it.
+     * The hourly incremental scan passes $reconcile = false: it opens only the
+     * files modified since the last scan, so a finding missing from its results
+     * was never looked at, not cleaned. Left to reconcile, a single incremental
+     * hit would have marked every other open finding resolved in one go — on the
+     * staging install that was all 19 open threats, a months-old malware
+     * signature among them. It only never fired because those passes came back
+     * empty and stopped at the guard above.
+     *
+     * @param bool $reconcile  Whether absent findings may be closed. False makes
+     *                         the pass insert-only.
      */
-    private function persistResults(): void {
+    private function persistResults(bool $reconcile = true): void {
         global $wpdb;
 
         $table = $wpdb->prefix . 'dpxl_shield_scan_results';
@@ -473,15 +487,22 @@ class ScanOrchestrator {
 
             if (!isset($current[$key])) {
                 // Gone since the last scan: the file was cleaned or removed, or
-                // the detection that produced it was corrected.
-                $wpdb->update($table, ['status' => 'resolved'], ['id' => (int) $row['id']], ['%s'], ['%d']);
+                // the detection that produced it was corrected. An insert-only
+                // pass cannot tell that apart from a file it never opened.
+                if ($reconcile) {
+                    $wpdb->update($table, ['status' => 'resolved'], ['id' => (int) $row['id']], ['%s'], ['%d']);
+                }
+
                 continue;
             }
 
             if (isset($kept[$key])) {
                 // A duplicate of a finding already open — the residue of earlier
                 // scans that inserted unconditionally. One row per finding.
-                $wpdb->update($table, ['status' => 'resolved'], ['id' => (int) $row['id']], ['%s'], ['%d']);
+                if ($reconcile) {
+                    $wpdb->update($table, ['status' => 'resolved'], ['id' => (int) $row['id']], ['%s'], ['%d']);
+                }
+
                 continue;
             }
 

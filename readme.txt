@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.5
+Stable tag: 1.7.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,11 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.7.6 =
+* **Fixed: the dashboard reported open threats that the Scan screen showed none of.** The dashboard counted every threat still open; the Scan screen listed only the findings the most recent scan had recorded for the first time. Since 1.7.2 a scan leaves an already-open finding on its original record — the date it was first seen is the honest one — so a problem that keeps being detected is never re-recorded, and the Scan screen stopped showing it. On one install that meant a dashboard reading 19 open threats beside a Scan screen reading none, including a malware signature open since July. Both screens now count what is open, which is what the latest scan found: a scan closes whatever it no longer sees, so the two figures are drawn from the same records and cannot disagree.
+* **Fixed: "Repair all repairable" skipped files that had been reported before.** It selected only what the most recent scan had recorded, so a modified core or plugin file that kept being detected — exactly the kind that needs repairing — was never included, while the button's own count included it. It now repairs every open repairable file.
+* **Fixed: an hourly scan could mark every open finding as resolved.** The hourly scan only examines files changed since the last full scan, but it closed any finding it did not come across — and it comes across almost nothing, by design. The first time it had found something, every other open finding on the site would have been silently marked resolved. It now only records what is new; closing a finding is left to the full scan, which does look everywhere.
 
 = 1.7.5 =
 * **Fixed: a filtered Live Traffic request reported a total of zero matches.** The traffic endpoint builds one set of conditions and uses it twice — once for the page of rows it returns, once to count how many rows match in total. The count ran without binding the filter values, so the placeholders for the IP and URL filters reached the database as literal text, the query failed, and the total came back as zero while the rows themselves came back correctly. The count now binds the same values as the page query. Nothing in the panel displayed this total yet, so no screen was showing a wrong number; the figure was simply waiting to be wrong for whoever used it first.

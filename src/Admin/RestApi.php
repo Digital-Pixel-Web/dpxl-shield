@@ -693,13 +693,22 @@ class RestApi {
         $offset = (int) ($request->get_param('offset') ?? 0);
         $scanId = sanitize_text_field((string) ($request->get_param('scan_id') ?? ''));
 
-        // By default, show the latest scan only. The previous implementation showed
-        // all historical "new" results, which made the scanner look duplicated and
-        // much more alarming than it really was.
-        if ($scanId === '') {
-            $scanId = (string) get_option('dpxl_shield_last_scan_id', '');
-        }
-
+        // Count what is open, not what the last scan inserted.
+        //
+        // This used to default to scan_id = dpxl_shield_last_scan_id, a filter
+        // older than the reconciliation 1.7.2 brought in. Reconciliation keeps
+        // the *original* row of a finding that is still open, so that row carries
+        // the scan_id of the scan that saw it first — never the last one. The
+        // filter therefore showed only findings detected for the first time, and
+        // went blind to everything that persisted, which is exactly the set
+        // nobody has fixed yet. On the staging install it showed 0 while 19
+        // threats were open, one of them a malware signature open since July.
+        //
+        // Since every full scan resolves what it no longer sees, status='new' now
+        // *is* "what the last scan found": the same install reported
+        // dpxl_shield_last_scan_issue_count = 19 for those 19 open rows. So the
+        // dashboard badge and this screen fold the same rows and cannot disagree.
+        // An explicit scan_id still narrows to one scan for whoever asks for it.
         $where  = ['status = %s'];
         $params = [$status];
 

@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.6.1
+Stable tag: 1.6.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,12 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.6.2 =
+* **Fixed: a WordPress core update could be reported as a compromise, once an hour, indefinitely.** The integrity monitor compared critical core files against a baseline recorded on this site. A baseline only says a file is no longer what it was — which is equally true of a routine update, and core updates rewrite these files legitimately. Updates that do not run through WordPress's own upgrader never refreshed the baseline: background auto-updates, WP-CLI, and host control panels all fall in that gap. The stale baseline then produced a critical "file modified" email every hour, for a file that was untouched official WordPress.
+* The monitor now checks the official WordPress.org manifest for the running version before raising anything. A file that is byte-for-byte the official release is adopted as the new baseline, silently. A file that differs from the official release still alerts, as does one that cannot be confirmed — `wp-config.php` is not shipped by core, and WordPress.org can be unreachable. Unknown is not treated as safe.
+* **Fixed: "Admin login from a new IP" fired on almost every login from an unchanged home connection.** Residential IPv6 rotates the last half of the address every few hours, so one router emits an endless stream of distinct addresses. On a real site this meant eight "new" addresses across eleven logins, all from the same network — and an alert that cries wolf is an alert you stop reading.
+* New-IP detection now compares the network rather than the exact address: the /64 prefix for IPv6, the whole address for IPv4. Widening IPv4 as well would group unrelated customers of the same provider together and weaken a signal that works. Addresses already recorded are folded into their network when read, so the change does not announce networks the account has used before.
 
 = 1.6.1 =
 * **Fixed: changing a user's password from the profile screen failed with a fatal error.** The breached-password check declared the wrong type for one of its arguments — WordPress passes a partially built object there, not a full user — and the mismatch aborted the save. Present since 1.0.3 and triggered on every password change through the profile screen.

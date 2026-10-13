@@ -95,6 +95,29 @@ class WhoisLookup {
         return $result;
     }
 
+    /**
+     * Whatever is already cached for this IP, without ever going out to the
+     * network.
+     *
+     * Alert emails want the organisation behind an address, but they are built
+     * inside the request that triggered them — a login, a blocked request. A
+     * live lookup here costs up to 4s on the WHOIS socket plus 6s on the
+     * ipinfo fallback, which would make signing in slower to decorate an
+     * email. So the alert path reads what the Whois tool has already fetched
+     * and says "não identificada" when there is nothing, rather than stalling.
+     *
+     * @return array<string,string>|null
+     */
+    public static function cached(string $ip): ?array {
+        if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+            return null;
+        }
+
+        $cached = get_transient('dpxl_whois_' . md5($ip));
+
+        return is_array($cached) ? $cached : null;
+    }
+
     // ── Socket WHOIS ───────────────────────────────────────────────────────
 
     /** @return array<string,string>|null */

@@ -75,6 +75,48 @@ class CountryBlocker {
         }
     }
 
+    /**
+     * Country name for an IP, in Portuguese when the database carries it.
+     *
+     * GeoLite2-Country ships localised names (`names['pt-BR']`), so an alert
+     * email can say "Brasil" instead of "BR" without the plugin bundling its
+     * own ISO table. Falls back to English, then to the ISO code, then null —
+     * an unknown origin is reported as unknown, never guessed.
+     */
+    public static function resolveCountryName(string $ip, string $locale = 'pt-BR'): ?string {
+        $mmdbPath = self::mmdbPath();
+
+        if (!file_exists($mmdbPath)) {
+            return null;
+        }
+
+        try {
+            $reader = new Reader($mmdbPath);
+            $record = $reader->get($ip);
+            $reader->close();
+        } catch (\Exception $e) {
+            Logger::error('CountryBlocker: ' . $e->getMessage());
+            return null;
+        }
+
+        if (!is_array($record) || !isset($record['country'])) {
+            return null;
+        }
+
+        $country = $record['country'];
+        $names   = isset($country['names']) && is_array($country['names']) ? $country['names'] : [];
+
+        foreach ([$locale, 'pt-BR', 'en'] as $candidate) {
+            if (isset($names[$candidate]) && $names[$candidate] !== '') {
+                return (string) $names[$candidate];
+            }
+        }
+
+        return isset($country['iso_code']) && $country['iso_code'] !== ''
+            ? (string) $country['iso_code']
+            : null;
+    }
+
     public static function isDatabasePresent(): bool {
         return file_exists(self::mmdbPath());
     }

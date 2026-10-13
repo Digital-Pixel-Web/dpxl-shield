@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.8
+Stable tag: 1.8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,12 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.8.0 =
+* **Changed: alert emails now say who, from where, and what to do.** An alert used to be one fact and a table of raw fields. One of those fields read `Endereço IP: 2804:d45:b005:1800:dcd6:a6ff:45ec:ac02` and nothing more, which is not something a reader can act on. Every alert now carries four blocks in a fixed order: what happened, who it was and where they came from, what to do about it, and the raw fields last. The origin names the country from the bundled GeoLite2 database and the provider from whatever the Whois tool has already fetched; where the provider is unknown it says so and points at the tool, instead of leaving a blank that reads as "checked, nothing there". Nothing in that block goes out to the network, so no login gets slower to decorate an email. For IPv6 the block also names the network the address belongs to — on residential connections the address itself rotates, and the network is what the plugin actually compares against.
+* **Changed: every alert tells you what to do, including when the answer is nothing.** An alert that cannot be acted on and does not say so is how people learn to ignore the sender. A lockout now opens with "no action is necessary: the block is automatic and expires on its own"; a tampering alert opens with "run a full scan now". Three events that genuinely fire on normal activity — a login from a new network, a changed file, a traffic pattern — also carry one line explaining why they can appear when nothing is wrong.
+* **Changed: the alert catalogue is in Portuguese.** Titles, explanations and field labels were still English while the email around them had been Portuguese since 1.4.0, so every alert arrived half-translated, subject line included. The same strings feed the webhook, Slack and Discord integrations, so those payloads are in Portuguese now too. What is still English is the one-line description each detector passes along; it has moved out of the opening sentence into the technical block, where nothing is lost.
+* **Changed: the alert's button opens the screen the alert is about.** Every alert used to link to the plugin's front page, leaving the reader to hunt for what the email had just told them. A login alert opens Login Security, a scan alert opens the scan results, a blocking alert opens the Blocking tab. The subject line also gained one exception to its own rule: `critical` now says so, because an unopened malware alert costs more than the noise. Everything below critical still arrives without shouting.
 
 = 1.7.8 =
 * **Fixed: a malware signature was reporting the registration setting every plugin writes.** The signature flagged any file that turns user registration on, which is what a registration switch does when you switch it on — so a plugin whose login screen offers that switch was reported as matching a malware signature on two installs, from July onwards, and kept matching on every scan. Turning registration on is a setting; what a backdoor does, and no settings screen does, is turn it on *and* hardcode administrator as the role every new account gets. The signature now requires both halves before it reports anything. Across 30,000 files on two installs it now matches nothing, where before it matched the one file that was never a threat.

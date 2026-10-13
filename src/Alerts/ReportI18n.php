@@ -15,9 +15,14 @@ namespace DPXL\Shield\Alerts;
  * (download button) and cron (scheduled email) contexts without putting a
  * global filter on every __() call site-wide.
  *
- * Scope note: alert *bodies* still come from EventCatalog, which is not mapped
- * here — an alert arrives with a pt-BR shell and an English event title and
- * summary. Translating the catalogue is a separate pass.
+ * Scope note: alert *bodies* come from EventCatalog, which since 1.8.0 is
+ * written in pt-BR directly and needs no mapping. What is left here for alerts
+ * is the shared shell — the severity pill and the footer.
+ *
+ * Still English: the `description` each dispatcher passes to the alert
+ * (`"Admin 'x' logged in from a new IP"`). It is no longer the lead paragraph,
+ * only a line in the technical block, so translating those call sites is its
+ * own pass across src/LoginSecurity, src/Firewall and src/Scanner.
  *
  * Like the UI filter, this is unconditional (the plugin is pt-BR first). If the
  * plugin ever ships internationally, both filters need locale-gating together —
@@ -70,10 +75,10 @@ class ReportI18n {
         'Sent by %1$s on %2$s.'                     => 'Enviado por %1$s em %2$s.',
         'Manage what triggers an email in %s.'      => 'Gerencie o que dispara um e-mail em %s.',
         'DPXL Shield settings'                      => 'configurações do DPXL Shield',
-        // Alert shell (EmailChannel).
-        'Open DPXL Shield'                          => 'Abrir o DPXL Shield',
-        'When'                                      => 'Quando',
-        'Event ID: %s'                              => 'ID do evento: %s',
+        // The alert body no longer passes through here: since 1.8.0 its title,
+        // explanation, next steps and button label come from EventCatalog,
+        // already in pt-BR. What remains above is the shared shell, which the
+        // scheduled report and every alert both render.
     ];
 
     /** @var array<string,array{0:string,1:string}> English singular → [pt singular, pt plural]. */

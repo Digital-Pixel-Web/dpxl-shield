@@ -145,6 +145,108 @@ class EmailTemplate {
     }
 
     /**
+     * "Quem / de onde" block: the context that turns a bare address into a
+     * fact a human can judge.
+     *
+     * Each row is ['label' => string, 'value' => string, 'note' => string],
+     * where `note` is an optional second line in grey. Rows whose value is
+     * empty are dropped by the caller, not hidden here — an empty row would
+     * claim the field was checked and found blank.
+     *
+     * No inline SVG: Outlook strips it and several clients block it outright,
+     * so this block is text only. The icon system in §4.5 of the UI spec is
+     * for the admin screens.
+     *
+     * @param list<array{label: string, value: string, note?: string}> $rows
+     */
+    public static function identityBlock(array $rows): string {
+        if ($rows === []) {
+            return '';
+        }
+
+        $html  = '';
+        $first = true;
+
+        foreach ($rows as $row) {
+            $border = $first ? '' : 'border-top:1px solid #f0f0f1;';
+            $first  = false;
+
+            $note = isset($row['note']) && $row['note'] !== ''
+                ? '<br><span style="color:#787c82;font-size:12.5px;">' . esc_html($row['note']) . '</span>'
+                : '';
+
+            $html .= '<tr>'
+                . '<td style="padding:12px 14px;width:120px;color:#787c82;vertical-align:top;' . $border . '">'
+                . esc_html($row['label']) . '</td>'
+                . '<td style="padding:12px 14px;color:#1d2327;word-break:break-word;' . $border . '">'
+                . esc_html($row['value']) . $note . '</td>'
+                . '</tr>';
+        }
+
+        return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;border:1px solid #f0f0f1;border-radius:8px;font-size:14px;">'
+            . $html . '</table>';
+    }
+
+    /**
+     * The "O que fazer" block: a heading and one imperative line per item.
+     *
+     * Bullets are drawn in their own cell rather than with a <ul>, because
+     * Outlook's list indentation is unpredictable and the block has to line up
+     * with the tables above it.
+     *
+     * @param list<string> $items
+     */
+    public static function actionList(string $heading, array $items): string {
+        if ($items === []) {
+            return '';
+        }
+
+        $rows = '';
+
+        foreach ($items as $item) {
+            $rows .= '<tr>'
+                . '<td style="padding:4px 10px 4px 0;color:#787c82;vertical-align:top;line-height:1.6;">&bull;</td>'
+                . '<td style="padding:4px 0;font-size:14.5px;line-height:1.6;color:#3c434a;">' . esc_html($item) . '</td>'
+                . '</tr>';
+        }
+
+        return '<div style="margin-top:22px;">'
+            . '<p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#787c82;">'
+            . esc_html($heading) . '</p>'
+            . '<table role="presentation" cellpadding="0" cellspacing="0" border="0">' . $rows . '</table>'
+            . '</div>';
+    }
+
+    /**
+     * The raw fields, muted and last.
+     *
+     * Same data the detail table used to carry at the top of the email. It is
+     * still here for whoever needs it, below the part a human reads.
+     *
+     * @param array<string,string> $rows
+     */
+    public static function techDetails(string $heading, array $rows): string {
+        if ($rows === []) {
+            return '';
+        }
+
+        $html = '';
+
+        foreach ($rows as $label => $value) {
+            $html .= '<tr>'
+                . '<td style="padding:7px 14px 7px 0;width:160px;color:#a7aaad;vertical-align:top;">' . esc_html((string) $label) . '</td>'
+                . '<td style="padding:7px 0;color:#787c82;word-break:break-word;">' . esc_html($value) . '</td>'
+                . '</tr>';
+        }
+
+        return '<div style="margin-top:26px;padding-top:18px;border-top:1px solid #f0f0f1;">'
+            . '<p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#a7aaad;">'
+            . esc_html($heading) . '</p>'
+            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13px;">'
+            . $html . '</table></div>';
+    }
+
+    /**
      * Tinted callout with a left accent rule — used for "needs attention"
      * lines that should stand out without turning the whole email red.
      */

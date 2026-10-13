@@ -595,15 +595,27 @@ class ScanOrchestrator {
             update_option('dpxl_shield_scan_last_error', 'Scan cancelled by admin before completion.', false);
         }
 
-        // Fire alert only if a critical *threat* was found.
-        $criticals = array_filter($threats, fn($r) => ($r['severity'] ?? '') === 'critical');
+        // Fire the alert for a *threat* the scanner is sure about — critical or
+        // high. It used to be critical only, which is why a high-severity
+        // malware signature sat open on two installs from July onwards without
+        // a single email going out about it. The level reported is the worst
+        // severity actually found, so the email's pill does not say critical
+        // about a high finding.
+        $severe    = array_filter($threats, [ScanClassifier::class, 'isSevere']);
+        $criticals = array_filter($severe, fn($r) => ($r['severity'] ?? '') === 'critical');
 
-        if (!empty($criticals)) {
+        if (!empty($severe)) {
             do_action('dpxl_shield_alert', [
-                'level'       => 'critical',
+                'level'       => empty($criticals) ? 'high' : 'critical',
+                // Kept as-is: the id is what already-stored audit rows carry.
                 'event_type'  => 'scan_found_criticals',
-                'description' => count($criticals) . ' critical issue(s) found during malware scan.',
-                'context'     => ['scan_id' => $this->scanId, 'count' => count($criticals)],
+                'description' => count($severe) . ' issue(s) needing action found during malware scan ('
+                    . count($criticals) . ' critical, ' . (count($severe) - count($criticals)) . ' high).',
+                'context'     => [
+                    'scan_id'  => $this->scanId,
+                    'count'    => count($severe),
+                    'critical' => count($criticals),
+                ],
             ]);
         }
     }

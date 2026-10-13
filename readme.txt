@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.8.0
+Stable tag: 1.8.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,9 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.8.1 =
+* **Fixed: the dashboard's security gauge read 100% with a malware signature open, and no email ever went out about it.** The gauge, and the alert sent when a scan finishes, both asked whether anything was *critical*. The one finding open on two installs was a matched malware signature rated high — so from July onwards the panel reported perfect health over an open finding the Scan screen was listing all along, and not one alert email was sent about it. Both now treat high the same as critical, which is the line the threat count itself already drew. Medium is deliberately left out: those are the findings the scan says it is unsure about, and turning the gauge red for each of them is the same crying-wolf problem from the other side. They are still listed and still counted.
 
 = 1.8.0 =
 * **Changed: alert emails now say who, from where, and what to do.** An alert used to be one fact and a table of raw fields. One of those fields read `Endereço IP: 2804:d45:b005:1800:dcd6:a6ff:45ec:ac02` and nothing more, which is not something a reader can act on. Every alert now carries four blocks in a fixed order: what happened, who it was and where they came from, what to do about it, and the raw fields last. The origin names the country from the bundled GeoLite2 database and the provider from whatever the Whois tool has already fetched; where the provider is unknown it says so and points at the tool, instead of leaving a blank that reads as "checked, nothing there". Nothing in that block goes out to the network, so no login gets slower to decorate an email. For IPv6 the block also names the network the address belongs to — on residential connections the address itself rotates, and the network is what the plugin actually compares against.

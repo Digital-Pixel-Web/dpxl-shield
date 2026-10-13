@@ -315,6 +315,76 @@ class ScanThreatCountTest extends TestCase {
         );
     }
 
+    /**
+     * 1.7.8's other half, and the mirror image of 1.7.7: the badge was
+     * over-counting, while the health gauge never lit at all. scan_ok asked
+     * whether anything was *critical*, and the one open threat on both staging
+     * installs was a high-severity malware signature — so the gauge read 100%
+     * green for months with that finding open underneath it.
+     */
+    public function testTheHealthGaugeCountsHighAlongsideCritical(): void {
+        $data = $this->dashboard();
+
+        $this->assertSame(4, $data['scan_issues']['severe'], 'Two critical and two high threats are open.');
+        $this->assertSame(2, $data['scan_issues']['critical'], 'The critical figure stays critical-only.');
+        $this->assertFalse($data['scan_ok']);
+    }
+
+    /**
+     * The staging installs exactly: one open threat, high, nothing critical.
+     * This is the case the old rule called healthy.
+     */
+    public function testAHighThreatAloneIsEnoughToSayTheSiteIsNotOk(): void {
+        $GLOBALS['wpdb'] = $this->wpdb = new FakeScanWpdb([[
+            'id'           => 1,
+            'scan_id'      => 'scan-01-july',
+            'issue_type'   => 'malware_signature',
+            'severity'     => 'high',
+            'status'       => 'new',
+            'file_path'    => 'wp-content/plugins/support/class-login-page-customizer.php',
+            'signature_id' => 'sig-wp-open-registration-admin-role',
+            'details'      => null,
+        ]]);
+
+        $data = $this->dashboard();
+
+        $this->assertSame(0, $data['scan_issues']['critical'], 'Nothing is critical, which is why this went unnoticed.');
+        $this->assertSame(1, $data['scan_issues']['severe']);
+        $this->assertFalse($data['scan_ok'], 'One open high-severity threat is not a healthy site.');
+        $this->assertSame(1, $this->scanResults()['total'], 'And the scan screen was listing it all along.');
+    }
+
+    /**
+     * The other direction, which is the reason medium is left out: an install
+     * whose open rows are all advisory keeps its gauge green. Turning it red
+     * for a recommendation would be the 1.7.7 defect again, one screen over.
+     */
+    public function testAdvisoryRowsAloneLeaveTheGaugeGreen(): void {
+        $rows = [];
+
+        foreach (['php_in_uploads', 'vulnerable_version', 'heuristic', 'unknown'] as $i => $type) {
+            $rows[] = [
+                'id'           => $i + 1,
+                'scan_id'      => 'scan-09-october',
+                'issue_type'   => $type,
+                'severity'     => 'medium',
+                'status'       => 'new',
+                'file_path'    => 'file-' . $i . '.php',
+                'signature_id' => null,
+                'details'      => null,
+            ];
+        }
+
+        $GLOBALS['wpdb'] = $this->wpdb = new FakeScanWpdb($rows);
+
+        $data = $this->dashboard();
+
+        $this->assertSame(0, $data['scan_issues']['total'], 'None of these is a threat.');
+        $this->assertSame(0, $data['scan_issues']['severe']);
+        $this->assertTrue($data['scan_ok']);
+        $this->assertSame(4, $this->scanResults()['recommendation_total'], 'They are all still listed.');
+    }
+
     /** A clean install must not be told it has problems. */
     public function testAnInstallWithNothingOpenCountsZeroOnBothScreens(): void {
         $GLOBALS['wpdb'] = $this->wpdb = new FakeScanWpdb([]);
@@ -322,6 +392,7 @@ class ScanThreatCountTest extends TestCase {
         $this->assertSame(0, $this->dashboard()['scan_issues']['total']);
         $this->assertSame(0, $this->scanResults()['total']);
         $this->assertSame(0, (new RestApi())->getScanStatus()->get_data()['issue_count']);
+        $this->assertSame(0, $this->dashboard()['scan_issues']['severe']);
         $this->assertTrue($this->dashboard()['scan_ok']);
     }
 }
@@ -398,13 +469,20 @@ class FakeScanWpdb {
      * @return array<int,array<string,mixed>>
      */
     private function matching(string $sql): array {
+        // The severe expression contains the threat expression, so it has to be
+        // recognised first or every gauge query would read as a plain threat
+        // count. Both are delegated to the PHP classifier rather than parsed;
+        // ScanClassifierTest is what holds the SQL and the PHP to one rule.
+        $severeSql = ScanClassifier::severeWhereSql();
         $threatSql = ScanClassifier::threatWhereSql();
-        $wantsNonThreat = str_contains($sql, $threatSql . ' = 0');
-        $wantsThreat    = !$wantsNonThreat && str_contains($sql, $threatSql);
+
+        $wantsSevere    = str_contains($sql, $severeSql);
+        $wantsNonThreat = !$wantsSevere && str_contains($sql, $threatSql . ' = 0');
+        $wantsThreat    = !$wantsSevere && !$wantsNonThreat && str_contains($sql, $threatSql);
 
         // Remove the threat expression before reading the other predicates: it
         // carries a severity comparison of its own that is none of their business.
-        $rest = str_replace([$threatSql . ' = 0', $threatSql], '', $sql);
+        $rest = str_replace([$severeSql, $threatSql . ' = 0', $threatSql], '', $sql);
 
         $status   = self::literal($rest, 'status');
         $scanId   = self::literal($rest, 'scan_id');
@@ -414,7 +492,7 @@ class FakeScanWpdb {
             : null;
 
         return array_filter($this->rows, function (array $row) use (
-            $wantsThreat, $wantsNonThreat, $status, $scanId, $severity, $types
+            $wantsSevere, $wantsThreat, $wantsNonThreat, $status, $scanId, $severity, $types
         ): bool {
             if ($status !== null && $row['status'] !== $status) {
                 return false;
@@ -429,6 +507,10 @@ class FakeScanWpdb {
             }
 
             if ($types !== null && !in_array($row['issue_type'], $types, true)) {
+                return false;
+            }
+
+            if ($wantsSevere && !ScanClassifier::isSevere($row)) {
                 return false;
             }
 

@@ -147,11 +147,94 @@ class ScanClassifierTest extends TestCase {
         return (bool) eval("return {$expr};");
     }
 
-    public function testThreatSqlIsParenthesisedAndParamFree(): void {
-        $sql = ScanClassifier::threatWhereSql();
+    /**
+     * @dataProvider severeCases
+     * @param array<string,mixed> $row
+     */
+    public function testIsSevere(array $row, bool $expected, string $why): void {
+        $this->assertSame($expected, ScanClassifier::isSevere($row), $why);
+    }
 
-        $this->assertStringStartsWith('(', $sql);
-        $this->assertStringEndsWith(')', $sql);
-        $this->assertStringNotContainsString('%s', $sql, 'Fragment must be literal-only (no bound params)');
+    /** @return array<string,array{0:array<string,mixed>,1:bool,2:string}> */
+    public static function severeCases(): array {
+        return [
+            'the malware signature that kept the gauge green' => [
+                ['issue_type' => 'malware_signature', 'severity' => 'high'], true,
+                'A high-severity signature was the one open threat on two installs, '
+                . 'and the health gauge read 100% over it for months',
+            ],
+            'a modified core file is severe' => [
+                ['issue_type' => 'modified_core', 'severity' => 'critical'], true, '',
+            ],
+            'an exposed .env is severe' => [
+                ['issue_type' => 'unknown', 'severity' => 'critical'], true, '',
+            ],
+            'an unpatched CVE is severe' => [
+                ['issue_type' => 'vulnerable_version', 'severity' => 'high'], true, '',
+            ],
+            // ── Threats the gauge does not turn red for ──────────────────────
+            'a medium signature is a threat but not severe' => [
+                ['issue_type' => 'malware_signature', 'severity' => 'medium'], false,
+                'A broad pattern the scanner is unsure about is still listed and '
+                . 'still counted, but it does not claim the site is compromised',
+            ],
+            // ── Not threats at all, so never severe ─────────────────────────
+            'a component with an update available is not severe' => [
+                ['issue_type' => 'vulnerable_version', 'severity' => 'medium'], false, '',
+            ],
+            'a high heuristic is not even a threat' => [
+                ['issue_type' => 'heuristic', 'severity' => 'high'], false,
+                'isSevere() asks isThreat() first: severity alone never promotes a '
+                . 'row the split already rejected',
+            ],
+            'a hardening notice is not severe' => [
+                ['issue_type' => 'unknown', 'severity' => 'medium'], false, '',
+            ],
+        ];
+    }
+
+    /**
+     * Same guard as the pair test above, for the second rule written twice:
+     * the gauge reads severeWhereSql() while the orchestrator's alert reads
+     * isSevere().
+     */
+    public function testTheSevereSqlAgreesWithIsSevereForEveryPair(): void {
+        $types = ['modified_core', 'modified_plugin', 'malware_signature', 'heuristic', 'php_in_uploads', 'vulnerable_version', 'unknown'];
+        $sql   = ScanClassifier::severeWhereSql();
+
+        foreach ($types as $type) {
+            foreach (['critical', 'high', 'medium', 'low'] as $severity) {
+                $this->assertSame(
+                    ScanClassifier::isSevere(['issue_type' => $type, 'severity' => $severity]),
+                    self::evaluateThreatSql($sql, $type, $severity),
+                    "isSevere() and severeWhereSql() disagree on {$type}/{$severity}"
+                );
+            }
+        }
+    }
+
+    public function testSevereIsAlwaysASubsetOfThreat(): void {
+        $types = ['modified_core', 'modified_plugin', 'malware_signature', 'heuristic', 'php_in_uploads', 'vulnerable_version', 'unknown'];
+
+        foreach ($types as $type) {
+            foreach (['critical', 'high', 'medium', 'low'] as $severity) {
+                $row = ['issue_type' => $type, 'severity' => $severity];
+
+                if (ScanClassifier::isSevere($row)) {
+                    $this->assertTrue(
+                        ScanClassifier::isThreat($row),
+                        "{$type}/{$severity} is reported as severe without being a threat"
+                    );
+                }
+            }
+        }
+    }
+
+    public function testThreatSqlIsParenthesisedAndParamFree(): void {
+        foreach ([ScanClassifier::threatWhereSql(), ScanClassifier::severeWhereSql()] as $sql) {
+            $this->assertStringStartsWith('(', $sql);
+            $this->assertStringEndsWith(')', $sql);
+            $this->assertStringNotContainsString('%s', $sql, 'Fragment must be literal-only (no bound params)');
+        }
     }
 }

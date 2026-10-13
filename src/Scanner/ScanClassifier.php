@@ -100,6 +100,32 @@ class ScanClassifier {
     }
 
     /**
+     * Whether a threat is severe enough to say the site is not healthy.
+     *
+     * The dashboard's health gauge and the post-scan alert email both ask this
+     * question, and both used to ask it only of `critical`. The one open threat
+     * on two staging installs was a high-severity malware signature, so the
+     * gauge read 100% for months with that finding sitting underneath it and no
+     * email ever went out about it. Both now read critical *and* high, which is
+     * the same line THREAT_SEVERITIES already draws for the gated types.
+     *
+     * Medium is deliberately left out: a medium finding is one the scanner is
+     * not sure about, and turning the gauge red for every one of those is the
+     * crying-wolf failure in the other direction. Such a finding is still
+     * listed and still counted as a threat — it just does not claim the site is
+     * compromised.
+     *
+     * @param array<string,mixed> $row  A scan_results row (issue_type, severity, ...)
+     */
+    public static function isSevere(array $row): bool {
+        if (!self::isThreat($row)) {
+            return false;
+        }
+
+        return in_array(strtolower((string) ($row['severity'] ?? 'medium')), self::THREAT_SEVERITIES, true);
+    }
+
+    /**
      * SQL WHERE fragment (no bound params) selecting threat rows. Wrap-safe:
      * already parenthesised, so callers can `... AND " . threatWhereSql()`.
      */
@@ -110,6 +136,16 @@ class ScanClassifier {
             . " OR (issue_type IN ('php_in_uploads','vulnerable_version','unknown')"
             . " AND severity IN ('critical','high'))"
             . ")";
+    }
+
+    /**
+     * SQL counterpart of isSevere(): threat rows the gauge and the alert treat
+     * as "act now". Same contract as threatWhereSql() — literal-only and
+     * already parenthesised — and the same obligation to stay in sync with its
+     * PHP twin.
+     */
+    public static function severeWhereSql(): string {
+        return '(' . self::threatWhereSql() . " AND severity IN ('critical','high'))";
     }
 
     /** Complement of threatWhereSql(): advisory / recommendation rows. */

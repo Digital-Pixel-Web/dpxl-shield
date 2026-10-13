@@ -192,8 +192,13 @@ class RestApi {
         // Count real threats only. Advisory/hardening recommendations are
         // surfaced separately and must not inflate the dashboard problem badge.
         $threatSql      = \DPXL\Shield\Scanner\ScanClassifier::threatWhereSql();
+        $severeSql      = \DPXL\Shield\Scanner\ScanClassifier::severeWhereSql();
         $openIssues     = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$scanTable} WHERE status='new' AND {$threatSql}");
         $criticalIssues = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$scanTable} WHERE status='new' AND severity='critical' AND {$threatSql}");
+        // What the health gauge answers to. Counted apart from `critical`
+        // because the panel labels that figure "critical" where it shows it,
+        // and a high-severity finding is not one.
+        $severeIssues   = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$scanTable} WHERE status='new' AND {$severeSql}");
 
         // Recent logins (last 10).
         $recentLogins = $wpdb->get_results(
@@ -228,14 +233,14 @@ class RestApi {
         return rest_ensure_response([
             'attacks'       => ['today' => $attacksToday, 'week' => $attacksWeek, 'month' => $attacksMonth],
             'blocks'        => $blocks,
-            'scan_issues'   => ['total' => $openIssues, 'critical' => $criticalIssues],
+            'scan_issues'   => ['total' => $openIssues, 'critical' => $criticalIssues, 'severe' => $severeIssues],
             'recent_logins' => $recentLogins,
             'attack_chart'  => $attackChart,
             'top_countries' => $topCountries,
             'geoip_ready'   => file_exists((defined('DPXL_SHIELD_PATH') ? DPXL_SHIELD_PATH : '') . 'data/GeoLite2-Country.mmdb'),
             'extended_mode' => defined('DPXL_SHIELD_EXTENDED_ACTIVE'),
             'firewall_ok'   => Options::get('firewall_enabled', true),
-            'scan_ok'       => $criticalIssues === 0,
+            'scan_ok'       => $severeIssues === 0,
             'login_ok'      => (bool) Options::get('brute_force_enabled', true),
         ]);
     }

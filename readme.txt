@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.9.4
+Stable tag: 1.9.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,9 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.9.5 =
+* **Fixed: the last nine English strings, all written in JavaScript.** The translation layer only covers strings the PHP asks it for, so anything the browser writes was out of its reach — the empty states on Integrations and the audit log, the two confirmation prompts for removing a webhook or revoking a token, and the help text under the signing-secret field. Visible only once you had something configured, or were about to delete it.
 
 = 1.9.4 =
 * **Fixed: the Integrations tab was unreachable.** Its link was in the navigation and its screen existed, but the list of allowed tabs did not know the name, so the request was silently rewritten to Live Traffic — and Live Traffic then sat on "Loading…" forever, because the script that fills it keys off the tab name in the address, which still said integrations. Nothing failed out loud; the screen holding the webhook and API-token setup simply could not be opened. Found while checking the translations that screen had just received.

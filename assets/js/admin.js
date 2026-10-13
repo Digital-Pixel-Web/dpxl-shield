@@ -1156,7 +1156,7 @@
     async function cancelScan() {
         try {
             await api.post('scan/cancel');
-            showNotice('Cancel requested. The scan will stop at the next safe checkpoint.', 'warning');
+            showNotice('Cancelamento pedido. A varredura para no próximo ponto seguro.', 'warning');
             await refreshScanStatus();
             startScanPolling();
         } catch (e) {
@@ -1531,7 +1531,7 @@
                     <td>${row.actor_user ? 'User #' + esc(row.actor_user) : '—'}</td>
                     <td><code>${esc(row.actor_ip)}</code></td>
                 </tr>`;
-            }).join('') || '<tr><td colspan="5" class="dpxl-loading-cell">No audit log entries.</td></tr>';
+            }).join('') || '<tr><td colspan="5" class="dpxl-loading-cell">Nenhum evento no log de auditoria ainda.</td></tr>';
         } catch (e) { tbody.innerHTML = `<tr><td colspan="5">${esc(e.message)}</td></tr>`; }
     }
 
@@ -1706,7 +1706,7 @@
                 const items = data.items || [];
 
                 if (!items.length) {
-                    container.innerHTML = '<p class="dpxl-empty-state">No endpoints configured yet. Security events are not being pushed anywhere.</p>';
+                    container.innerHTML = '<p class="dpxl-empty-state">Nenhum destino configurado ainda. Os eventos de segurança não estão sendo enviados a lugar nenhum.</p>';
                     return;
                 }
 
@@ -1777,10 +1777,10 @@
                 : 'Signing secret (optional)';
 
             field('webhook-secret-hint').textContent = isPagerDuty
-                ? 'From the PagerDuty service integration. Leave blank when editing to keep the current key.'
+                ? 'Vem da integração de serviço do PagerDuty. Deixe em branco ao editar para manter a chave atual.'
                 : (isGeneric
-                    ? 'Signs each payload so your receiver can verify it really came from this site. Leave blank when editing to keep the current value.'
-                    : 'Slack and Discord authenticate by URL, so a secret is not used for this destination.');
+                    ? 'Assina cada envio para que o destinatário possa conferir que ele veio mesmo deste site. Deixe em branco ao editar para manter o valor atual.'
+                    : 'Slack e Discord autenticam pela própria URL, então este destino não usa segredo.');
 
             field('webhook-secret-field').style.opacity = (isPagerDuty || isGeneric) ? '1' : '0.5';
         }
@@ -1804,7 +1804,7 @@
         }
 
         async function remove(id) {
-            if (!confirm('Remove this endpoint? Events will stop being sent to it.')) return;
+            if (!confirm('Remover este destino? Os eventos deixam de ser enviados para ele.')) return;
 
             try {
                 await api.delete(`webhooks/${encodeURIComponent(id)}`);
@@ -1869,7 +1869,7 @@
                 container.className = '';
 
                 if (!items.length) {
-                    container.innerHTML = '<p class="dpxl-empty-state">No tokens yet. Nothing can read this site through the API.</p>';
+                    container.innerHTML = '<p class="dpxl-empty-state">Nenhum token ainda. Nada consegue ler este site pela API.</p>';
                     return;
                 }
 
@@ -1913,7 +1913,7 @@
         }
 
         async function revoke(id) {
-            if (!confirm('Revoke this token? Any integration using it will stop working immediately.')) return;
+            if (!confirm('Revogar este token? Qualquer integração que o use para de funcionar na hora.')) return;
 
             try {
                 await api.delete(`api-tokens/${encodeURIComponent(id)}`);

@@ -99,21 +99,75 @@ class LoginAudit {
     }
 
     private function isNewIp(int $userId, string $ip): bool {
-        $knownIps = get_user_meta($userId, self::KNOWN_IPS_META, true);
-        return !is_array($knownIps) || !in_array($ip, $knownIps, true);
+        return !in_array(self::networkId($ip), $this->knownNetworks($userId), true);
     }
 
     private function markIpKnown(int $userId, string $ip): void {
-        $knownIps   = get_user_meta($userId, self::KNOWN_IPS_META, true);
-        $knownIps   = is_array($knownIps) ? $knownIps : [];
-        $knownIps[] = $ip;
+        $known   = $this->knownNetworks($userId);
+        $known[] = self::networkId($ip);
 
-        // Keep only the last 50 known IPs.
-        if (count($knownIps) > 50) {
-            $knownIps = array_slice($knownIps, -50);
+        // Keep only the last 50 known networks.
+        if (count($known) > 50) {
+            $known = array_slice($known, -50);
         }
 
-        update_user_meta($userId, self::KNOWN_IPS_META, $knownIps);
+        update_user_meta($userId, self::KNOWN_IPS_META, $known);
+    }
+
+    /**
+     * Known networks for a user, normalised.
+     *
+     * Entries stored before the comparison moved to network level are full
+     * addresses; normalising on read folds them into their prefix, so the
+     * change does not re-alert for networks the account already used.
+     *
+     * @return list<string>
+     */
+    private function knownNetworks(int $userId): array {
+        $stored = get_user_meta($userId, self::KNOWN_IPS_META, true);
+
+        if (!is_array($stored)) {
+            return [];
+        }
+
+        $networks = array_map([self::class, 'networkId'], array_filter($stored, 'is_string'));
+
+        return array_values(array_unique($networks));
+    }
+
+    /**
+     * The stable network identity of an address, used for "have we seen this
+     * place before?".
+     *
+     * Residential IPv6 (SLAAC with RFC 4941 privacy extensions) rotates the
+     * 64-bit interface identifier every few hours, so one unchanged router
+     * emits an endless stream of distinct addresses. Comparing whole IPv6
+     * addresses therefore reports "a new IP" on nearly every login from home —
+     * which is noise, and noise is what makes a real alert get ignored. The /64
+     * prefix is the part the ISP assigns and the part that actually means
+     * "somewhere else".
+     *
+     * IPv4 is compared whole: it does not rotate per session this way, and
+     * widening it to /24 would merge unrelated customers of the same ISP and
+     * blunt a signal that currently works.
+     */
+    public static function networkId(string $ip): string {
+        $packed = @inet_pton($ip);
+
+        // Not IPv6 (or unparseable) — compare as-is.
+        if ($packed === false || strlen($packed) !== 16) {
+            return $ip;
+        }
+
+        // IPv4-mapped (::ffff:192.0.2.1) is IPv4 wearing a v6 hat. Truncating it
+        // to /64 would collapse every such address into a single bucket.
+        if (strncmp($packed, "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff", 12) === 0) {
+            return $ip;
+        }
+
+        $prefix = inet_ntop(substr($packed, 0, 8) . str_repeat("\x00", 8));
+
+        return $prefix === false ? $ip : $prefix . '/64';
     }
 
     private function currentIp(): string {

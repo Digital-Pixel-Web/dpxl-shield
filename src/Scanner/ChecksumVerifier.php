@@ -76,6 +76,40 @@ class ChecksumVerifier {
     }
 
     /**
+     * Checks one core file against the official WP.org manifest for the
+     * running WordPress version.
+     *
+     * This is the authority a baseline cannot be: a stored baseline only says
+     * "this file is not what it was", never "this file is not WordPress".
+     * Core updates rewrite core files legitimately, so the manifest is what
+     * separates a routine update from tampering.
+     *
+     * @return bool|null true  = byte-for-byte the official file,
+     *                   false = differs from the official file,
+     *                   null  = no verdict available (file is not shipped by
+     *                           core, e.g. wp-config.php, or WP.org is
+     *                           unreachable). Callers must treat null as
+     *                           "unknown", never as "fine".
+     */
+    public function matchesOfficialCore(string $relativePath): ?bool {
+        $official = (new WpOrgChecksumApi())->getCoreChecksums();
+
+        if (empty($official) || !isset($official[$relativePath])) {
+            return null;
+        }
+
+        $absolutePath = ABSPATH . $relativePath;
+
+        if (!is_readable($absolutePath)) {
+            return null;
+        }
+
+        // WP.org publishes MD5. Fine here: this compares against a value fetched
+        // over TLS for the exact version, it is not a password or a signature.
+        return md5_file($absolutePath) === $official[$relativePath];
+    }
+
+    /**
      * Records a SHA-256 checksum for a file into the database.
      * Used for the integrity baseline (plugin own files + critical WP files).
      */

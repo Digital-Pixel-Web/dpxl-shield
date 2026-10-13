@@ -30,8 +30,8 @@ class FileIntegrityMonitor {
 
     private ChecksumVerifier $verifier;
 
-    public function __construct() {
-        $this->verifier = new ChecksumVerifier();
+    public function __construct(?ChecksumVerifier $verifier = null) {
+        $this->verifier = $verifier ?? new ChecksumVerifier();
     }
 
     // ── Hook Registration ──────────────────────────────────────────────────
@@ -82,6 +82,23 @@ class FileIntegrityMonitor {
         $transientKey = 'dpxl_integrity_alerted_' . md5($absolutePath);
 
         if (get_transient($transientKey)) {
+            return;
+        }
+
+        // A baseline mismatch only means the file is not what it was. It does not
+        // mean the file is not WordPress. Core updates rewrite these files for
+        // perfectly good reasons, and plenty of them never reach
+        // `upgrader_process_complete`: background auto-updates, WP-CLI, and host
+        // control panels (hPanel, cPanel) that update core behind WordPress's back.
+        // Re-baselining only on that hook therefore leaves the baseline stale and
+        // turns every later request into a "critical compromise" email.
+        //
+        // So before raising the alarm, ask the authority. If the file on disk is
+        // byte-for-byte the official release for the running version, it is stock
+        // WordPress: adopt it as the new baseline and say nothing.
+        if ($this->verifier->matchesOfficialCore($relativePath) === true) {
+            $this->verifier->record($absolutePath, 'core');
+            Logger::debug("Integrity baseline refreshed from the WP.org manifest: {$relativePath}");
             return;
         }
 

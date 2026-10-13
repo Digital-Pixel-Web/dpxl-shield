@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.9.3
+Stable tag: 1.9.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,11 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.9.4 =
+* **Fixed: the Integrations tab was unreachable.** Its link was in the navigation and its screen existed, but the list of allowed tabs did not know the name, so the request was silently rewritten to Live Traffic — and Live Traffic then sat on "Loading…" forever, because the script that fills it keys off the tab name in the address, which still said integrations. Nothing failed out loud; the screen holding the webhook and API-token setup simply could not be opened. Found while checking the translations that screen had just received.
+* **Added: a check that the three tab lists agree.** The Tools screen keeps its tabs in three places — the allow-list, the navigation and one file per tab — and this one was in two of them.
+* **Fixed: the Diagnostics section headings** were still in English above the rows translated in 1.9.3.
 
 = 1.9.3 =
 * **Changed: the rest of the plugin speaks Portuguese.** Sixty-four strings the screens asked the translation layer for were not in it, so they reached the user in English inside otherwise Portuguese pages — every paragraph explaining webhooks, API tokens, the Spamhaus key and the GeoLite2 feed, along with the filter labels, the severity thresholds and a dozen buttons. The Diagnostics tab was English end to end: thirty-two labels, values and recommendations. And the scan findings themselves — the sentence describing what was found, which is also what the weekly report and the alert email carry — were written in English at the point each detector produced them.

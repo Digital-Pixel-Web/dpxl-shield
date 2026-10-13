@@ -724,7 +724,13 @@ class AdminMenu {
         }
 
         $tab  = sanitize_key($_GET['tab'] ?? 'live-traffic');
-        $tabs = ['live-traffic', 'audit-log', 'whois', 'import-export', 'diagnostics'];
+        // Must stay in step with $toolTabs in Views/tools.php and with the
+        // partials in Views/tools/. A tab missing here is still drawn in the
+        // nav and still has a view file, but the whitelist silently rewrites
+        // the request to live-traffic — which is how Integrações became
+        // unreachable: the link was there, and clicking it landed on the
+        // traffic log. ToolsTabsTest compares the three.
+        $tabs = ['live-traffic', 'audit-log', 'whois', 'integrations', 'import-export', 'diagnostics'];
         $tab  = in_array($tab, $tabs, true) ? $tab : 'live-traffic';
 
         $wrapperFile = self::VIEWS_DIR . 'tools.php';

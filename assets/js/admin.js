@@ -1960,12 +1960,12 @@
             const checks = data.checks || {};
 
             const groups = {
-                'PHP & WordPress': ['php_version', 'wp_version', 'mysql_version'],
-                'PHP Extensions':  ['openssl', 'mbstring', 'hash', 'json', 'curl'],
-                'Performance':     ['apcu', 'opcache'],
-                'DPXL Shield':     ['extended_mode', 'maxmind_db', 'wp_cron'],
-                'Permissions':     ['wp_config_perms', 'uploads_perms'],
-                'Server':          ['disk_space'],
+                'PHP e WordPress':   ['php_version', 'wp_version', 'mysql_version'],
+                'Extensões do PHP':  ['openssl', 'mbstring', 'hash', 'json', 'curl'],
+                'Desempenho':        ['apcu', 'opcache'],
+                'DPXL Shield':       ['extended_mode', 'maxmind_db', 'wp_cron'],
+                'Permissões':        ['wp_config_perms', 'uploads_perms'],
+                'Servidor':          ['disk_space'],
             };
 
             container.innerHTML = Object.entries(groups).map(([group, keys]) => `

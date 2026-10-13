@@ -422,12 +422,94 @@ class ScanOrchestrator {
         return array_values($normalized);
     }
 
+    /**
+     * A finding's identity across scans: same file, same issue, same signature.
+     *
+     * @param array<string,mixed> $result
+     */
+    private static function findingKey(array $result): string {
+        return wp_normalize_path((string) ($result['file_path'] ?? 'unknown'))
+            . '|' . (string) ($result['issue_type'] ?? 'unknown')
+            . '|' . (string) ($result['signature_id'] ?? '');
+    }
+
+    /**
+     * Writes this scan's findings, reconciling them against what is already open.
+     *
+     * Each scan used to insert its findings unconditionally, so a file that kept
+     * matching produced one row per scan forever — on one install 34 files had
+     * become 2,380 open findings across 70 scans. That inflates the dashboard's
+     * critical count, which is the number an admin is supposed to trust, and it
+     * grows the table without bound.
+     *
+     * So: a finding already open is left alone (its original detection date is
+     * the honest one), a finding that has gone away is marked resolved, and only
+     * genuinely new ones are inserted.
+     */
     private function persistResults(): void {
         global $wpdb;
 
+        $table = $wpdb->prefix . 'dpxl_shield_scan_results';
+
+        $open = $wpdb->get_results(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            "SELECT id, file_path, issue_type, signature_id, severity
+               FROM {$table}
+              WHERE status = 'new'
+              ORDER BY id ASC",
+            ARRAY_A
+        ) ?: [];
+
+        $current = [];
+
         foreach ($this->results as $result) {
+            $current[self::findingKey($result)] = $result;
+        }
+
+        $kept = [];
+
+        foreach ($open as $row) {
+            $key = self::findingKey($row);
+
+            if (!isset($current[$key])) {
+                // Gone since the last scan: the file was cleaned or removed, or
+                // the detection that produced it was corrected.
+                $wpdb->update($table, ['status' => 'resolved'], ['id' => (int) $row['id']], ['%s'], ['%d']);
+                continue;
+            }
+
+            if (isset($kept[$key])) {
+                // A duplicate of a finding already open — the residue of earlier
+                // scans that inserted unconditionally. One row per finding.
+                $wpdb->update($table, ['status' => 'resolved'], ['id' => (int) $row['id']], ['%s'], ['%d']);
+                continue;
+            }
+
+            $kept[$key] = true;
+
+            // Keep the original row (its detection date is the honest one) but
+            // let a corrected severity or message reach it.
+            $severity = (string) ($current[$key]['severity'] ?? 'medium');
+            $details  = (string) ($current[$key]['details'] ?? '');
+
+            if ($severity !== (string) $row['severity']) {
+                $wpdb->update(
+                    $table,
+                    ['severity' => $severity, 'details' => $details],
+                    ['id' => (int) $row['id']],
+                    ['%s', '%s'],
+                    ['%d']
+                );
+            }
+        }
+
+        foreach ($current as $key => $result) {
+            if (isset($kept[$key])) {
+                continue;
+            }
+
             $wpdb->insert(
-                $wpdb->prefix . 'dpxl_shield_scan_results',
+                $table,
                 [
                     'scan_id'      => $this->scanId,
                     'file_path'    => $result['file_path'] ?? 'unknown',

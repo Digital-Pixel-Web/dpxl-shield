@@ -155,6 +155,10 @@
 .dpxl-option-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
 .dpxl-option-row label { font-size: 13px; color: var(--dpxl-text); }
 .dpxl-option-row:last-child { border-bottom: none; }
+/* The row is a flex pair (label | control); help text takes a line of its own
+   below instead of becoming a third column. */
+.dpxl-option-row { flex-wrap: wrap; }
+.dpxl-option-row__help { flex-basis: 100%; margin: 6px 0 0; font-size: 12px; line-height: 1.5; color: var(--dpxl-muted); }
 .dpxl-option-group { border: 1px solid var(--dpxl-border); border-radius: var(--dpxl-radius); margin-bottom: 8px; overflow: hidden; }
 .dpxl-option-group__toggle { width: 100%; text-align: left; padding: 10px 14px; background: var(--dpxl-bg); border: none; cursor: pointer; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
 .dpxl-option-group__toggle:hover { background: #ebebec; }

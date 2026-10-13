@@ -39,6 +39,7 @@ class Options {
         'geo_db_enabled'               => true,
         'geo_db_sha'                   => '',
         'geo_db_version'               => '',
+        'spamhaus_dqs_key'             => '',
         'webhook_endpoints'            => [],
         'webhook_status'               => [],
     ];

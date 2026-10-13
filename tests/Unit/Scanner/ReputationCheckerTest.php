@@ -14,67 +14,88 @@ use PHPUnit\Framework\TestCase;
  */
 class ReputationCheckerTest extends TestCase {
 
-    private const DBL = '127.0.1.';
-    private const ZEN = '127.0.0.';
-
     public function testNoAnswerIsClean(): void {
-        $r = ReputationChecker::interpret([], self::DBL, 'Spamhaus DBL');
+        $r = ReputationChecker::interpret([], 'Spamhaus DBL');
 
         $this->assertFalse($r['listed']);
         $this->assertSame('clean', $r['status']);
     }
 
-    /** 127.0.1.2 = spam domain. A real DBL listing. */
-    public function testDblListingCodeIsAListing(): void {
-        $r = ReputationChecker::interpret(['127.0.1.2'], self::DBL, 'Spamhaus DBL');
+    /**
+     * Listings occupy 127.0.0.0/16 across the datasets: 127.0.0.x ZEN,
+     * 127.0.1.x DBL, 127.0.2.x ZRD.
+     *
+     * @dataProvider listingCodes
+     */
+    public function testListingCodesAreListings(string $code): void {
+        $r = ReputationChecker::interpret([$code], 'Spamhaus');
 
-        $this->assertTrue($r['listed']);
+        $this->assertTrue($r['listed'], "{$code} must read as a listing");
         $this->assertSame('listed', $r['status']);
-        $this->assertStringContainsString('127.0.1.2', $r['detail']);
+        $this->assertStringContainsString($code, $r['detail']);
     }
 
-    /** 127.0.0.2 = SBL. A real ZEN listing. */
-    public function testZenListingCodeIsAListing(): void {
-        $r = ReputationChecker::interpret(['127.0.0.2'], self::ZEN, 'Spamhaus ZEN');
-
-        $this->assertTrue($r['listed']);
-        $this->assertSame('listed', $r['status']);
+    /** @return list<array{string}> */
+    public static function listingCodes(): array {
+        return [['127.0.0.2'], ['127.0.0.3'], ['127.0.0.10'], ['127.0.1.2'], ['127.0.1.5'], ['127.0.2.1']];
     }
 
     /**
      * The bug that produced the false positives: 127.255.255.254 means
      * "anonymous query through a public resolver", which is what a shared
      * host's upstream DNS gets for every lookup it makes.
+     *
+     * @dataProvider errorCodes
      */
-    public function testPublicResolverRefusalIsNotAListing(): void {
-        foreach (['127.255.255.252', '127.255.255.254', '127.255.255.255'] as $code) {
-            $dbl = ReputationChecker::interpret([$code], self::DBL, 'Spamhaus DBL');
-            $zen = ReputationChecker::interpret([$code], self::ZEN, 'Spamhaus ZEN');
+    public function testErrorCodesAreNotListings(string $code): void {
+        $r = ReputationChecker::interpret([$code], 'Spamhaus DBL');
 
-            $this->assertFalse($dbl['listed'], "{$code} must not read as a DBL listing");
-            $this->assertFalse($zen['listed'], "{$code} must not read as a ZEN listing");
-            $this->assertSame('unavailable', $dbl['status']);
-            $this->assertSame('unavailable', $zen['status']);
-        }
+        $this->assertFalse($r['listed'], "{$code} must not read as a listing");
+        $this->assertSame('unavailable', $r['status']);
+    }
+
+    /** @return list<array{string}> */
+    public static function errorCodes(): array {
+        return [['127.255.255.252'], ['127.255.255.254'], ['127.255.255.255']];
     }
 
     /** Unavailable is its own state — never quietly reported as verified-clean. */
     public function testRefusalIsNotReportedAsClean(): void {
-        $r = ReputationChecker::interpret(['127.255.255.254'], self::DBL, 'Spamhaus DBL');
+        $r = ReputationChecker::interpret(['127.255.255.254'], 'Spamhaus DBL');
 
         $this->assertNotSame('clean', $r['status']);
         $this->assertStringContainsString('unavailable', strtolower($r['detail']));
     }
 
-    /** A DBL answer must not be read with ZEN's prefix, or vice versa. */
-    public function testListingPrefixesDoNotCrossMatch(): void {
-        $this->assertFalse(ReputationChecker::interpret(['127.0.1.2'], self::ZEN, 'Spamhaus ZEN')['listed']);
-        $this->assertFalse(ReputationChecker::interpret(['127.0.0.2'], self::DBL, 'Spamhaus DBL')['listed']);
+    /** Without a key, the remedy to suggest is the key itself. */
+    public function testRefusalWithoutKeySuggestsDqs(): void {
+        $r = ReputationChecker::interpret(['127.255.255.254'], 'Spamhaus DBL', false);
+
+        $this->assertStringContainsString('DQS', $r['detail']);
+    }
+
+    /** With a key, suggesting "get a key" would be useless advice. */
+    public function testRefusalWithKeyPointsAtTheKey(): void {
+        $r = ReputationChecker::interpret(['127.255.255.254'], 'Spamhaus DBL', true);
+
+        $this->assertStringContainsString('key is active', $r['detail']);
+    }
+
+    /**
+     * Some resolvers answer unknown names with their own address instead of
+     * NXDOMAIN. Reading that as a listing would flag every site behind them.
+     */
+    public function testHijackedNxdomainIsNotAListing(): void {
+        $r = ReputationChecker::interpret(['92.242.140.21'], 'Spamhaus DBL');
+
+        $this->assertFalse($r['listed']);
+        $this->assertSame('unavailable', $r['status']);
+        $this->assertStringContainsString('rewriting unknown names', $r['detail']);
     }
 
     /** A genuine listing alongside an error code is still a listing. */
     public function testListingWinsOverAccompanyingErrorCode(): void {
-        $r = ReputationChecker::interpret(['127.255.255.254', '127.0.1.5'], self::DBL, 'Spamhaus DBL');
+        $r = ReputationChecker::interpret(['127.255.255.254', '127.0.1.5'], 'Spamhaus DBL');
 
         $this->assertTrue($r['listed']);
         $this->assertSame('listed', $r['status']);

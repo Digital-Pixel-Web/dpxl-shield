@@ -83,6 +83,18 @@
                             'href'   => wp_nonce_url(admin_url('admin-post.php?action=dpxl_shield_download_report_pdf'), 'dpxl_shield_download_report_pdf')],
                     ],
                 ],
+                'reputation' => [
+                    'title'   => __('Blocklist Checks', 'dpxl-shield'),
+                    'options' => [
+                        'spamhaus_dqs_key' => [
+                            'type'        => 'text',
+                            'label'       => __('Spamhaus DQS key', 'dpxl-shield'),
+                            'default'     => '',
+                            'placeholder' => __('26 characters', 'dpxl-shield'),
+                            'help'        => __('Spamhaus refuses lookups that reach it through a public DNS resolver, which is what most shared hosting uses — without a key the blocklist checks cannot run and will report as unavailable. A free key from spamhaus.com gives this site its own query zone. The key is left out of settings exports, since sharing one key across sites exhausts its quota.', 'dpxl-shield'),
+                        ],
+                    ],
+                ],
             ],
         ],
         'firewall' => [
@@ -203,6 +215,11 @@
                     <?php elseif ($opt['type'] === 'email') : ?>
                         <input type="email" class="dpxl-input" id="opt-<?php echo esc_attr($key); ?>" name="<?php echo esc_attr($key); ?>"
                                value="<?php echo esc_attr((string) $val); ?>">
+                    <?php elseif ($opt['type'] === 'text') : ?>
+                        <input type="text" class="dpxl-input" id="opt-<?php echo esc_attr($key); ?>" name="<?php echo esc_attr($key); ?>"
+                               value="<?php echo esc_attr((string) $val); ?>"
+                               <?php if (!empty($opt['placeholder'])) : ?>placeholder="<?php echo esc_attr((string) $opt['placeholder']); ?>"<?php endif; ?>
+                               spellcheck="false" autocomplete="off">
                     <?php elseif ($opt['type'] === 'link') : ?>
                         <?php $newtab = ($opt['newtab'] ?? true) !== false; ?>
                         <a class="dpxl-btn dpxl-btn--sm" href="<?php echo esc_url((string) ($opt['href'] ?? '#')); ?>"<?php echo $newtab ? ' target="_blank" rel="noopener"' : ''; ?>>
@@ -213,6 +230,9 @@
                                value="<?php echo esc_attr((string) $val); ?>"
                                <?php if (isset($opt['min'])) echo 'min="' . (int) $opt['min'] . '"'; ?>
                                <?php if (isset($opt['max'])) echo 'max="' . (int) $opt['max'] . '"'; ?>>
+                    <?php endif; ?>
+                    <?php if (!empty($opt['help'])) : ?>
+                        <p class="dpxl-option-row__help"><?php echo esc_html((string) $opt['help']); ?></p>
                     <?php endif; ?>
                 </div>
                 <?php endforeach; ?>

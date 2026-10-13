@@ -233,15 +233,32 @@ class ScanOrchestrator {
     private function stageBlockCheck(): array {
         $report = (new ReputationChecker())->run();
 
-        if (($report['clean'] ?? true) === true) {
+        if (($report['clean'] ?? true) !== true) {
+            return [[
+                'file_path'  => 'site/reputation',
+                'issue_type' => 'unknown',
+                'severity'   => 'critical',
+                'details'    => 'Site was found in at least one reputation/blocklist check.',
+            ]];
+        }
+
+        $unavailable = $report['unavailable'] ?? [];
+
+        if ($unavailable === []) {
             return [];
         }
 
+        // Clean, but not fully verified. Recorded at 'low' so it shows in the
+        // results without counting as a finding — otherwise a check that never
+        // ran reads as a clean bill of health, which is the same mistake as
+        // treating a refused query as a listing, just in the safe-looking
+        // direction.
         return [[
             'file_path'  => 'site/reputation',
             'issue_type' => 'unknown',
-            'severity'   => 'critical',
-            'details'    => 'Site was found in at least one reputation/blocklist check.',
+            'severity'   => 'low',
+            'details'    => 'Blocklist checks that could not run: ' . implode(', ', $unavailable)
+                . '. Spamhaus refuses lookups from public DNS resolvers; a Spamhaus DQS key enables them.',
         ]];
     }
 

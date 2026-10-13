@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.6.3
+Stable tag: 1.7.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,14 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.7.0 =
+* **New: Spamhaus DQS key support (Settings → Global → Blocklist Checks).** Spamhaus refuses lookups that reach it through a public DNS resolver, which is what most shared hosting uses — so on those servers the free public mirrors cannot answer at all, and the blocklist checks could not run no matter how they were written. A Data Query Service key, free to obtain from spamhaus.com, gives the site its own query zone and makes the checks work. Without a key the checks still run against the public mirrors, and report as unavailable where those refuse.
+* The key is excluded from settings exports, like webhook credentials. A key is an account with a query quota: restoring one bundle across many sites would point them all at a single key and exhaust it, blocking the checks everywhere at once.
+* A malformed key falls back to the public mirrors rather than being pasted into a DNS name, and surrounding whitespace from copy-and-paste is tolerated.
+* Changed: blocklist answers are now read per Spamhaus's documented ranges — listings occupy 127.0.0.0/16, while 127.255.255.0/24 carries error codes. Addresses are compared as numbers rather than by text prefix.
+* New: an answer outside 127.0.0.0/8 is recognised as a resolver rewriting unknown names instead of returning NXDOMAIN, and reported as unavailable. Previously such an answer would have been read as a listing, flagging every site behind that resolver.
+* New: a scan whose blocklist checks could not run now records that, at low severity, instead of reporting a clean result. A check that never ran is not a clean bill of health.
 
 = 1.6.3 =
 * **Fixed: the site could be reported as blocklisted when it was not listed anywhere.** Spamhaus answers a listing and a refused query the same way — with a DNS record — and only the address tells them apart. Listings come back as 127.0.1.x (DBL) or 127.0.0.x (ZEN); the 127.255.255.x range is an error code, most often "anonymous query through a public resolver". Any answer was being counted as a listing, so on a server whose DNS Spamhaus treats as a public resolver, every domain read as blocklisted permanently — a domain that did not even exist came back "listed".

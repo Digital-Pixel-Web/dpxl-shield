@@ -138,38 +138,66 @@ class ReputationChecker {
     // ── Spamhaus ──────────────────────────────────────────────────────────
 
     /**
-     * Spamhaus answers "you are listed" and "I refused your query" the same
-     * way — with an A record in 127.0.0.0/8. Only the address tells them apart:
+     * A Data Query Service key, or '' when none is configured.
      *
-     *   127.0.0.0/24    ZEN listings (SBL, CSS, XBL, PBL)
-     *   127.0.1.0/24    DBL listings (spam, phish, malware, botnet C&C)
-     *   127.255.255.0/24 error codes, NOT listings:
-     *                     .252 typing error in the DNSBL name
-     *                     .254 anonymous query through a public resolver
-     *                     .255 query volume exceeded / blocked
+     * Spamhaus refuses lookups that reach it through a public resolver, which
+     * is what shared hosting typically uses — so on those hosts the free public
+     * mirrors cannot answer at all. A DQS key (free tier available) gives the
+     * site its own query zone and makes the checks work.
+     */
+    private static function dqsKey(): string {
+        $key = trim((string) Options::get('spamhaus_dqs_key', ''));
+
+        // Keys are 26 alphanumeric characters. Anything else is a paste error,
+        // and sending it would put junk in a DNS name.
+        return preg_match('/^[A-Za-z0-9]{26}$/', $key) === 1 ? $key : '';
+    }
+
+    /**
+     * The zone to query, and whether it is the authenticated one.
      *
-     * Counting any answer as a listing is therefore wrong in the one case that
-     * matters most: a host whose upstream DNS Spamhaus classes as a public
-     * resolver gets .254 for *every* lookup, so every domain on that server
-     * reads as listed, permanently. google.com and a domain that does not even
-     * exist both come back "listed".
+     * @return array{zone: string, authenticated: bool}
+     */
+    private static function zone(string $list): array {
+        $key = self::dqsKey();
+
+        return $key === ''
+            ? ['zone' => "{$list}.spamhaus.org", 'authenticated' => false]
+            : ['zone' => "{$key}.{$list}.dq.spamhaus.net", 'authenticated' => true];
+    }
+
+    /**
+     * Reads a Spamhaus DNS answer.
      *
-     * Hence a third state. "Unavailable" must never raise the alarm and must
-     * never be quietly folded into "clean" either — a reputation check that
-     * cannot run is something the site owner needs told, not hidden.
+     * Spamhaus answers "listed" and "I refused your query" the same way — with
+     * an A record in 127.0.0.0/8 — and only the address separates them:
+     *
+     *   127.0.0.0/16      a listing (127.0.0.x ZEN, 127.0.1.x DBL, 127.0.2.x ZRD)
+     *   127.255.255.0/24  an error, NOT a listing. Most often .254,
+     *                     "anonymous query through a public resolver".
+     *   anything else     not a Spamhaus answer at all: a resolver that
+     *                     hijacks NXDOMAIN and returns its own address. Reading
+     *                     that as a listing would flag every site it touched.
+     *
+     * Counting any answer as a listing is what reported untouched sites as
+     * blocklisted: on a host Spamhaus treats as a public resolver, every domain
+     * came back listed, including ones that do not exist.
+     *
+     * Hence the third state. "Unavailable" must never raise the alarm, and must
+     * never be folded into "clean" either — a check that could not run is
+     * something the site owner needs told, not hidden.
      *
      * @param  list<string> $addresses  A records returned for the lookup.
-     * @param  string       $listingPrefix  '127.0.1.' for DBL, '127.0.0.' for ZEN.
      * @return array{listed: bool, status: string, detail: string}
      */
-    public static function interpret(array $addresses, string $listingPrefix, string $listName): array {
+    public static function interpret(array $addresses, string $listName, bool $authenticated = false): array {
         $codes = array_values(array_filter($addresses));
 
         if ($codes === []) {
             return ['listed' => false, 'status' => 'clean', 'detail' => 'Clean'];
         }
 
-        $listings = array_filter($codes, fn ($ip) => strpos($ip, $listingPrefix) === 0);
+        $listings = array_filter($codes, [self::class, 'isListingCode']);
 
         if ($listings !== []) {
             return [
@@ -179,41 +207,77 @@ class ReputationChecker {
             ];
         }
 
-        // Anything else in the 127.x space is Spamhaus telling us the query did
-        // not run — most often 127.255.255.254 from a shared host's resolver.
+        $hijacked = array_filter($codes, static function (string $ip): bool {
+            $long = ip2long($ip);
+
+            return $long === false || ($long & 0xFF000000) !== (ip2long('127.0.0.0') & 0xFF000000);
+        });
+
+        if ($hijacked !== []) {
+            return [
+                'listed' => false,
+                'status' => 'unavailable',
+                'detail' => sprintf(
+                    'Check unavailable — the DNS resolver answered %s instead of a %s result, so it is rewriting unknown names. The answer cannot be trusted either way.',
+                    implode(', ', $hijacked),
+                    $listName
+                ),
+            ];
+        }
+
+        $hint = $authenticated
+            ? 'Verify the DQS key is active and cleared for this dataset.'
+            : 'A public DNS resolver cannot query Spamhaus; configure a Spamhaus DQS key to enable this check.';
+
         return [
             'listed' => false,
             'status' => 'unavailable',
-            'detail' => sprintf(
-                'Check unavailable — %s refused the query (%s). A public DNS resolver cannot query Spamhaus; this needs the host\'s own resolver or a Spamhaus DQS key.',
-                $listName,
-                implode(', ', $codes)
-            ),
+            'detail' => sprintf('Check unavailable — %s refused the query (%s). %s', $listName, implode(', ', $codes), $hint),
         ];
+    }
+
+    /**
+     * Listings live in 127.0.0.0/16. Everything else inside 127/8 is an error
+     * code, and anything outside it is not a Spamhaus answer at all.
+     *
+     * Compared as integers rather than by string prefix: "127.0." also prefixes
+     * 127.01.2.3 and other odd-but-parseable forms, and a blocklist verdict is
+     * the wrong place to be approximate.
+     */
+    private static function isListingCode(string $ip): bool {
+        $long = ip2long($ip);
+
+        if ($long === false) {
+            return false;
+        }
+
+        return ($long & 0xFFFF0000) === (ip2long('127.0.0.0') & 0xFFFF0000);
     }
 
     /** @return array{listed: bool, status: string, detail: string} */
     private function checkSpamhausDbl(string $domain): array {
-        $result = @dns_get_record($domain . '.dbl.spamhaus.org', DNS_A);
+        $zone   = self::zone('dbl');
+        $result = @dns_get_record($domain . '.' . $zone['zone'], DNS_A);
 
         if ($result === false) {
             return ['listed' => false, 'status' => 'unavailable', 'detail' => 'DNS error'];
         }
 
-        return self::interpret(array_column($result, 'ip'), '127.0.1.', 'Spamhaus DBL');
+        return self::interpret(array_column($result, 'ip'), 'Spamhaus DBL', $zone['authenticated']);
     }
 
     /** @return array{listed: bool, status: string, detail: string} */
     private function checkSpamhausZen(string $ip): array {
         // Reverse the IP octets for DNS blacklist lookup.
         $reversed = implode('.', array_reverse(explode('.', $ip)));
-        $result   = @dns_get_record($reversed . '.zen.spamhaus.org', DNS_A);
+        $zone     = self::zone('zen');
+        $result   = @dns_get_record($reversed . '.' . $zone['zone'], DNS_A);
 
         if ($result === false) {
             return ['listed' => false, 'status' => 'unavailable', 'detail' => 'DNS error'];
         }
 
-        return self::interpret(array_column($result, 'ip'), '127.0.0.', 'Spamhaus ZEN');
+        return self::interpret(array_column($result, 'ip'), 'Spamhaus ZEN', $zone['authenticated']);
     }
 
     /**

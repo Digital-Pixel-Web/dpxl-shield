@@ -41,12 +41,18 @@ class ImportExport {
      * silently pointing all of them at a single channel.
      *
      * `webhook_status` is per-site delivery history — meaningless elsewhere.
+     *
+     * `spamhaus_dqs_key` is a credential too, and a rate-limited one: the key
+     * is the account. Copying a bundle across many sites would have them all
+     * query under one key and burn its quota, which ends with the key blocked
+     * for every site at once.
      */
     private const EXCLUDED_OPTS = [
         '_site_check_enc_key',
         '_site_check_timeout_shwp',
         'webhook_endpoints',
         'webhook_status',
+        'spamhaus_dqs_key',
     ];
 
     // ── Export ─────────────────────────────────────────────────────────────

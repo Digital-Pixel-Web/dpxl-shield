@@ -160,4 +160,15 @@ class ReputationCheckerTest extends TestCase {
         $this->assertFalse($r['listed']);
         $this->assertSame('unavailable', $r['status']);
     }
+
+    /**
+     * An integration that was never configured is a choice, not a failure.
+     * Counting it as unavailable would put a standing notice on every scan.
+     */
+    public function testNotConfiguredIsDistinctFromUnavailable(): void {
+        $refused = ReputationChecker::interpret(['127.255.255.254'], 'Spamhaus DBL');
+
+        $this->assertSame('unavailable', $refused['status']);
+        $this->assertNotSame('not_configured', $refused['status']);
+    }
 }

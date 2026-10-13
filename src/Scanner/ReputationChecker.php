@@ -97,7 +97,10 @@ class ReputationChecker {
         $apiKey = Options::get('google_safe_browsing_key', '');
 
         if (empty($apiKey)) {
-            return ['listed' => false, 'status' => 'unavailable', 'detail' => 'API key not configured'];
+            // Deliberately off, not broken. Reporting it as unavailable would
+            // put a permanent notice on every scan for an optional integration
+            // nobody asked for.
+            return ['listed' => false, 'status' => 'not_configured', 'detail' => 'API key not configured'];
         }
 
         $url     = get_option('siteurl');

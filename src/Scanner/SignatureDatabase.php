@@ -23,7 +23,12 @@ class SignatureDatabase {
      *
      * @return array{id:string,name:string,severity:string}|null  matched signature or null
      */
-    public function match(string $content): ?array {
+    /**
+     * @param string $extension Lowercase extension of the file being scanned.
+     *                          Signatures carrying `applies_to` only run against
+     *                          the file types they were written for.
+     */
+    public function match(string $content, string $extension = ''): ?array {
         if ($content === '') {
             return null;
         }
@@ -32,6 +37,10 @@ class SignatureDatabase {
         $content = substr($content, 0, 2_097_152);
 
         foreach ($this->signatures as $sig) {
+            if (!self::appliesTo($sig, $extension)) {
+                continue;
+            }
+
             if ($this->matchesSig($content, $sig)) {
                 return [
                     'id'       => $sig['id'],
@@ -46,6 +55,30 @@ class SignatureDatabase {
 
     public function count(): int {
         return count($this->signatures);
+    }
+
+    /**
+     * Whether a signature is meant for this file type.
+     *
+     * Most signatures describe code and run everywhere. A few describe a file
+     * *format* being abused, and running those outside that format is not a
+     * weaker check — it is a different, wrong one. `sig-php-in-img` is the case
+     * that proved it: written for a polyglot image, applied to .php files, it
+     * matched any PHP file mentioning "gif" or "png" near an opening tag, which
+     * includes WordPress core and every library that reads images.
+     *
+     * @param array<string,mixed> $sig
+     */
+    private static function appliesTo(array $sig, string $extension): bool {
+        $scope = $sig['applies_to'] ?? null;
+
+        if (!is_array($scope) || $scope === []) {
+            return true;
+        }
+
+        // No extension supplied: the caller is not file-scoped, so a
+        // format-specific signature cannot be judged. Skip it rather than guess.
+        return $extension !== '' && in_array($extension, $scope, true);
     }
 
     private function matchesSig(string $content, array $sig): bool {
@@ -179,11 +212,16 @@ class SignatureDatabase {
 
             // ── PHP in image headers ──────────────────────────────────────
             [
-                'id'       => 'sig-php-in-img',
-                'name'     => 'PHP code embedded in image file header',
-                'type'     => 'regex',
-                'pattern'  => '/<\?php.{0,100}(?:GIF|JFIF|PNG|IHDR)/is',
-                'severity' => 'critical',
+                'id'         => 'sig-php-in-img',
+                'name'       => 'PHP code embedded in image file',
+                'type'       => 'regex',
+                // Anchored near the start: a polyglot hides PHP in the header
+                // area of a real image. Unanchored, this matched any mention of
+                // an image format anywhere in a file.
+                'pattern'    => '/\A.{0,2048}?<\?php/s',
+                'severity'   => 'critical',
+                // Only meaningful inside something claiming to BE an image.
+                'applies_to' => ['gif', 'jpg', 'jpeg', 'jpe', 'png', 'webp', 'bmp', 'ico', 'tif', 'tiff'],
             ],
 
             // ── Dynamic function dispatch ─────────────────────────────────

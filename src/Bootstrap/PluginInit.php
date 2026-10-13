@@ -19,6 +19,7 @@ use DPXL\Shield\Alerts\AlertManager;
 use DPXL\Shield\Admin\AdminMenu;
 use DPXL\Shield\Admin\RestApi;
 use DPXL\Shield\Core\Database;
+use DPXL\Shield\Core\Migrations;
 
 /**
  * Normal plugin boot — runs on plugins_loaded after WordPress is available.
@@ -28,6 +29,7 @@ class PluginInit {
     public static function boot(): void {
         // Ensure DB tables exist — handles zip-based upgrades that skip the activation hook.
         Database::maybeCreateTables();
+        Migrations::run();
 
         $firewallEnabled = (bool) Options::get('firewall_enabled', true);
 

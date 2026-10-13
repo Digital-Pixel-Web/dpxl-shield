@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.0
+Stable tag: 1.7.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,12 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.7.1 =
+* **Fixed: an administrator could be blocked from their own site for 30 minutes.** The behavioural detector blocks any IP that requests more than 50 unique URLs in a minute. Working in wp-admin crosses that without trying — every admin-ajax call carries its own query string, so each one counts as a distinct URL — and nothing exempted a logged-in administrator. On one install this locked the site owner out six times before the alert was connected to the cause. Administrators are now exempt: someone who can already install plugins gains nothing by crawling the site, so there was no signal here to lose.
+* **Fixed: the "PHP code embedded in image file" signature flagged ordinary PHP files, including WordPress core.** It was written for a polyglot — a real image carrying PHP — but ran against .php files and matched any mention of an image format within 100 characters of an opening tag. That caught `wp-admin/includes/media.php`, and every library that reads images: a GIF parser matched on its own namespace. The signature now applies only to files that claim to be images, and looks only at the header area where a polyglot hides. Images in the uploads directory are scanned for it, which is the only place the threat can arrive.
+* **Fixed: the JavaScript card-skimmer detection flagged form and page-builder libraries.** It searched the whole file for a card field name, a network call and a URL, each independently — so any bundle containing all three anywhere was reported as a skimmer. In one case the card field and the network call were 1.8 MB apart, in unrelated code. The three now have to appear together, as they do in a real skimmer, which reads a field and sends it immediately.
+* Scan findings from the two corrected signatures, and blocklist findings from before 1.6.3, are cleared on update. They were never real, and left in place they would keep the dashboard red and the critical count meaningless.
 
 = 1.7.0 =
 * **New: Spamhaus DQS key support (Settings → Global → Blocklist Checks).** Spamhaus refuses lookups that reach it through a public DNS resolver, which is what most shared hosting uses — so on those servers the free public mirrors cannot answer at all, and the blocklist checks could not run no matter how they were written. A Data Query Service key gives the site its own query zone and makes the checks work; Spamhaus offers a free tier for non-commercial use with low query volumes, and paid accounts otherwise. Without a key the checks still run against the public mirrors, and report as unavailable where those refuse.

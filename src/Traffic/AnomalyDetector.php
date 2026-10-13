@@ -41,7 +41,28 @@ class AnomalyDetector {
 
     // ── Hook handlers ──────────────────────────────────────────────────────
 
+    /**
+     * Whether this request is exempt from behavioural blocking.
+     *
+     * An authenticated administrator is not a scanner. Working in wp-admin
+     * passes 50 unique URLs a minute without trying — every admin-ajax call
+     * carries its own query string, so each one counts as a distinct URL — and
+     * the penalty here is not a log line but a 30-minute block of the person
+     * who owns the site. On one real install this locked the administrator out
+     * six times before anyone connected the alert to the cause.
+     *
+     * Someone who can already install plugins gains nothing by crawling the
+     * site, so the detector has no signal to offer about them either way.
+     */
+    private function isExempt(): bool {
+        return function_exists('current_user_can') && current_user_can('manage_options');
+    }
+
     public function recordRequest(): void {
+        if ($this->isExempt()) {
+            return;
+        }
+
         $ip  = $this->resolveIp();
         $uri = $_SERVER['REQUEST_URI'] ?? '/';
 
@@ -57,7 +78,7 @@ class AnomalyDetector {
     }
 
     public function recordNotFound(): void {
-        if (!is_404()) {
+        if (!is_404() || $this->isExempt()) {
             return;
         }
 

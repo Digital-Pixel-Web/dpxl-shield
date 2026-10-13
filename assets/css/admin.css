@@ -244,7 +244,19 @@
 .dpxl-result-item__title { font-size: 13px; font-weight: 600; color: var(--dpxl-text); }
 .dpxl-result-item__desc { margin: 2px 0 0; font-size: 12px; color: #787c82; line-height: 1.5; }
 .dpxl-result-item__path { display: inline-block; margin-top: 6px; font-size: 11px; color: #50575e; background: var(--dpxl-bg); padding: 2px 6px; border-radius: 3px; word-break: break-all; }
-.dpxl-sev-chip { grid-row: 1; justify-self: end; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
+/* Pinned to the third column so the title keeps the second one. Without this
+   the chip took the title's slot and the title landed at the right edge, which
+   made the card read description first and title last. */
+.dpxl-sev-chip { grid-row: 1; grid-column: 3; justify-self: end; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
+.dpxl-result-item__title { grid-column: 2; }
+.dpxl-result-item__desc  { grid-column: 2 / -1; }
+
+/* "Ignorar" is no longer a button competing with the real next step. */
+.dpxl-link-btn { background: none; border: 0; padding: 0 2px; margin-left: auto; color: var(--dpxl-muted); font-size: 12px; text-decoration: underline; cursor: pointer; }
+.dpxl-link-btn:hover { color: var(--dpxl-error); }
+
+.dpxl-result-steps { grid-column: 2 / -1; margin: 10px 0 2px; padding-left: 18px; }
+.dpxl-result-steps li { font-size: 12.5px; line-height: 1.55; color: var(--dpxl-text); margin-bottom: 4px; }
 .dpxl-sev-chip--critical { background: #fcf0f0; color: #b32d2e; }
 .dpxl-sev-chip--high     { background: #fcf5ed; color: #bd5b00; }
 .dpxl-sev-chip--medium   { background: #fcf9e8; color: #9a6700; }
@@ -592,3 +604,24 @@
     line-height: 1.6;
     overflow-x: auto;
 }
+
+/* Extended Protection, once it is on: the detail collapses behind a summary
+   instead of filling the top of the screen with completed steps. */
+.dpxl-extended-details > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--dpxl-primary); padding: 6px 0; list-style: none; }
+.dpxl-extended-details > summary::-webkit-details-marker { display: none; }
+.dpxl-extended-details > summary::before { content: "▸ "; color: var(--dpxl-muted); }
+.dpxl-extended-details[open] > summary::before { content: "▾ "; }
+
+/* The colour dots carried their meaning in a title attribute, which is
+   invisible on touch and to anyone not hovering. */
+.dpxl-traffic-intro { margin: 0 0 14px; font-size: 12.5px; line-height: 1.6; max-width: 76ch; }
+.dpxl-traffic-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--dpxl-border); font-size: 12px; color: var(--dpxl-muted); }
+.dpxl-traffic-legend .dpxl-dot { margin-right: 2px; }
+
+/* Site-wide 2FA coverage, above the per-user setup. */
+.dpxl-2fa-coverage { display: flex; align-items: flex-start; gap: 12px; }
+.dpxl-2fa-coverage .dpxl-icon { flex: 0 0 20px; width: 20px; height: 20px; margin-top: 2px; }
+.dpxl-2fa-coverage strong { display: block; font-size: 14px; color: var(--dpxl-heading); }
+.dpxl-2fa-coverage p { margin: 4px 0 0; font-size: 12.5px; }
+.dpxl-2fa-coverage--warn { border-left: 4px solid var(--dpxl-warn); }
+.dpxl-2fa-coverage--ok   { border-left: 4px solid var(--dpxl-ok); }

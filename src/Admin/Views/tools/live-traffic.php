@@ -2,6 +2,9 @@
     <!-- Live Traffic tab -->
     <div class="dpxl-tab-pane" id="tab-live-traffic">
         <div class="dpxl-card">
+            <p class="dpxl-muted dpxl-traffic-intro">
+                <?php esc_html_e('O registro é feito no servidor, antes do WordPress responder, então ele enxerga robôs e requisições bloqueadas que um analytics de navegador nunca vê. Em compensação, ele cobre apenas tráfego relacionado a segurança: logins, bloqueios e regras do firewall — não é um contador de visitas.', 'dpxl-shield'); ?>
+            </p>
             <div class="dpxl-traffic-toolbar">
                 <select class="dpxl-select" id="traffic-type-filter">
                     <option value=""><?php esc_html_e('All Hits', 'dpxl-shield'); ?></option>
@@ -49,6 +52,13 @@
                 </tbody>
             </table>
             <div id="traffic-pagination" class="dpxl-pagination"></div>
+
+            <p class="dpxl-traffic-legend">
+                <span class="dpxl-dot dpxl-dot--green"></span> <?php esc_html_e('Humano', 'dpxl-shield'); ?>
+                <span class="dpxl-dot dpxl-dot--yellow"></span> <?php esc_html_e('Robô', 'dpxl-shield'); ?>
+                <span class="dpxl-dot dpxl-dot--orange"></span> <?php esc_html_e('Suspeito', 'dpxl-shield'); ?>
+                <span class="dpxl-dot dpxl-dot--red"></span> <?php esc_html_e('Bloqueado', 'dpxl-shield'); ?>
+            </p>
         </div>
     </div>
 

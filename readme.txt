@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.8.4
+Stable tag: 1.9.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,15 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.9.0 =
+* **Changed: every scan finding now offers something to do about it.** The only button on a finding was Ignore — including on a critical one, and including on an outdated plugin, which is most of what a scan turns up on a real site. A product whose single affordance is dismissing the warning is teaching people to dismiss warnings. Repairable files keep Repair; an outdated component gets Update now, straight to the WordPress updates screen; and every finding gets a "How to fix" step list written for its own kind of doubt — delete-it advice for a confirmed signature, look-before-you-act advice for a heuristic that is not sure. The file path can be copied in one click, for work done over FTP or SSH. Ignore is still there, as a quiet link rather than the main button.
+* **Fixed: the finding card read back to front.** The severity chip was taking the title's place in the grid, which pushed the title to the right-hand edge and left the description sitting where the title should be. Title first, severity on the right, description under both.
+* **Changed: Extended Protection stops filling the screen once it is on.** The setup flow — two completed steps, four absolute paths, a manual fallback and a paragraph explaining the procedure — stayed at the top of the Firewall screen forever. When protection is active it is now one line naming the detected server, with the technical detail behind a disclosure. When it is inactive, every bit of the flow is still there, which is when it is the point of the screen.
+* **Removed: a developer note comparing the plugin to Wordfence** was showing to users on the Firewall screen. Replaced with an explanation of what Extended Protection does and why it matters.
+* **Changed: Live Traffic says what it does and does not cover**, and the colour dots have a visible legend. Their meaning lived in a title attribute, invisible on touch and to anyone not hovering.
+* **Changed: Diagnostics opens already run.** The one screen that answers "is this server set up correctly" used to open blank behind a button, so it showed nothing until you knew to ask.
+* **Added: Login Security shows how much of the site is actually covered** — how many administrators have finished setting two-factor up, not just whether you have. That is the figure the dashboard gauge reads, and on a real install it was zero while the gauge read 100%.
 
 = 1.8.4 =
 * **Fixed: the last English labels on the dashboard and firewall screens.** Looking at 1.8.3 running on a real install turned up four more: the empty notifications panel, the writable/not-writable answer for the .htaccess file, and the 7-day and 30-day range buttons.

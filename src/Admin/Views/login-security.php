@@ -24,6 +24,45 @@ $tab  = in_array($tab, $tabs, true) ? $tab : '2fa';
         $user      = wp_get_current_user();
         $has2fa    = !empty(get_user_meta($userId, '_dpxl_shield_totp_secret', true));
         ?>
+        <?php
+        // The screen only ever answered "is 2FA on for me". The question the
+        // dashboard gauge actually asks — and the one that decides whether the
+        // site is covered — is how many administrators have finished setting it
+        // up. On the staging install that was zero while the gauge read 100%.
+        $admins    = get_users(['role' => 'administrator', 'fields' => 'ID', 'number' => 100]);
+        $adminCt   = is_array($admins) ? count($admins) : 0;
+        $covered   = 0;
+
+        foreach ((array) $admins as $adminId) {
+            if (get_user_meta((int) $adminId, 'dpxl_shield_totp_enabled', true)) {
+                $covered++;
+            }
+        }
+        ?>
+        <div class="dpxl-card dpxl-2fa-coverage dpxl-2fa-coverage--<?php echo $covered > 0 ? 'ok' : 'warn'; ?>">
+            <?php \DPXL\Shield\Admin\Icons::render($covered > 0 ? 'check-circle' : 'alert-triangle', $covered > 0 ? 'dpxl-icon--ok' : 'dpxl-icon--medium'); ?>
+            <div>
+                <strong><?php
+                    printf(
+                        /* translators: 1: administrators with 2FA, 2: total administrators */
+                        esc_html(_n(
+                            '%1$d de %2$d administrador com verificação em duas etapas ativa',
+                            '%1$d de %2$d administradores com verificação em duas etapas ativa',
+                            $adminCt,
+                            'dpxl-shield'
+                        )),
+                        $covered,
+                        $adminCt
+                    );
+                ?></strong>
+                <p class="dpxl-muted"><?php
+                    echo $covered > 0
+                        ? esc_html__('Uma conta de administrador sem segunda etapa continua sendo uma senha só. Vale cobrir todas.', 'dpxl-shield')
+                        : esc_html__('Enquanto for zero, a senha é a única coisa entre um invasor e o painel deste site.', 'dpxl-shield');
+                ?></p>
+            </div>
+        </div>
+
         <div class="dpxl-card">
             <h2><?php \DPXL\Shield\Admin\Icons::render('lock'); ?> <?php esc_html_e('Two-Factor Authentication', 'dpxl-shield'); ?> <a href="#" class="dpxl-learn-more"><?php esc_html_e('Learn more', 'dpxl-shield'); ?> <?php \DPXL\Shield\Admin\Icons::render('external-link', '', 13); ?></a></h2>
             <p><?php printf(esc_html__('Editing user: %s (you)', 'dpxl-shield'), esc_html($user->user_login)); ?></p>

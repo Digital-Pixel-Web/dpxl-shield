@@ -1219,25 +1219,113 @@
         return 'Item de segurança';
     }
 
-    function renderResultCard(item, isRec) {
-        const sev = String(item.severity || 'info').toLowerCase();
-        const repairable = item.issue_type === 'modified_core' || item.issue_type === 'modified_plugin';
-        const cls = isRec ? 'dpxl-result-item--recommendation' : `dpxl-result-item--${esc(sev)}`;
+    /**
+     * What to do about each kind of finding.
+     *
+     * Every card used to offer one button: Ignorar. For outdated components —
+     * which are most of what a scan finds on a real site — there was no way to
+     * act at all, so the only thing the screen taught was how to dismiss it.
+     * These steps are deliberately specific about the doubt each type carries,
+     * because telling someone to delete a file the scanner is unsure about is
+     * worse advice than telling them to look first.
+     */
+    const REMEDIATION = {
+        modified_core: [
+            'Acabou de atualizar o WordPress? Então isso é esperado, e "Reparar arquivo" devolve a versão oficial.',
+            'Não atualizou nada? Olhe o arquivo antes de reparar — o conteúdo atual pode ser a única evidência do que aconteceu.',
+        ],
+        modified_plugin: [
+            'Acabou de atualizar esse plugin? Então isso é esperado, e "Reparar arquivo" devolve a versão oficial.',
+            'Se você editou o plugin de propósito, use Ignorar: o aviso volta a cada varredura enquanto o arquivo diferir do original.',
+        ],
+        malware_signature: [
+            'Abra o arquivo e confira o trecho apontado antes de apagar: uma assinatura pode casar com código legítimo.',
+            'Se for mesmo malware, apague o arquivo por FTP ou pelo gerenciador de arquivos da hospedagem e rode a varredura de novo.',
+            'Depois disso, troque as senhas de administrador e as do painel de hospedagem.',
+        ],
+        php_in_uploads: [
+            'A pasta de uploads é para mídia. Um .php ali costuma ter chegado por envio indevido.',
+            'Alguns plugins compilam templates em PHP dentro de uploads — confira o caminho antes de apagar.',
+            'Se não reconhecer o arquivo, apague-o e mantenha o bloqueio de execução de PHP em uploads ligado.',
+        ],
+        vulnerable_version: [
+            'Atualize o componente pela tela de atualizações do WordPress.',
+            'Se a atualização puder quebrar o site, teste antes em um ambiente de homologação.',
+        ],
+        heuristic: [
+            'Padrão suspeito, não comprovado. Olhe o arquivo antes de agir.',
+            'Se for código legítimo do seu tema ou plugin, use Ignorar para não ver de novo.',
+        ],
+        unknown: [
+            'Confira o caminho apontado e remova o arquivo se ele não deveria estar acessível publicamente.',
+        ],
+    };
 
+    function renderResultCard(item, isRec) {
+        const sev  = String(item.severity || 'info').toLowerCase();
+        const type = String(item.issue_type || 'unknown');
+        const cls  = isRec ? 'dpxl-result-item--recommendation' : `dpxl-result-item--${esc(sev)}`;
+
+        const repairable = type === 'modified_core' || type === 'modified_plugin';
+        const hasPath    = item.file_path && !/^(site|server)\//.test(item.file_path);
+        const steps      = REMEDIATION[type] || REMEDIATION.unknown;
+
+        // The title comes first in the source now. It used to follow the
+        // severity chip, and grid auto-placement put the chip in the title's
+        // column and pushed the title to the right edge — so the card read
+        // description first, title last.
         return `
             <div class="dpxl-result-item ${cls}">
                 <span class="dpxl-result-item__icon">${severityIcon(sev)}</span>
-                <span class="dpxl-sev-chip dpxl-sev-chip--${esc(sev)}">${esc(sevLabel(sev))}</span>
                 <div class="dpxl-result-item__title">${esc(scanIssueTitle(item))}</div>
+                <span class="dpxl-sev-chip dpxl-sev-chip--${esc(sev)}">${esc(sevLabel(sev))}</span>
                 <p class="dpxl-result-item__desc">${esc(item.details || item.issue_type)}
-                    ${item.file_path && !/^(site|server)\//.test(item.file_path) ? `<br><span class="dpxl-result-item__path">${esc(item.file_path)}</span>` : ''}
+                    ${hasPath ? `<br><span class="dpxl-result-item__path">${esc(item.file_path)}</span>` : ''}
                 </p>
                 <div class="dpxl-result-actions">
                     ${repairable ? `<button class="dpxl-btn dpxl-btn--sm dpxl-btn--primary" onclick="dpxlRepairFile('${esc(item.file_path)}')">Reparar arquivo</button>` : ''}
-                    <button class="dpxl-btn dpxl-btn--sm" onclick="dpxlDismissResult(${esc(item.id)})">Ignorar</button>
+                    ${type === 'vulnerable_version' ? `<a class="dpxl-btn dpxl-btn--sm dpxl-btn--primary" href="${esc(wpAdminUrl('update-core.php'))}">Atualizar agora</a>` : ''}
+                    <button class="dpxl-btn dpxl-btn--sm" onclick="dpxlToggleSteps(this)" aria-expanded="false">Como resolver</button>
+                    ${hasPath ? `<button class="dpxl-btn dpxl-btn--sm" onclick="dpxlCopyPath(this, '${esc(item.file_path)}')">Copiar caminho</button>` : ''}
+                    <button class="dpxl-link-btn" onclick="dpxlDismissResult(${esc(item.id)})">Ignorar</button>
                 </div>
+                <ol class="dpxl-result-steps dpxl-hidden">
+                    ${steps.map(s => `<li>${esc(s)}</li>`).join('')}
+                </ol>
             </div>`;
     }
+
+    /** A sibling of admin.php in the same wp-admin. */
+    function wpAdminUrl(file) {
+        return dpxlShield.adminUrl.replace(/admin\.php$/, file);
+    }
+
+    window.dpxlToggleSteps = (btn) => {
+        const steps = btn.closest('.dpxl-result-item')?.querySelector('.dpxl-result-steps');
+        if (!steps) return;
+
+        const open = steps.classList.toggle('dpxl-hidden');
+        btn.setAttribute('aria-expanded', String(!open));
+    };
+
+    window.dpxlCopyPath = (btn, path) => {
+        const done = () => {
+            const was = btn.textContent;
+            btn.textContent = 'Copiado';
+            setTimeout(() => { btn.textContent = was; }, 1500);
+        };
+
+        if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(path).then(done).catch(() => {});
+            return;
+        }
+
+        const ta = document.createElement('textarea');
+        ta.value = path;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); done(); } finally { ta.remove(); }
+    };
 
     function renderRecommendations(recs, total) {
         const card = document.getElementById('scan-recs-card');
@@ -1839,10 +1927,15 @@
     }
 
     function initDiagnostics() {
+        // The screen used to open blank and wait for a click, so the one place
+        // that answers "is this server actually set up right" showed nothing
+        // until you knew to ask. It runs on arrival now; the button re-runs it.
+        runDiagnostics();
+
         document.getElementById('btn-run-diagnostics')?.addEventListener('click', runDiagnostics);
         document.getElementById('btn-copy-diagnostics')?.addEventListener('click', () => {
             const text = document.getElementById('diagnostics-container')?.innerText;
-            if (text) navigator.clipboard.writeText(text).then(() => showNotice('Diagnostics copied.'));
+            if (text) navigator.clipboard.writeText(text).then(() => showNotice('Diagnóstico copiado.'));
         });
     }
 

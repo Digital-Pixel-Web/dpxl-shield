@@ -36,14 +36,18 @@ $extendedActive     = !empty($extendedStatus['active']);
                 <?php
                 if ($extendedActive) {
                     \DPXL\Shield\Admin\Icons::render('check-circle', 'dpxl-icon--ok');
-                    echo ' ' . esc_html__('Extended Protection active. The WAF is loading before WordPress.', 'dpxl-shield');
+                    printf(
+                        ' ' . esc_html__('Proteção Estendida ativa — o WAF carrega antes do WordPress. Servidor: %s.', 'dpxl-shield'),
+                        esc_html((string) ($extendedStatus['server'] ?? '—'))
+                    );
                 } else {
                     \DPXL\Shield\Admin\Icons::render('alert-triangle', 'dpxl-icon--medium');
                     echo ' ' . esc_html__('Extended Protection inactive. Follow the steps below to enable it safely.', 'dpxl-shield');
                 }
                 ?>
             </p>
-            <p class="dpxl-muted"><?php esc_html_e('This works like Wordfence: DPXL Shield downloads your current .htaccess as a backup, then automatically writes the auto_prepend_file rule and verifies it with a loopback request. You can start the flow from either button; if the backup has not been downloaded yet, DPXL Shield will download it first.', 'dpxl-shield'); ?></p>
+            <?php if (!$extendedActive) : ?>
+            <p class="dpxl-muted"><?php esc_html_e('Sem ela, o firewall só entra em ação depois que o WordPress já carregou, e ataques que atingem o próprio WordPress passam antes disso. O DPXL Shield baixa uma cópia do seu .htaccess, escreve a regra auto_prepend_file e confere o resultado com uma requisição de teste. Pode começar por qualquer um dos dois botões: se o backup ainda não tiver sido baixado, ele é baixado primeiro.', 'dpxl-shield'); ?></p>
 
             <ol class="dpxl-extended-steps">
                 <li>
@@ -79,8 +83,21 @@ $extendedActive     = !empty($extendedStatus['active']);
                     </form>
                 </li>
             </ol>
+            <?php endif; ?>
 
             <div id="extended-action-status" class="dpxl-notice dpxl-notice--warning dpxl-extended-action-status dpxl-hidden" role="status" aria-live="polite"></div>
+
+            <?php
+            // Once Extended Protection is on, the setup apparatus is noise: it
+            // filled the top of the screen with two completed steps, four
+            // absolute paths and a manual fallback nobody needs any more. When
+            // it is off, every bit of it is the point of the screen.
+            $detailsTag = $extendedActive ? 'details' : 'div';
+            ?>
+            <<?php echo $detailsTag; ?> class="dpxl-extended-details">
+            <?php if ($extendedActive) : ?>
+                <summary><?php esc_html_e('Detalhes técnicos', 'dpxl-shield'); ?></summary>
+            <?php endif; ?>
 
             <table class="dpxl-detail-table dpxl-extended-meta">
                 <tbody>
@@ -96,6 +113,7 @@ $extendedActive     = !empty($extendedStatus['active']);
                 <p class="dpxl-muted"><?php esc_html_e('If DPXL Shield cannot update .htaccess automatically because of server permissions or hosting restrictions, add the configuration below manually and keep the downloaded .htaccess backup before changing anything. The auto_prepend_file rule should point to the safe prepend loader, not directly to the plugin folder.', 'dpxl-shield'); ?></p>
                 <pre id="extended-snippet" class="dpxl-code-block"><?php echo esc_html((string) ($extendedStatus['manual_snippet'] ?? '')); ?></pre>
             </details>
+            </<?php echo $detailsTag; ?>>
         </div>
 
         <!-- Status gauges -->

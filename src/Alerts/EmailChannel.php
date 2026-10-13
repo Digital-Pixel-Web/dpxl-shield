@@ -144,11 +144,43 @@ class EmailChannel {
                 continue;
             }
 
-            $rows[EventCatalog::fieldLabel((string) $key)] = is_array($value)
-                ? implode(', ', array_map('strval', $value))
-                : (string) $value;
+            $rows[EventCatalog::fieldLabel((string) $key)] = self::stringify($value);
         }
 
         return $rows;
+    }
+
+    /**
+     * Renders a context value as one line of text.
+     *
+     * Nested arrays have to be walked rather than cast: `(string) []` is the
+     * word "Array", so a context holding one entry per check used to render as
+     * "Array, Array, Array" in the email — the reader learned nothing. An
+     * associative sub-array is shown as "key: value" so the shape survives.
+     *
+     * @param mixed $value
+     */
+    private static function stringify($value): string {
+        if (is_bool($value)) {
+            return $value ? 'yes' : 'no';
+        }
+
+        if (!is_array($value)) {
+            return (string) $value;
+        }
+
+        $parts = [];
+
+        foreach ($value as $key => $item) {
+            $rendered = self::stringify($item);
+
+            if ($rendered === '') {
+                continue;
+            }
+
+            $parts[] = is_string($key) ? "{$key}: {$rendered}" : $rendered;
+        }
+
+        return implode(', ', $parts);
     }
 }

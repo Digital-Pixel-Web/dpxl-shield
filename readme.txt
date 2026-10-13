@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.6.2
+Stable tag: 1.6.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,12 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.6.3 =
+* **Fixed: the site could be reported as blocklisted when it was not listed anywhere.** Spamhaus answers a listing and a refused query the same way — with a DNS record — and only the address tells them apart. Listings come back as 127.0.1.x (DBL) or 127.0.0.x (ZEN); the 127.255.255.x range is an error code, most often "anonymous query through a public resolver". Any answer was being counted as a listing, so on a server whose DNS Spamhaus treats as a public resolver, every domain read as blocklisted permanently — a domain that did not even exist came back "listed".
+* Blocklist answers are now interpreted. A check that could not run is reported as unavailable: it raises no alert, and it is not folded into "clean" either, because a reputation check that never ran is something you should be told about rather than have hidden. Note that on hosts using a public DNS resolver the Spamhaus checks will correctly report as unavailable until a Spamhaus DQS key is configured — they stop reporting false listings, but they cannot run without one.
+* **Fixed: only one of the site's IP addresses was checked.** Sites behind round-robin DNS or a CDN answer with several addresses, and only the first was tested — which one varied between runs, because resolvers rotate the order. An address sitting on a blocklist could go unreported for days and then surface at random. All addresses are now checked, and one listed address flags the site.
+* Fixed: alert emails carrying structured details printed the literal word "Array" instead of the values. Affected any alert with nested context — the blocklist alert showed "Array, Array, Array" where the per-check results belonged.
 
 = 1.6.2 =
 * **Fixed: a WordPress core update could be reported as a compromise, once an hour, indefinitely.** The integrity monitor compared critical core files against a baseline recorded on this site. A baseline only says a file is no longer what it was — which is equally true of a routine update, and core updates rewrite these files legitimately. Updates that do not run through WordPress's own upgrader never refreshed the baseline: background auto-updates, WP-CLI, and host control panels all fall in that gap. The stale baseline then produced a critical "file modified" email every hour, for a file that was untouched official WordPress.

@@ -91,7 +91,7 @@
                             'label'       => __('Spamhaus DQS key', 'dpxl-shield'),
                             'default'     => '',
                             'placeholder' => __('26 characters', 'dpxl-shield'),
-                            'help'        => __('Spamhaus refuses lookups that reach it through a public DNS resolver, which is what most shared hosting uses — without a key the blocklist checks cannot run and will report as unavailable. A free key from spamhaus.com gives this site its own query zone. The key is left out of settings exports, since sharing one key across sites exhausts its quota.', 'dpxl-shield'),
+                            'help'        => __('Spamhaus refuses lookups that reach it through a public DNS resolver, which is what most shared hosting uses — without a key the blocklist checks cannot run and will report as unavailable. A key from spamhaus.com gives this site its own query zone — Spamhaus offers a free tier for non-commercial use with low volumes. The key is left out of settings exports, since sharing one key across sites exhausts its quota.', 'dpxl-shield'),
                         ],
                     ],
                 ],

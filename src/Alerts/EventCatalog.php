@@ -54,6 +54,7 @@ class EventCatalog {
 
             // Integrity / self-protection
             'file_modified'            => 'Arquivo do WordPress alterado',
+            'file_unverified'          => 'Arquivo do WordPress mudou, sem confirmação',
             'plugin_tampered'          => 'Os arquivos do DPXL Shield foram alterados',
             'plugin_deactivated'       => 'O DPXL Shield foi desativado',
             'plugin_deleted'           => 'O DPXL Shield foi excluído',
@@ -92,7 +93,8 @@ class EventCatalog {
             'anomaly_detected'         => 'O motor comportamental viu um padrão de requisições típico de varredura automatizada.',
             'honeypot_triggered'       => 'Um campo escondido, invisível para pessoas, foi preenchido — sinal confiável de automação.',
             'decoy_accessed'           => 'Uma URL-isca, que nenhum visitante legítimo deveria pedir, foi acessada.',
-            'file_modified'            => 'Um arquivo de que o WordPress depende mudou. Atualizações normais também mudam arquivos; fora delas, isso pode indicar invasão.',
+            'file_modified'            => 'Um arquivo de que o WordPress depende mudou e não bate com a versão oficial daquela release.',
+            'file_unverified'          => 'Um arquivo de que o WordPress depende mudou, mas o manifesto oficial não pôde ser consultado — então não dá para dizer se é uma atualização normal ou não.',
             'plugin_tampered'          => 'Os arquivos do próprio DPXL Shield não batem mais com as somas de verificação assinadas. Malware costuma desativar o plugin de segurança primeiro.',
             'plugin_deactivated'       => 'A proteção do site está desligada neste momento.',
             'plugin_deleted'           => 'A proteção do site foi removida deste site.',
@@ -117,6 +119,7 @@ class EventCatalog {
         $caveats = [
             'new_admin_ip_login' => 'Conexões residenciais com IPv6 trocam de rede sozinhas, às vezes todo dia. Se você reconhece o país e costuma acessar daí, provavelmente é você mesmo.',
             'file_modified'      => 'Atualizar o WordPress, um plugin ou um tema também altera arquivos. Um alerta logo depois de uma atualização costuma ser exatamente isso.',
+            'file_unverified'    => 'Durante uma atualização do WordPress, a versão que o site reporta e os arquivos em disco ficam alguns minutos em desacordo, e a conferência não fecha. É a causa mais comum deste aviso.',
             'anomaly_detected'   => 'Varredores automáticos passam em qualquer site exposto na internet. A maioria desses alertas não é um ataque direcionado ao seu site.',
         ];
 
@@ -198,6 +201,10 @@ class EventCatalog {
                 'Acabou de atualizar o WordPress, um plugin ou um tema? Então isso é esperado.',
                 'Não atualizou nada? Compare o arquivo com o original e restaure-o pela tela de Varredura.',
             ],
+            'file_unverified' => [
+                'Nenhuma ação imediata: isto não diz que o arquivo está errado, diz que não deu para conferir.',
+                'Se o aviso se repetir depois que o site parar de atualizar, rode uma varredura completa.',
+            ],
             'plugin_tampered' => [
                 'Rode uma varredura completa agora.',
                 'Se você não atualizou nem editou o DPXL Shield, trate como invasão: troque as senhas de administrador e as do painel de hospedagem.',
@@ -260,6 +267,7 @@ class EventCatalog {
             'honeypot_triggered'       => $traffic,
             'decoy_accessed'           => $traffic,
             'file_modified'            => $scan,
+            'file_unverified'          => $scan,
             'plugin_tampered'          => $scan,
             'plugin_deactivated'       => $dashboard,
             'plugin_deleted'           => $dashboard,
@@ -318,6 +326,7 @@ class EventCatalog {
         'our_plugin'           => 'É o DPXL Shield',
         'results'              => 'Resultados',
         'timestamp'            => 'Horário',
+            'conferido'            => 'Conferido contra o oficial',
     ];
 
     /**

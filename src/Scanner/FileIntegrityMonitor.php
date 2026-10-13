@@ -96,23 +96,43 @@ class FileIntegrityMonitor {
         // So before raising the alarm, ask the authority. If the file on disk is
         // byte-for-byte the official release for the running version, it is stock
         // WordPress: adopt it as the new baseline and say nothing.
-        if ($this->verifier->matchesOfficialCore($relativePath) === true) {
+        $official = $this->verifier->matchesOfficialCore($relativePath);
+
+        if ($official === true) {
             $this->verifier->record($absolutePath, 'core');
-            Logger::debug("Integrity baseline refreshed from the WP.org manifest: {$relativePath}");
+            Logger::debug("Linha de base de integridade atualizada pelo manifesto do WP.org: {$relativePath}");
             return;
         }
 
         set_transient($transientKey, true, HOUR_IN_SECONDS);
 
-        Logger::error("Integrity violation: {$absolutePath}");
+        // `null` é a terceira resposta, e por dois meses ela foi tratada como se
+        // fosse `false`: o manifesto não pôde ser consultado — a versão que o
+        // WordPress reporta não é a dos arquivos em disco (acontece durante uma
+        // atualização de core), o arquivo não está no manifesto daquela versão,
+        // ou a consulta à api.wordpress.org não respondeu. Nada disso é prova de
+        // comprometimento, e chamar de "crítico" o que não foi verificado é
+        // exatamente o que ensina o leitor a ignorar o alerta.
+        //
+        // Numa homologação isso rendeu de 1 a 8 e-mails críticos por dia durante
+        // semanas sobre wp-admin/includes/plugin.php, um arquivo que o próprio
+        // `wp core verify-checksums` dava como idêntico ao oficial. Pararam
+        // sozinhos no segundo em que uma atualização de core terminou e versão e
+        // arquivos voltaram a concordar.
+        $verified = $official === false;
+
+        Logger::error(($verified ? 'Integridade: arquivo difere do oficial: ' : 'Integridade: não foi possível verificar: ') . $absolutePath);
 
         do_action('dpxl_shield_alert', [
-            'level'       => 'critical',
-            'event_type'  => 'file_modified',
-            'description' => "Critical file modified: {$relativePath}",
+            'level'       => $verified ? 'critical' : 'medium',
+            'event_type'  => $verified ? 'file_modified' : 'file_unverified',
+            'description' => $verified
+                ? "Arquivo do WordPress difere da versão oficial: {$relativePath}"
+                : "Arquivo do WordPress mudou e não foi possível conferir contra o manifesto oficial: {$relativePath}",
             'context'     => [
                 'file'      => $relativePath,
                 'timestamp' => current_time('mysql', true),
+                'conferido' => $verified ? 'sim, difere do manifesto oficial' : 'não, o manifesto oficial não pôde ser consultado',
             ],
         ]);
     }

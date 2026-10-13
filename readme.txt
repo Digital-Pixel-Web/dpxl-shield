@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.9.5
+Stable tag: 1.9.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,10 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.9.6 =
+* **Fixed: "could not check" was being reported as "compromised".** Before raising a file-integrity alarm, the plugin asks WordPress.org whether the file on disk is the official release. That question has three answers, and two of them were landing in the same place. `false` deserves the alarm: the file was compared against the official manifest and differs. `null` is something else entirely — the comparison could not be made, because the version WordPress reports does not match the files on disk (which is the case for the minutes a core update is in progress), because the file is absent from that version's manifest, or because api.wordpress.org did not answer. None of that is evidence of anything, and calling it critical is how a reader learns to ignore the sender. On one staging install this produced between one and eight "Critical file modified" emails a day for weeks about `wp-admin/includes/plugin.php` — a file `wp core verify-checksums` reported as byte-identical to the official release. They stopped on their own the second a core update finished and the baseline was rewritten.
+* **Added: a distinct event for it.** A change that could not be verified is now reported as a notice rather than a critical alert, under its own event type, and the alert states in its own body whether the comparison actually happened. The alarm for a file that genuinely differs from the official release is unchanged.
 
 = 1.9.5 =
 * **Fixed: the last nine English strings, all written in JavaScript.** The translation layer only covers strings the PHP asks it for, so anything the browser writes was out of its reach — the empty states on Integrations and the audit log, the two confirmation prompts for removing a webhook or revoking a token, and the help text under the signing-secret field. Visible only once you had something configured, or were about to delete it.

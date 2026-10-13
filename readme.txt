@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.7
+Stable tag: 1.7.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,9 @@ The file scanner computes SHA-256 of every PHP file and compares it against a ba
 7. Tools — WHOIS lookup, import/export, diagnostics
 
 == Changelog ==
+
+= 1.7.8 =
+* **Fixed: a malware signature was reporting the registration setting every plugin writes.** The signature flagged any file that turns user registration on, which is what a registration switch does when you switch it on — so a plugin whose login screen offers that switch was reported as matching a malware signature on two installs, from July onwards, and kept matching on every scan. Turning registration on is a setting; what a backdoor does, and no settings screen does, is turn it on *and* hardcode administrator as the role every new account gets. The signature now requires both halves before it reports anything. Across 30,000 files on two installs it now matches nothing, where before it matched the one file that was never a threat.
 
 = 1.7.7 =
 * **Changed: two kinds of finding no longer count as threats when the scan itself rated them medium.** The threat count is the figure you look at to decide whether something needs doing, and two findings were inflating it. PHP files inside a directory a plugin compiles into — WPML writes its page templates there as PHP, and does so by design — were already being rated medium by the scan, with the finding itself saying they are not evidence of a compromise; they were counted as threats regardless. Components merely running behind the latest release were counted the same way, although that check records a known vulnerability as high or critical and an available update as medium, so the two were indistinguishable on the badge. Both now count as threats only when the scan rated them high or critical, matching how exposed files have always been treated. On one install the count went from 40 to 1, on another from 19 to 1. Nothing was hidden: every demoted finding appears under Recommendations with its own count, and the weekly report lists components needing an update exactly as before.

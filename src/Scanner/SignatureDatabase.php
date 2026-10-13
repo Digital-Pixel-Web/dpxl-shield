@@ -81,14 +81,38 @@ class SignatureDatabase {
         return $extension !== '' && in_array($extension, $scope, true);
     }
 
+    /**
+     * A `regex_all` signature carries `patterns` instead of `pattern` and matches
+     * only when every one of them is found, in any order. It exists for the case
+     * where each half is ordinary code and only the combination is evidence:
+     * matching a single half flags the plugins that do that half for a living.
+     */
     private function matchesSig(string $content, array $sig): bool {
-        $pattern = $sig['pattern'] ?? '';
+        $type = (string) ($sig['type'] ?? '');
+
+        if ($type === 'regex_all') {
+            $patterns = $sig['patterns'] ?? [];
+
+            if (!is_array($patterns) || $patterns === []) {
+                return false;
+            }
+
+            foreach ($patterns as $pattern) {
+                if (@preg_match((string) $pattern, $content) !== 1) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        $pattern = (string) ($sig['pattern'] ?? '');
 
         if ($pattern === '') {
             return false;
         }
 
-        if ($sig['type'] === 'regex') {
+        if ($type === 'regex') {
             return @preg_match($pattern, $content) === 1;
         }
 
@@ -104,7 +128,7 @@ class SignatureDatabase {
         $this->loaded     = true;
     }
 
-    /** @return list<array{id:string,name:string,type:string,pattern:string,severity:string}> */
+    /** @return list<array{id:string,name:string,type:string,pattern?:string,patterns?:list<string>,severity:string}> */
     private function mvpSignatures(): array {
         return [
             // ── Well-known webshells ──────────────────────────────────────
@@ -177,11 +201,21 @@ class SignatureDatabase {
                 'pattern'  => '/add_action\s*\(\s*[\'"]wp_head[\'"]\s*,\s*(?:create_function|\$[a-z_]+)\s*\(/i',
                 'severity' => 'high',
             ],
+            // Opening registration is a setting, not an attack: every plugin
+            // with a "disable registration" switch writes this option, and a
+            // login-page customizer flipping it back to 1 was reported as a
+            // malware signature on two installs for months. What a backdoor
+            // does, and a settings screen never does, is open registration
+            // *and* hardcode administrator as the role new accounts get. Both
+            // halves are required, in either order.
             [
-                'id'       => 'sig-wp-option-inject',
-                'name'     => 'WordPress option manipulation (users_can_register)',
-                'type'     => 'regex',
-                'pattern'  => '/update_option\s*\(\s*[\'"]users_can_register[\'"]\s*,\s*1\s*\)/i',
+                'id'       => 'sig-wp-open-registration-admin-role',
+                'name'     => 'Registration opened with administrator as the default role',
+                'type'     => 'regex_all',
+                'patterns' => [
+                    '/(?:update|add)_option\s*\(\s*[\'"]users_can_register[\'"]\s*,\s*(?:1|true|[\'"]1[\'"])\s*\)/i',
+                    '/(?:update|add)_option\s*\(\s*[\'"]default_role[\'"]\s*,\s*[\'"]administrator[\'"]\s*\)/i',
+                ],
                 'severity' => 'high',
             ],
             [

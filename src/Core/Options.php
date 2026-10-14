@@ -26,6 +26,7 @@ class Options {
         'alert_email'                  => '',
         'alert_email_enabled'          => true,
         'alert_rate_limit_hours'       => 1,
+        'alert_admin_login_enabled'    => true,
         'activity_report_pdf_enabled'  => true,
         'traffic_log_enabled'          => true,
         'traffic_log_retention_hours'  => 24,

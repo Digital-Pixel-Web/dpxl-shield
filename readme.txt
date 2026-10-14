@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.9.6
+Stable tag: 1.10.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,11 @@ O scanner de arquivos calcula o SHA-256 de cada arquivo PHP e compara com a refe
 7. Ferramentas — consulta WHOIS, importação/exportação e diagnóstico
 
 == Changelog ==
+
+= 1.10.0 =
+* **Novo: aviso por e-mail a cada entrada de administrador.** Até aqui o alerta só saía na primeira vez que uma conta entrava de uma rede ainda não vista, então entrar do lugar de sempre era silencioso — e a entrada que não foi você parecia exatamente igual a esse silêncio. É o oposto de um alerta que grita lobo: ele só serve porque chega sempre, e é essa regularidade que faz a entrada estranha se destacar no meio das suas. O aviso traz quem entrou, de onde, com país e provedor quando conhecidos, e diz o que fazer em cada caso.
+* Uma entrada de uma rede nova continua com o alerta próprio, que é o sinal mais forte, e o aviso de rotina não é enviado junto: um login gera um e-mail, nunca dois.
+* Pode ser desligado em **Configurações → Alertas**, e o próprio e-mail diz isso — um alerta que o leitor não consegue silenciar é um que ele aprende a filtrar. Desligá-lo não afeta o aviso de entrada a partir de uma rede nova.
 
 = 1.9.6 =
 * **Corrigido: "não consegui conferir" era reportado como "comprometido".** Antes de soar o alarme de integridade de arquivo, o plugin pergunta ao WordPress.org se o arquivo em disco é a versão oficial. Essa pergunta tem três respostas, e duas delas caíam no mesmo lugar. `false` merece o alarme: o arquivo foi comparado com o manifesto oficial e difere. `null` é outra coisa — a comparação não pôde ser feita, seja porque a versão que o WordPress informa não corresponde aos arquivos em disco (o que acontece nos minutos em que uma atualização de core está em andamento), seja porque o arquivo não consta do manifesto daquela versão, seja porque a api.wordpress.org não respondeu. Nada disso é evidência de coisa alguma, e chamar isso de crítico é como o leitor aprende a ignorar o remetente. Numa instalação de homologação isso gerou de um a oito e-mails de "Arquivo crítico modificado" por dia, durante semanas, sobre o `wp-admin/includes/plugin.php` — um arquivo que o `wp core verify-checksums` reportava como idêntico byte a byte ao release oficial. Pararam sozinhos no instante em que uma atualização de core terminou e a referência foi regravada.

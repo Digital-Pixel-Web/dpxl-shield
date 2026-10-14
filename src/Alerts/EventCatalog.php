@@ -31,6 +31,7 @@ class EventCatalog {
     public static function label(string $eventType): string {
         $labels = [
             // Authentication
+            'admin_login'              => 'Entrada de administrador no site',
             'new_admin_ip_login'       => 'Login de administrador de um endereço novo',
             'brute_force_lockout'      => 'Endereço bloqueado após tentativas de login',
             'auth.lockout'             => 'Endereço bloqueado após tentativas de login',
@@ -77,6 +78,7 @@ class EventCatalog {
      */
     public static function summary(string $eventType): string {
         $summaries = [
+            'admin_login'              => 'Uma conta com acesso de administrador entrou no painel deste site.',
             'new_admin_ip_login'       => 'Uma conta de administrador entrou no painel a partir de uma rede que o DPXL Shield nunca tinha visto nesta conta.',
             'brute_force_lockout'      => 'Várias tentativas de login falharam a partir do mesmo endereço, então ele foi bloqueado automaticamente.',
             'auth.lockout'             => 'Várias tentativas de login falharam a partir do mesmo endereço, então ele foi bloqueado automaticamente.',
@@ -117,6 +119,7 @@ class EventCatalog {
      */
     public static function caveat(string $eventType): string {
         $caveats = [
+            'admin_login'        => 'Este aviso é enviado em toda entrada de administrador, inclusive nas suas. Se foi você, não há nada a fazer. Ele pode ser desligado em Configurações → Alertas.',
             'new_admin_ip_login' => 'Conexões residenciais com IPv6 trocam de rede sozinhas, às vezes todo dia. Se você reconhece o país e costuma acessar daí, provavelmente é você mesmo.',
             'file_modified'      => 'Atualizar o WordPress, um plugin ou um tema também altera arquivos. Um alerta logo depois de uma atualização costuma ser exatamente isso.',
             'file_unverified'    => 'Durante uma atualização do WordPress, a versão que o site reporta e os arquivos em disco ficam alguns minutos em desacordo, e a conferência não fecha. É a causa mais comum deste aviso.',
@@ -138,6 +141,11 @@ class EventCatalog {
      */
     public static function actions(string $eventType): array {
         $actions = [
+            'admin_login' => [
+                'Foi você quem entrou? Nenhuma ação é necessária.',
+                'Não foi você? Troque a senha desta conta agora e ative a verificação em duas etapas.',
+                'Recebendo avisos demais? Este alerta pode ser desligado em Configurações → Alertas, sem afetar o aviso de entrada a partir de uma rede nova.',
+            ],
             'new_admin_ip_login' => [
                 'Reconhece a origem acima e foi você quem entrou? Nenhuma ação é necessária.',
                 'Não reconhece? Troque a senha desta conta e ative a verificação em duas etapas.',
@@ -250,6 +258,7 @@ class EventCatalog {
         $dashboard = ['label' => 'Abrir o DPXL Shield',    'query' => 'page=dpxl-shield'];
 
         $links = [
+            'admin_login'              => $login,
             'new_admin_ip_login'       => $login,
             'brute_force_lockout'      => $blocking,
             'auth.lockout'             => $blocking,

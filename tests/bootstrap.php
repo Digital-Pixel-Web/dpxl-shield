@@ -66,6 +66,39 @@ if (!class_exists('WP_Error')) {
 }
 
 /**
+ * Minimal WP_User stand-in.
+ *
+ * Several hook callbacks are type-hinted against it because that is what
+ * WordPress passes. Only the surface the plugin touches is implemented;
+ * capability questions go through `user_can()`, which Brain\Monkey stubs.
+ */
+if (!class_exists('WP_User')) {
+    class WP_User {
+
+        /** @var int */
+        public $ID = 0;
+
+        /** @var string */
+        public $user_login = '';
+
+        /** @var string */
+        public $user_email = '';
+
+        /** @var string[] */
+        public $roles = [];
+
+        public function __construct(int $id = 0, string $login = '') {
+            $this->ID         = $id;
+            $this->user_login = $login;
+        }
+
+        public function exists(): bool {
+            return $this->ID > 0;
+        }
+    }
+}
+
+/**
  * Minimal WP_REST_Request / WP_REST_Response stand-ins.
  *
  * Same reason as WP_Error above: the REST controllers are type-hinted against

@@ -6,8 +6,9 @@ namespace DPXL\Shield\LoginSecurity;
 use DPXL\Shield\Core\Options;
 
 /**
- * Records login events to dpxl_shield_login_events and fires alerts
- * when an admin logs in from a previously unseen IP.
+ * Records login events to dpxl_shield_login_events and alerts on
+ * administrator sign-ins — every one of them, or only those from a network
+ * not seen before, depending on `alert_admin_login_enabled`.
  */
 class LoginAudit {
 
@@ -26,8 +27,20 @@ class LoginAudit {
 
         $this->record($userLogin, $ip, 'success');
 
-        // Alert on first-seen IP for admin accounts.
-        if (user_can($user, 'manage_options') && $this->isNewIp($user->ID, $ip)) {
+        if (!user_can($user, 'manage_options')) {
+            return;
+        }
+
+        $context = [
+            'username' => $userLogin,
+            'ip'       => $ip,
+            'user_id'  => $user->ID,
+        ];
+
+        // A first-seen network is the stronger signal, and its alert already
+        // says so — sending the routine notice as well would mean two emails
+        // for one login. One event per sign-in, the more specific one winning.
+        if ($this->isNewIp($user->ID, $ip)) {
             $this->markIpKnown($user->ID, $ip);
 
             do_action('dpxl_shield_alert', [
@@ -37,13 +50,29 @@ class LoginAudit {
                 'level'       => 'medium',
                 'event_type'  => 'new_admin_ip_login',
                 'description' => "Admin '{$userLogin}' logged in from a new IP: {$ip}",
-                'context'     => [
-                    'username' => $userLogin,
-                    'ip'       => $ip,
-                    'user_id'  => $user->ID,
-                ],
+                'context'     => $context,
             ]);
+
+            return;
         }
+
+        // Every other administrator sign-in, when the setting is on.
+        //
+        // This is the one alert whose whole point is to be routine: it is only
+        // useful because it arrives every time, so the one you did not perform
+        // stands out against the ones you did. That is also why it is a notice
+        // and carries a line saying it can be switched off — an alert the
+        // reader cannot silence is one they learn to filter instead.
+        if (!Options::get('alert_admin_login_enabled', true)) {
+            return;
+        }
+
+        do_action('dpxl_shield_alert', [
+            'level'       => 'medium',
+            'event_type'  => 'admin_login',
+            'description' => "Admin '{$userLogin}' signed in from {$ip}",
+            'context'     => $context,
+        ]);
     }
 
     /**

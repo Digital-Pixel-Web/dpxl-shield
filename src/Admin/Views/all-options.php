@@ -74,6 +74,8 @@
                     'title'   => __('Email Alert Preferences', 'dpxl-shield'),
                     'options' => [
                         'email_alerts_enabled'         => ['type' => 'toggle', 'label' => __('Enable Email Alerts', 'dpxl-shield'),          'default' => true],
+                        'alert_admin_login_enabled'    => ['type' => 'toggle', 'label' => __('Avisar a cada entrada de administrador', 'dpxl-shield'), 'default' => true,
+                            'help' => __('Envia um e-mail sempre que uma conta de administrador entra no site, inclusive nas suas entradas. É assim que uma entrada que não foi você se destaca no meio das que foram. Desligar isto não afeta o aviso de entrada a partir de uma rede nova, que continua sendo enviado.', 'dpxl-shield')],
                         'alert_email'                  => ['type' => 'email',  'label' => __('Alert Email Address', 'dpxl-shield'),          'default' => get_option('admin_email')],
                         'activity_report_enabled'      => ['type' => 'toggle', 'label' => __('Enable Activity Reports', 'dpxl-shield'),       'default' => true],
                         'activity_report_frequency'    => ['type' => 'select', 'label' => __('Report Frequency', 'dpxl-shield'),             'default' => 'weekly', 'options' => ['daily' => __('Diário', 'dpxl-shield'), 'weekly' => __('Semanal', 'dpxl-shield'), 'monthly' => __('Mensal', 'dpxl-shield')]],

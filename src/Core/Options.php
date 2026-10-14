@@ -27,6 +27,8 @@ class Options {
         'alert_email_enabled'          => true,
         'alert_rate_limit_hours'       => 1,
         'alert_admin_login_enabled'    => true,
+        'smtp_monitor_enabled'         => true,
+        'smtp_failure_threshold'       => 2,
         'activity_report_pdf_enabled'  => true,
         'traffic_log_enabled'          => true,
         'traffic_log_retention_hours'  => 24,

@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.10.1
+Stable tag: 1.11.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,13 @@ O scanner de arquivos calcula o SHA-256 de cada arquivo PHP e compara com a refe
 7. Ferramentas — consulta WHOIS, importação/exportação e diagnóstico
 
 == Changelog ==
+
+= 1.11.0 =
+* **Novo: monitoramento do envio de e-mails.** O site avisa quando para de conseguir enviar mensagens. É a falha que esconde a si mesma: e-mail é o canal por onde todos os outros alertas viajam, então, quando o envio quebra, o aviso disso quebra junto. Por isso a interrupção é relatada por todos os caminhos que não dependem de e-mail — alerta dentro do painel, log de auditoria e as integrações de saída (Slack, Discord, PagerDuty, SIEM) — e o e-mail é tentado também, na chance de o problema ser só um destinatário ou uma mensagem.
+* Quando o envio volta, um resumo sai por e-mail dizendo quanto tempo durou a interrupção. É o momento em que o leitor finalmente pode ser alcançado, e o tempo no escuro é o dado que ele precisa.
+* O aviso sai depois de duas falhas seguidas, não da primeira: um destinatário recusado ou um tempo limite isolado não é uma interrupção, e tratar como tal é o que faz um alerta perder o sentido. O número é configurável em Configurações → Alertas.
+* Uma interrupção gera um alerta, não um por mensagem — um servidor de e-mail quebrado falha toda a fila, e cem alertas iguais enterrariam o fato nos canais que ainda funcionam.
+* O Diagnóstico ganhou uma linha para o envio de e-mails, com o último erro do servidor e a data do último envio bem-sucedido.
 
 = 1.10.1 =
 * **Corrigido: desativar ou excluir qualquer plugin avisava que o DPXL Shield tinha sido removido.** O código sabia a diferença — rebaixava a severidade quando o plugin era de outro — mas usava o mesmo tipo de evento nos dois casos, e é o tipo de evento que decide o título e o resumo do e-mail. Então remover um plugin qualquer gerava uma mensagem com o cabeçalho "O DPXL Shield foi excluído", dizendo que a proteção do site tinha acabado, enquanto o plugin seguia instalado e ativo. Aconteceu cinco vezes em dois meses num site real antes de alguém ligar o e-mail à causa. Os dois casos agora têm eventos próprios, com texto que nomeia o que de fato aconteceu.

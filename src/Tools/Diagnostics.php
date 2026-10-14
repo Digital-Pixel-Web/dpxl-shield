@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Tools;
 
+use DPXL\Shield\Alerts\SmtpMonitor;
+use DPXL\Shield\Core\Options;
+
 /**
  * Collects environment diagnostic data for the admin panel.
  *
@@ -36,10 +39,56 @@ class Diagnostics {
             'threat_feed'        => $this->checkThreatFeed(),
             'disk_space'         => $this->checkDiskSpace(),
             'mysql_version'      => $this->checkMysqlVersion(),
+            'smtp_delivery'      => $this->checkSmtpDelivery(),
         ];
     }
 
     // ── Checks ─────────────────────────────────────────────────────────────
+
+    /**
+     * Whether mail is actually leaving the site.
+     *
+     * Worth a row of its own because it is the one failure that hides itself:
+     * every other check here can be reported by email, and this one cannot.
+     *
+     * @return array{status:string,label:string,value:string,note:string}
+     */
+    private function checkSmtpDelivery(): array {
+        if (!Options::get('smtp_monitor_enabled', true)) {
+            return ['status' => 'warning', 'label' => 'Envio de e-mails', 'value' => 'Não monitorado', 'note' => ''];
+        }
+
+        $state = SmtpMonitor::status();
+
+        if (!$state['healthy']) {
+            return [
+                'status' => 'error',
+                'label'  => 'Envio de e-mails',
+                'value'  => sprintf('Falhando (%d tentativas seguidas)', $state['failures']),
+                'note'   => $state['last_error'] !== ''
+                    ? 'Último erro: ' . $state['last_error']
+                    : 'O servidor não informou o motivo.',
+            ];
+        }
+
+        if ($state['last_success'] === '') {
+            // Never seen a send succeed. Not a problem by itself — a quiet site
+            // may simply not have sent anything yet — so it is not an error.
+            return [
+                'status' => 'warning',
+                'label'  => 'Envio de e-mails',
+                'value'  => 'Sem envio registrado ainda',
+                'note'   => 'Nenhuma mensagem saiu deste site desde que o monitoramento começou.',
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'label'  => 'Envio de e-mails',
+            'value'  => 'Funcionando',
+            'note'   => 'Último envio bem-sucedido em ' . $state['last_success'] . ' UTC.',
+        ];
+    }
 
     /** @return array{status:string,label:string,value:string,note:string} */
     private function checkThreatFeed(): array {

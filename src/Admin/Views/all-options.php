@@ -74,6 +74,10 @@
                     'title'   => __('Email Alert Preferences', 'dpxl-shield'),
                     'options' => [
                         'email_alerts_enabled'         => ['type' => 'toggle', 'label' => __('Enable Email Alerts', 'dpxl-shield'),          'default' => true],
+                        'smtp_monitor_enabled'         => ['type' => 'toggle', 'label' => __('Monitorar o envio de e-mails', 'dpxl-shield'), 'default' => true,
+                            'help' => __('Avisa quando o site para de conseguir enviar e-mails. Como nessa hora o aviso por e-mail também não sai, ele aparece como alerta dentro do painel e vai para as integrações (Slack, Discord, PagerDuty, SIEM). Quando o envio volta, um resumo é enviado por e-mail dizendo quanto tempo durou.', 'dpxl-shield')],
+                        'smtp_failure_threshold'       => ['type' => 'number', 'label' => __('Falhas seguidas antes de avisar', 'dpxl-shield'), 'default' => 2, 'min' => 1, 'max' => 20,
+                            'help' => __('Uma falha isolada costuma ser um destinatário recusado ou um tempo limite passageiro. Duas seguidas significam que a próxima mensagem também não vai sair.', 'dpxl-shield')],
                         'alert_admin_login_enabled'    => ['type' => 'toggle', 'label' => __('Avisar a cada entrada de administrador', 'dpxl-shield'), 'default' => true,
                             'help' => __('Envia um e-mail sempre que uma conta de administrador entra no site, inclusive nas suas entradas. É assim que uma entrada que não foi você se destaca no meio das que foram. Desligar isto não afeta o aviso de entrada a partir de uma rede nova, que continua sendo enviado.', 'dpxl-shield')],
                         'alert_email'                  => ['type' => 'email',  'label' => __('Alert Email Address', 'dpxl-shield'),          'default' => get_option('admin_email')],

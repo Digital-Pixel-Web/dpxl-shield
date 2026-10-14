@@ -61,6 +61,8 @@ class EventCatalog {
             'other_plugin_deactivated' => 'Um plugin foi desativado',
             'plugin_deleted'           => 'O DPXL Shield foi excluído',
             'other_plugin_deleted'     => 'Um plugin foi excluído',
+            'smtp_failure'             => 'O site não está conseguindo enviar e-mails',
+            'smtp_recovered'           => 'O envio de e-mails voltou a funcionar',
             'integrity_store_conflict' => 'Os registros de integridade não batem entre si',
 
             // Scanner
@@ -104,6 +106,8 @@ class EventCatalog {
             'other_plugin_deactivated' => 'Um plugin deste site foi desativado. O DPXL Shield segue ativo.',
             'plugin_deleted'           => 'A proteção do site foi removida deste site.',
             'other_plugin_deleted'     => 'Um plugin foi removido deste site. O DPXL Shield segue instalado.',
+            'smtp_failure'             => 'As tentativas de envio estão falhando. Enquanto isso durar, nenhum alerta deste plugin chega por e-mail.',
+            'smtp_recovered'           => 'As mensagens voltaram a sair. Este e-mail é a prova disso.',
             'integrity_store_conflict' => 'As três cópias independentes da linha de base de integridade não concordam mais entre si.',
             'scan_found_criticals'     => 'A última varredura terminou com achados que precisam de revisão.',
         ];
@@ -127,6 +131,7 @@ class EventCatalog {
             'new_admin_ip_login' => 'Conexões residenciais com IPv6 trocam de rede sozinhas, às vezes todo dia. Se você reconhece o país e costuma acessar daí, provavelmente é você mesmo.',
             'file_modified'      => 'Atualizar o WordPress, um plugin ou um tema também altera arquivos. Um alerta logo depois de uma atualização costuma ser exatamente isso.',
             'file_unverified'    => 'Durante uma atualização do WordPress, a versão que o site reporta e os arquivos em disco ficam alguns minutos em desacordo, e a conferência não fecha. É a causa mais comum deste aviso.',
+            'smtp_failure'       => 'Se você acabou de trocar a senha do SMTP, o provedor de e-mail, ou atingiu o limite diário de envios do plano, é por aí que começa.',
             'other_plugin_deactivated' => 'Desativar e remover plugins é administração normal de um site. Este registro existe para você notar o que não foi você.',
             'other_plugin_deleted'     => 'Desativar e remover plugins é administração normal de um site. Este registro existe para você notar o que não foi você.',
             'anomaly_detected'   => 'Varredores automáticos passam em qualquer site exposto na internet. A maioria desses alertas não é um ataque direcionado ao seu site.',
@@ -231,6 +236,15 @@ class EventCatalog {
                 'Reinstale o DPXL Shield.',
                 'Se não foi você quem excluiu, trate como invasão: troque as senhas de administrador e as do painel de hospedagem.',
             ],
+            'smtp_failure' => [
+                'Abra as configurações do seu plugin de SMTP e use o envio de teste — a mensagem de erro acima costuma dizer o motivo.',
+                'Confira se a senha ou a chave de API do provedor mudou, e se a conta não atingiu o limite de envios do plano.',
+                'Enquanto não resolver, acompanhe os alertas pelo log de auditoria do painel: por e-mail eles não vão chegar.',
+            ],
+            'smtp_recovered' => [
+                'Nenhuma ação é necessária.',
+                'Confira no log de auditoria se algum alerta foi gerado durante a interrupção — esses não chegaram por e-mail.',
+            ],
             'other_plugin_deactivated' => [
                 'Foi você ou alguém da equipe? Nenhuma ação é necessária.',
                 'Não reconhece? Veja em Ferramentas → Log de auditoria quem fez e de onde.',
@@ -296,6 +310,8 @@ class EventCatalog {
             'other_plugin_deactivated' => $audit,
             'plugin_deleted'           => $dashboard,
             'other_plugin_deleted'     => $audit,
+            'smtp_failure'             => $dashboard,
+            'smtp_recovered'           => $audit,
             'integrity_store_conflict' => $scan,
             'scan_found_criticals'     => $scan,
         ];
@@ -315,6 +331,9 @@ class EventCatalog {
      * @var array<string,string>
      */
     private const FIELD_LABELS = [
+        'last_error'  => 'Erro do servidor',
+        'since'       => 'Desde',
+        'duration'    => 'Duração',
         'username'    => 'Usuário',
         'user_login'  => 'Usuário',
         'user_id'     => 'ID do usuário',

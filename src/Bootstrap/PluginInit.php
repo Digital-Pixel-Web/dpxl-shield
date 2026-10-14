@@ -89,6 +89,10 @@ class PluginInit {
         // Alert manager — must be first so dpxl_shield_alert is wired before other modules fire.
         (new AlertManager())->registerHooks();
 
+        // Watches whether mail can leave at all — the channel every other
+        // alert depends on, and the one failure that silences itself.
+        (new \DPXL\Shield\Alerts\SmtpMonitor())->registerHooks();
+
         // Traffic logger — starts timing at plugins_loaded, writes on shutdown.
         (new TrafficLogger())->registerHooks();
 

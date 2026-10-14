@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, login protection, two-factor authenti
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.10.0
+Stable tag: 1.10.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,11 @@ O scanner de arquivos calcula o SHA-256 de cada arquivo PHP e compara com a refe
 7. Ferramentas — consulta WHOIS, importação/exportação e diagnóstico
 
 == Changelog ==
+
+= 1.10.1 =
+* **Corrigido: desativar ou excluir qualquer plugin avisava que o DPXL Shield tinha sido removido.** O código sabia a diferença — rebaixava a severidade quando o plugin era de outro — mas usava o mesmo tipo de evento nos dois casos, e é o tipo de evento que decide o título e o resumo do e-mail. Então remover um plugin qualquer gerava uma mensagem com o cabeçalho "O DPXL Shield foi excluído", dizendo que a proteção do site tinha acabado, enquanto o plugin seguia instalado e ativo. Aconteceu cinco vezes em dois meses num site real antes de alguém ligar o e-mail à causa. Os dois casos agora têm eventos próprios, com texto que nomeia o que de fato aconteceu.
+* **Alterado: administrar plugins deixa de gerar e-mail.** Desativar e remover plugins é trabalho normal de quem cuida de um site. Esses eventos continuam no log de auditoria e seguem para as integrações, com quem fez e de onde, mas não interrompem mais ninguém por e-mail. O DPXL Shield sendo desativado ou removido continua sendo alerta crítico, que é o caso em que a proteção de fato some.
+* **Novo: uma verificação de que todo evento disparado existe no catálogo.** O catálogo decide título, resumo e o bloco "o que fazer" a partir do tipo de evento, e nada ligava os dois lados — foi assim que dois fatos diferentes passaram a dividir um tipo só. Um teste agora lê os tipos disparados no código-fonte e falha nomeando qualquer um sem título, sem resumo ou sem o que fazer. É a quarta guarda do gênero, depois das listas de ícones, dos rótulos de campo dos alertas e das frases sem tradução.
 
 = 1.10.0 =
 * **Novo: aviso por e-mail a cada entrada de administrador.** Até aqui o alerta só saía na primeira vez que uma conta entrava de uma rede ainda não vista, então entrar do lugar de sempre era silencioso — e a entrada que não foi você parecia exatamente igual a esse silêncio. É o oposto de um alerta que grita lobo: ele só serve porque chega sempre, e é essa regularidade que faz a entrada estranha se destacar no meio das suas. O aviso traz quem entrou, de onde, com país e provedor quando conhecidos, e diz o que fazer em cada caso.

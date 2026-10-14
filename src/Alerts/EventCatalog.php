@@ -58,7 +58,9 @@ class EventCatalog {
             'file_unverified'          => 'Arquivo do WordPress mudou, sem confirmação',
             'plugin_tampered'          => 'Os arquivos do DPXL Shield foram alterados',
             'plugin_deactivated'       => 'O DPXL Shield foi desativado',
+            'other_plugin_deactivated' => 'Um plugin foi desativado',
             'plugin_deleted'           => 'O DPXL Shield foi excluído',
+            'other_plugin_deleted'     => 'Um plugin foi excluído',
             'integrity_store_conflict' => 'Os registros de integridade não batem entre si',
 
             // Scanner
@@ -99,7 +101,9 @@ class EventCatalog {
             'file_unverified'          => 'Um arquivo de que o WordPress depende mudou, mas o manifesto oficial não pôde ser consultado — então não dá para dizer se é uma atualização normal ou não.',
             'plugin_tampered'          => 'Os arquivos do próprio DPXL Shield não batem mais com as somas de verificação assinadas. Malware costuma desativar o plugin de segurança primeiro.',
             'plugin_deactivated'       => 'A proteção do site está desligada neste momento.',
+            'other_plugin_deactivated' => 'Um plugin deste site foi desativado. O DPXL Shield segue ativo.',
             'plugin_deleted'           => 'A proteção do site foi removida deste site.',
+            'other_plugin_deleted'     => 'Um plugin foi removido deste site. O DPXL Shield segue instalado.',
             'integrity_store_conflict' => 'As três cópias independentes da linha de base de integridade não concordam mais entre si.',
             'scan_found_criticals'     => 'A última varredura terminou com achados que precisam de revisão.',
         ];
@@ -123,6 +127,8 @@ class EventCatalog {
             'new_admin_ip_login' => 'Conexões residenciais com IPv6 trocam de rede sozinhas, às vezes todo dia. Se você reconhece o país e costuma acessar daí, provavelmente é você mesmo.',
             'file_modified'      => 'Atualizar o WordPress, um plugin ou um tema também altera arquivos. Um alerta logo depois de uma atualização costuma ser exatamente isso.',
             'file_unverified'    => 'Durante uma atualização do WordPress, a versão que o site reporta e os arquivos em disco ficam alguns minutos em desacordo, e a conferência não fecha. É a causa mais comum deste aviso.',
+            'other_plugin_deactivated' => 'Desativar e remover plugins é administração normal de um site. Este registro existe para você notar o que não foi você.',
+            'other_plugin_deleted'     => 'Desativar e remover plugins é administração normal de um site. Este registro existe para você notar o que não foi você.',
             'anomaly_detected'   => 'Varredores automáticos passam em qualquer site exposto na internet. A maioria desses alertas não é um ataque direcionado ao seu site.',
         ];
 
@@ -225,6 +231,14 @@ class EventCatalog {
                 'Reinstale o DPXL Shield.',
                 'Se não foi você quem excluiu, trate como invasão: troque as senhas de administrador e as do painel de hospedagem.',
             ],
+            'other_plugin_deactivated' => [
+                'Foi você ou alguém da equipe? Nenhuma ação é necessária.',
+                'Não reconhece? Veja em Ferramentas → Log de auditoria quem fez e de onde.',
+            ],
+            'other_plugin_deleted' => [
+                'Foi você ou alguém da equipe? Nenhuma ação é necessária.',
+                'Não reconhece? Veja em Ferramentas → Log de auditoria quem fez e de onde, e confira se o plugin volta a aparecer sozinho.',
+            ],
             'integrity_store_conflict' => [
                 'Rode uma varredura completa.',
                 'Se o conflito continuar depois dela, acione o suporte da Digital Pixel.',
@@ -279,7 +293,9 @@ class EventCatalog {
             'file_unverified'          => $scan,
             'plugin_tampered'          => $scan,
             'plugin_deactivated'       => $dashboard,
+            'other_plugin_deactivated' => $audit,
             'plugin_deleted'           => $dashboard,
+            'other_plugin_deleted'     => $audit,
             'integrity_store_conflict' => $scan,
             'scan_found_criticals'     => $scan,
         ];

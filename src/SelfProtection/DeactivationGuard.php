@@ -37,9 +37,15 @@ class DeactivationGuard {
 
         $ours = ($pluginBasename === self::OUR_BASENAME);
 
+        // The event type decides the email's title and summary, so one type
+        // cannot serve both cases: `plugin_deactivated` says "DPXL Shield was
+        // switched off", which is false — and alarming — when the plugin that
+        // was switched off belongs to someone else. Routine plugin management
+        // is recorded in the audit log and sent to the integrations, without an
+        // email; only our own plugin going quiet is worth interrupting someone.
         do_action('dpxl_shield_alert', [
-            'level'       => $ours ? 'critical' : 'medium',
-            'event_type'  => 'plugin_deactivated',
+            'level'       => $ours ? 'critical' : 'low',
+            'event_type'  => $ours ? 'plugin_deactivated' : 'other_plugin_deactivated',
             'description' => sprintf(
                 'Plugin deactivated: %s by %s from %s%s',
                 $pluginBasename,
@@ -72,8 +78,8 @@ class DeactivationGuard {
         $ours = str_contains($pluginFile, 'dpxl-shield');
 
         do_action('dpxl_shield_alert', [
-            'level'       => $ours ? 'critical' : 'high',
-            'event_type'  => 'plugin_deleted',
+            'level'       => $ours ? 'critical' : 'low',
+            'event_type'  => $ours ? 'plugin_deleted' : 'other_plugin_deleted',
             'description' => sprintf('Plugin deleted: %s by %s from %s', $pluginFile, $actor['user'], $actor['ip']),
             'context'     => array_merge($actor, [
                 'plugin'     => $pluginFile,

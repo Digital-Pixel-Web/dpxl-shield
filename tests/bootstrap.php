@@ -158,3 +158,6 @@ if (!class_exists('WP_REST_Response')) {
 \PHPUnit\Framework\TestCase::class; // autoload check
 
 // Global setup/teardown via PHPUnit event system handled per-test via trait or setUp/tearDown.
+
+// Nothing under test may write into the plugin's own data/ directory.
+\DPXL\Shield\Core\EarlyConfig::useDataDir(sys_get_temp_dir() . '/dpxl-shield-test-data-' . getmypid());

@@ -32,6 +32,7 @@ class Diagnostics {
             'apcu'               => $this->checkApcu(),
             'opcache'            => $this->checkOpcache(),
             'extended_mode'      => $this->checkExtendedMode(),
+            'client_ip'          => $this->checkClientIp(),
             'wp_config_perms'    => $this->checkFilePerms(ABSPATH . 'wp-config.php', '0400-0640'),
             'uploads_perms'      => $this->checkDirPerms(wp_upload_dir()['basedir'] ?? '', '0755'),
             'maxmind_db'         => $this->checkMaxMindDb(),
@@ -174,7 +175,7 @@ class Diagnostics {
             'status' => ($loaded && $enabled) ? 'ok' : 'warning',
             'label'  => 'Cache APCu',
             'value'  => ($loaded && $enabled) ? 'Disponível' : ($loaded ? 'Carregado, mas desligado' : 'Indisponível'),
-            'note'   => (!$loaded || !$enabled) ? 'O APCu é recomendado para o desempenho da limitação de taxa.' : '',
+            'note'   => (!$loaded || !$enabled) ? 'Sem APCu, a limitação de taxa conta no banco de dados, e com a Proteção Estendida só depois que o WordPress carrega.' : '',
         ];
     }
 
@@ -200,6 +201,38 @@ class Diagnostics {
             'label'  => 'Proteção Estendida (WAF)',
             'value'  => $active ? 'Ativa' : 'Inativa (modo básico)',
             'note'   => $active ? '' : 'A Proteção Estendida intercepta requisições antes do WordPress carregar. Ative em Firewall → Proteção Estendida.',
+        ];
+    }
+
+    /**
+     * Whether visitor IPs are being read correctly.
+     *
+     * Forwarding headers are only believed from a trusted proxy (see ClientIp).
+     * A site behind a CDN or proxy that is not Cloudflare and not on the local
+     * network sees every visitor as the proxy's IP until that proxy is listed —
+     * and then one visitor's lockout would lock out everyone behind the proxy.
+     *
+     * @return array{status:string,label:string,value:string,note:string}
+     */
+    private function checkClientIp(): array {
+        $resolved  = \DPXL\Shield\Core\ClientIp::current();
+        $remote    = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+        $forwarded = (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ($_SERVER['HTTP_X_REAL_IP'] ?? ''));
+
+        if ($forwarded !== '' && $resolved === $remote) {
+            return [
+                'status' => 'warning',
+                'label'  => 'Detecção do IP do visitante',
+                'value'  => sprintf('Usando %s (cabeçalho de proxy ignorado)', $remote),
+                'note'   => 'Esta requisição chegou com um cabeçalho X-Forwarded-For vindo de um endereço que não é um proxy confiável. Se o site fica atrás de uma CDN ou proxy (que não seja a Cloudflare), adicione os IPs dele em wp-config.php: define(\'DPXL_SHIELD_TRUSTED_PROXIES\', \'IP-ou-faixa, ...\');',
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'label'  => 'Detecção do IP do visitante',
+            'value'  => $resolved,
+            'note'   => '',
         ];
     }
 

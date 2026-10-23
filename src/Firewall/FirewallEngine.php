@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Firewall;
 
+// Direct access guard. The pre-WordPress firewall loads some of these classes
+// before ABSPATH exists, so its own marker is accepted too.
+defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
+
 use DPXL\Shield\Firewall\Rules\RuleEngine;
 
 /**
@@ -69,7 +73,7 @@ class FirewallEngine {
         }
 
         // 4. Rate Limiter
-        if (RateLimiter::isExceeded($request->ip, $request->uri)) {
+        if (RateLimiter::isExceeded($request->ip, $request->uri, $request->method, RateLimiter::loginAction($request->get, $request->post))) {
             // Auto-add to blocklist for 10 minutes on rate limit hit.
             IpBlocklist::blockIp($request->ip, 'Rate limit exceeded', 'auto_rate', 600);
 
@@ -110,6 +114,45 @@ class FirewallEngine {
         }
 
         return $result;
+    }
+
+    /**
+     * The checks that need WordPress (database blocklist, country blocking,
+     * custom patterns), for a request whose rules and rate limits the
+     * pre-WordPress layer already evaluated. Running the full pipeline twice
+     * would count every request twice against the rate limits.
+     */
+    public function evaluateDatabaseChecks(Request $request): RuleResult {
+        if ($this->isTrustedIp($request->ip) || $this->isAllowlistedUri($request->uri)) {
+            return RuleResult::pass();
+        }
+
+        if (IpBlocklist::isBlocked($request->ip)) {
+            return RuleResult::block('ip-blocklist', 'IP is in the blocklist', 'high');
+        }
+
+        // Before WordPress the limiter can only count in APCu. Without it the
+        // count happens here, against the database, or never at all.
+        if (!function_exists('apcu_inc')
+            && RateLimiter::isExceeded($request->ip, $request->uri, $request->method, RateLimiter::loginAction($request->get, $request->post))) {
+            IpBlocklist::blockIp($request->ip, 'Rate limit exceeded', 'auto_rate', 600);
+
+            return RuleResult::block('rate-limit', 'Rate limit exceeded', 'medium');
+        }
+
+        $countryResult = CountryBlocker::check($request->ip);
+
+        if ($countryResult->decision === Decision::BLOCK) {
+            return $countryResult;
+        }
+
+        $patternResult = CustomPatternBlocker::check($request);
+
+        if ($patternResult->decision !== Decision::PASS) {
+            return $patternResult;
+        }
+
+        return RuleResult::pass();
     }
 
     private function isTrustedIp(string $ip): bool {

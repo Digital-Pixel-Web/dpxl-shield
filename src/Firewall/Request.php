@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Firewall;
 
+// Direct access guard. The pre-WordPress firewall loads some of these classes
+// before ABSPATH exists, so its own marker is accepted too.
+defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
+
 /**
  * Value object representing the current HTTP request.
  * Safe to instantiate before WordPress loads.
@@ -60,32 +64,13 @@ class Request {
         $this->rawBody     = (string) @file_get_contents('php://input');
     }
 
-    /** Respects Cloudflare, load-balancer, and proxy headers in order of trust. */
+    /**
+     * Forwarding headers are believed only from a trusted proxy — see ClientIp.
+     * Taking the first X-Forwarded-For entry at face value let any client pick
+     * its own IP, and with it dodge lockouts or get someone else banned.
+     */
     private function resolveIp(): string {
-        $headers = [
-            'HTTP_CF_CONNECTING_IP',  // Cloudflare
-            'HTTP_X_REAL_IP',         // Nginx proxy
-            'HTTP_X_FORWARDED_FOR',   // Generic proxy (first hop)
-            'REMOTE_ADDR',
-        ];
-
-        foreach ($headers as $header) {
-            $value = $_SERVER[$header] ?? '';
-
-            if ($value === '') {
-                continue;
-            }
-
-            // X-Forwarded-For may be a comma-separated list; take the first.
-            $ip = trim(explode(',', $value)[0]);
-
-            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-                return $ip;
-            }
-        }
-
-        // Fallback: accept any valid IP including private ranges.
-        return filter_var($_SERVER['REMOTE_ADDR'] ?? '', FILTER_VALIDATE_IP) ?: '0.0.0.0';
+        return \DPXL\Shield\Core\ClientIp::current();
     }
 
     /** Returns all GET + POST values as a flat merged array for rule evaluation. */

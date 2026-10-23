@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Firewall;
 
+// Direct access guard. The pre-WordPress firewall loads some of these classes
+// before ABSPATH exists, so its own marker is accepted too.
+defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
+
 use MaxMind\Db\Reader;
 use DPXL\Shield\Core\Logger;
 
@@ -125,7 +129,7 @@ class CountryBlocker {
         self::$config = null;
 
         if (function_exists('apcu_delete')) {
-            apcu_delete(self::APCu_KEY);
+            apcu_delete(self::apcuKey());
         }
 
         if (function_exists('delete_transient')) {
@@ -143,7 +147,7 @@ class CountryBlocker {
 
         // APCu (fastest — shared across requests, pre-WordPress capable)
         if (function_exists('apcu_fetch')) {
-            $cached = apcu_fetch(self::APCu_KEY, $ok);
+            $cached = apcu_fetch(self::apcuKey(), $ok);
 
             if ($ok && is_array($cached)) {
                 return self::$config = $cached;
@@ -162,7 +166,7 @@ class CountryBlocker {
         $config = self::loadFromDatabase();
 
         if (function_exists('apcu_store')) {
-            apcu_store(self::APCu_KEY, $config, self::APCu_TTL);
+            apcu_store(self::apcuKey(), $config, self::APCu_TTL);
         }
 
         if (function_exists('set_transient')) {
@@ -202,5 +206,13 @@ class CountryBlocker {
         return defined('DPXL_SHIELD_PATH')
             ? DPXL_SHIELD_PATH . 'data/GeoLite2-Country.mmdb'
             : __DIR__ . '/../../data/GeoLite2-Country.mmdb';
+    }
+
+    /**
+     * APCu is shared by every site in the same PHP pool, so an un-namespaced
+     * key let one site's cached list answer for another's.
+     */
+    private static function apcuKey(): string {
+        return self::APCu_KEY . '_' . md5(__DIR__);
     }
 }

@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Core;
 
+// Direct access guard. The pre-WordPress firewall loads some of these classes
+// before ABSPATH exists, so its own marker is accepted too.
+defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
+
 use DPXL\Shield\Scanner\ScanOrchestrator;
 use DPXL\Shield\Alerts\ActivityReport;
 use DPXL\Shield\Scanner\ReputationChecker;
@@ -38,19 +42,23 @@ class Cron {
     }
 
     public static function addIntervals(array $schedules): array {
+        // cron_schedules can run before `init`; translating then triggers the
+        // "translation loaded too early" notice. English is fine until init.
+        $translate = did_action('init') > 0;
+
         $schedules['dpxl_hourly_scan'] = [
             'interval' => HOUR_IN_SECONDS,
-            'display'  => __('Every Hour (DPXL Shield incremental scan)', 'dpxl-shield'),
+            'display'  => ($translate ? __('Every Hour (DPXL Shield incremental scan)', 'dpxl-shield') : 'Every Hour (DPXL Shield incremental scan)'),
         ];
 
         $schedules['dpxl_weekly'] = [
             'interval' => WEEK_IN_SECONDS,
-            'display'  => __('Weekly (DPXL Shield activity report)', 'dpxl-shield'),
+            'display'  => ($translate ? __('Weekly (DPXL Shield activity report)', 'dpxl-shield') : 'Weekly (DPXL Shield activity report)'),
         ];
 
         $schedules['dpxl_monthly'] = [
             'interval' => 30 * DAY_IN_SECONDS,
-            'display'  => __('Monthly (DPXL Shield activity report)', 'dpxl-shield'),
+            'display'  => ($translate ? __('Monthly (DPXL Shield activity report)', 'dpxl-shield') : 'Monthly (DPXL Shield activity report)'),
         ];
 
         return $schedules;

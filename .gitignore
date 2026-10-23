@@ -38,3 +38,6 @@
 # GeoLite2 (runtime, baixado/distribuído fora do repo — nunca versionar)
 /data/*.mmdb
 GeoIP.conf
+
+# Runtime data written by the plugin (feed, GeoIP, early-config, blocklist snapshot)
+/data/

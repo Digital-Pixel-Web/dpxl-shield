@@ -68,8 +68,26 @@ class AtomicFileTest extends TestCase {
         $this->assertFalse(AtomicFile::rollback($path));
     }
 
-    public function testWriteToMissingDirFailsCleanly(): void {
-        $path = $this->dir . '/nope/feed.json';
+    /**
+     * data/ is not in the repository and plugin updates wipe it, so the first
+     * write has to create it — otherwise the feed and GeoIP never land.
+     */
+    public function testWriteCreatesMissingDir(): void {
+        $path = $this->dir . '/data/feed.json';
+
+        try {
+            $this->assertTrue(AtomicFile::write($path, 'x'));
+            $this->assertSame('x', file_get_contents($path));
+        } finally {
+            @unlink($path);
+            @rmdir($this->dir . '/data');
+        }
+    }
+
+    public function testWriteToUncreatableDirFailsCleanly(): void {
+        // A regular file where the directory should be: mkdir cannot succeed.
+        file_put_contents($this->dir . '/blocker', '');
+        $path = $this->dir . '/blocker/feed.json';
 
         $this->assertFalse(AtomicFile::write($path, 'x'));
         $this->assertFileDoesNotExist($path);

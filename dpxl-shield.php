@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name:       DPXL Shield
- * Plugin URI:        https://digitalpixel.com.br/dpxl-shield
- * Description:       Security that runs before WordPress does.
- * Version:           1.11.0
+ * Plugin URI:        https://digitalpixel.com.br/shieldwp/
+ * Description:       Firewall, malware scanner, login protection and two-factor authentication for WordPress. Free and open source.
+ * Version:           1.12.0
  * Author:            Digital Pixel
  * Author URI:        https://digitalpixel.com.br/
  * License:           GPL-2.0-or-later
@@ -24,7 +24,7 @@ if (!defined('ABSPATH')) {
 // else — the code below uses str_contains() and does not wait for the autoloader.
 require_once __DIR__ . '/src/Compat/php-polyfill.php';
 
-define('DPXL_SHIELD_VERSION', '1.11.0');
+define('DPXL_SHIELD_VERSION', '1.12.0');
 define('DPXL_SHIELD_PATH', plugin_dir_path(__FILE__));
 define('DPXL_SHIELD_URL', plugin_dir_url(__FILE__));
 define('DPXL_SHIELD_FILE', __FILE__);
@@ -35,9 +35,25 @@ define('DPXL_SHIELD_BASENAME', plugin_basename(__FILE__));
 // environment and is never committed. See docs-internal/dpxl-shield-threatfeed-design.md.
 define('DPXL_SHIELD_FEED_PUBKEY', '2TfF5ZV81IHzcRUfTiDH9enjACNvDdb6q2otfuymVTw=');
 
-if (file_exists(DPXL_SHIELD_PATH . 'vendor/autoload.php')) {
-    require_once DPXL_SHIELD_PATH . 'vendor/autoload.php';
+if (!file_exists(DPXL_SHIELD_PATH . 'vendor/autoload.php')) {
+    // Installed from GitHub's "Download ZIP" (source code, no dependencies)
+    // instead of a release package. Say so instead of fataling on activation.
+    add_action('admin_notices', static function (): void {
+        if (!current_user_can('activate_plugins')) {
+            return;
+        }
+
+        echo '<div class="notice notice-error"><p>'
+            . esc_html__('DPXL Shield is missing its dependencies. Install the release package (dpxl-shield.zip) from the Releases page on GitHub or from WordPress.org, not the source-code ZIP.', 'dpxl-shield')
+            . ' <a href="https://github.com/Digital-Pixel-Web/dpxl-shield/releases/latest">'
+            . esc_html__('Download the release', 'dpxl-shield')
+            . '</a></p></div>';
+    });
+
+    return;
 }
+
+require_once DPXL_SHIELD_PATH . 'vendor/autoload.php';
 
 // Fatal error catcher — logs to the server's PHP error log (always writable on shared hosting)
 // AND stores in a WP option so the admin panel can display it.

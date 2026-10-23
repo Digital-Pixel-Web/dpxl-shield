@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Threat;
 
+// Direct access guard. The pre-WordPress firewall loads some of these classes
+// before ABSPATH exists, so its own marker is accepted too.
+defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
+
 /**
  * Atomic file replacement with one-level rollback.
  *
@@ -22,15 +26,22 @@ class AtomicFile {
      * `<path>.bak` first. Returns false (leaving the existing file untouched)
      * on any failure.
      */
-    public static function write(string $path, string $contents): bool {
+    public static function write(string $path, string $contents, bool $keepBackup = true): bool {
         $dir = dirname($path);
+
+        // data/ is not shipped in the repository and is wiped by plugin
+        // updates, so the first write after an install or update creates it.
+        // Without this the threat feed and the GeoIP database never landed.
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
 
         if (!is_dir($dir) || !is_writable($dir)) {
             return false;
         }
 
         // Back up the current good copy before swapping (best-effort rollback point).
-        if (is_file($path)) {
+        if ($keepBackup && is_file($path)) {
             @copy($path, $path . '.bak');
         }
 

@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\LoginSecurity;
 
+// Direct access guard. The pre-WordPress firewall loads some of these classes
+// before ABSPATH exists, so its own marker is accepted too.
+defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
+
 use DPXL\Shield\Core\Options;
 use DPXL\Shield\Core\Logger;
 
@@ -28,6 +32,8 @@ class TwoFactorAuth {
     private const PENDING_COOKIE   = 'dpxl_shield_2fa_token';
     private const PENDING_TTL      = 300;                    // 5 minutes to complete 2FA
     private const TOTP_WINDOW      = 1;                      // ±1 step = ±30 s tolerance
+    private const MAX_ATTEMPTS     = 5;                      // wrong codes per pending login
+    private const ATTEMPTS_TRANSIENT = 'dpxl_2fa_tries_';    // + token
 
     private LoginAudit $audit;
 
@@ -71,10 +77,23 @@ class TwoFactorAuth {
             return $user;
         }
 
-        // Store pending user in a transient keyed by a random token.
+        // A locked-out IP gets no 2FA prompt: return the user untouched and the
+        // brute-force check later in the `authenticate` chain refuses the login.
+        if ((new BruteForceProtection($this->audit))->isLockedOut($this->currentIp())) {
+            return $user;
+        }
+
+        // Store the pending login in a transient keyed by a random token, with
+        // what the login form asked for, so the 2FA step can finish it.
         $token = bin2hex(random_bytes(32));
 
-        set_transient(self::PENDING_TRANSIENT . $token, $user->ID, self::PENDING_TTL);
+        $redirectTo = isset($_REQUEST['redirect_to']) ? wp_sanitize_redirect(wp_unslash((string) $_REQUEST['redirect_to'])) : '';
+
+        set_transient(self::PENDING_TRANSIENT . $token, [
+            'user_id'     => (int) $user->ID,
+            'remember'    => !empty($_POST['rememberme']),
+            'redirect_to' => $redirectTo,
+        ], self::PENDING_TTL);
 
         // Set cookie so the 2FA form can retrieve the pending user.
         setcookie(self::PENDING_COOKIE, $token, [
@@ -88,10 +107,31 @@ class TwoFactorAuth {
 
         $this->audit->record2faRequired($user->user_login, $this->currentIp());
 
+        // Interactive logins go straight to the code form. This used to return
+        // only the WP_Error below and rely on the `login_redirect` filter, but
+        // wp-login.php never redirects when sign-on returned an error — it shows
+        // the error instead, which "hide login errors" (on by default) turns
+        // into "incorrect password". Anyone who enabled 2FA was locked out, and
+        // each attempt counted toward their own brute-force lockout.
+        if (!$this->isNonInteractiveRequest()) {
+            $url = add_query_arg('action', 'dpxl_2fa', wp_login_url());
+
+            wp_safe_redirect($url);
+            exit;
+        }
+
+        // XML-RPC, REST and AJAX cannot show a form: refuse the password alone.
         return new \WP_Error(
             'dpxl_2fa_required',
             __('Two-factor authentication required.', 'dpxl-shield')
         );
+    }
+
+    private function isNonInteractiveRequest(): bool {
+        return (defined('XMLRPC_REQUEST') && XMLRPC_REQUEST)
+            || (defined('REST_REQUEST') && REST_REQUEST)
+            || (function_exists('wp_doing_ajax') && wp_doing_ajax())
+            || (defined('WP_CLI') && WP_CLI);
     }
 
     // ── 2FA Page Handler ───────────────────────────────────────────────────
@@ -101,8 +141,9 @@ class TwoFactorAuth {
      * Handles both rendering the form and processing the POST submission.
      */
     public function handleTwoFactorPage(): void {
-        $token  = $_COOKIE[self::PENDING_COOKIE] ?? '';
-        $userId = $token !== '' ? (int) get_transient(self::PENDING_TRANSIENT . $token) : 0;
+        $token   = (string) ($_COOKIE[self::PENDING_COOKIE] ?? '');
+        $pending = $token !== '' ? get_transient(self::PENDING_TRANSIENT . $token) : false;
+        $userId  = is_array($pending) ? (int) ($pending['user_id'] ?? 0) : (int) $pending;
 
         if ($userId === 0) {
             // No valid pending 2FA session — redirect to login.
@@ -118,14 +159,15 @@ class TwoFactorAuth {
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $this->processSubmission($user, $token);
+            $this->processSubmission($user, $token, is_array($pending) ? $pending : []);
             return;
         }
 
         $this->renderForm($user);
     }
 
-    private function processSubmission(\WP_User $user, string $token): void {
+    /** @param array<string,mixed> $pending */
+    private function processSubmission(\WP_User $user, string $token, array $pending = []): void {
         check_admin_referer('dpxl_2fa_verify');
 
         $code = sanitize_text_field($_POST['dpxl_2fa_code'] ?? '');
@@ -137,19 +179,38 @@ class TwoFactorAuth {
         if (!$valid) {
             $this->audit->record2faFailed($user->user_login, $this->currentIp());
 
+            // Without a cap, someone holding the password could try codes as
+            // fast as the server answers for the whole five minutes, and start a
+            // new five minutes by logging in again. Each wrong code now also
+            // counts toward the IP's brute-force lockout.
+            $attempts = (int) get_transient(self::ATTEMPTS_TRANSIENT . $token) + 1;
+            set_transient(self::ATTEMPTS_TRANSIENT . $token, $attempts, self::PENDING_TTL);
+
+            do_action('wp_login_failed', $user->user_login, new \WP_Error('dpxl_2fa_invalid', __('Invalid authentication code.', 'dpxl-shield')));
+
+            if ($attempts >= self::MAX_ATTEMPTS) {
+                delete_transient(self::PENDING_TRANSIENT . $token);
+                delete_transient(self::ATTEMPTS_TRANSIENT . $token);
+                setcookie(self::PENDING_COOKIE, '', time() - 3600, COOKIEPATH, COOKIE_DOMAIN);
+
+                wp_safe_redirect(wp_login_url());
+                exit;
+            }
+
             $this->renderForm($user, __('Invalid authentication code. Please try again.', 'dpxl-shield'));
             return;
         }
 
         // Code is valid — consume the pending session and complete the login.
         delete_transient(self::PENDING_TRANSIENT . $token);
+        delete_transient(self::ATTEMPTS_TRANSIENT . $token);
         setcookie(self::PENDING_COOKIE, '', time() - 3600, COOKIEPATH, COOKIE_DOMAIN);
 
-        wp_set_auth_cookie($user->ID, !empty($_POST['rememberme']));
+        wp_set_auth_cookie($user->ID, !empty($pending['remember']) || !empty($_POST['rememberme']));
         do_action('wp_login', $user->user_login, $user);
 
-        $redirect = isset($_POST['redirect_to'])
-            ? wp_sanitize_redirect(wp_unslash($_POST['redirect_to']))
+        $redirect = !empty($pending['redirect_to'])
+            ? (string) $pending['redirect_to']
             : admin_url();
 
         wp_safe_redirect($redirect);
@@ -183,10 +244,6 @@ class TwoFactorAuth {
                     placeholder="123 456"
                 />
             </p>
-
-            <?php if (!empty($_POST['redirect_to'])): ?>
-                <input type="hidden" name="redirect_to" value="<?php echo esc_attr($_POST['redirect_to']); ?>" />
-            <?php endif; ?>
 
             <p class="submit">
                 <input
@@ -359,9 +416,24 @@ class TwoFactorAuth {
             return false;
         }
 
+        // A code is good for about 90 seconds (±1 step). Without remembering
+        // which ones were used, the same code could complete a second login —
+        // by anyone who saw it over a shoulder or captured it.
+        $usedKey = 'dpxl_2fa_used_' . md5($userId . '|' . $code);
+
+        if (get_transient($usedKey)) {
+            return false;
+        }
+
         $totp = Totp::fromSecret($secret);
 
-        return $totp->verify($code, null, self::TOTP_WINDOW);
+        if (!$totp->verify($code, null, self::TOTP_WINDOW)) {
+            return false;
+        }
+
+        set_transient($usedKey, 1, 3 * 30);
+
+        return true;
     }
 
     // ── Status Checks ──────────────────────────────────────────────────────
@@ -392,17 +464,7 @@ class TwoFactorAuth {
     // ── Helpers ────────────────────────────────────────────────────────────
 
     private function currentIp(): string {
-        $headers = ['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'];
-
-        foreach ($headers as $h) {
-            $value = $_SERVER[$h] ?? '';
-            $ip    = trim(explode(',', $value)[0]);
-
-            if (filter_var($ip, FILTER_VALIDATE_IP)) {
-                return $ip;
-            }
-        }
-
-        return '0.0.0.0';
+        // Spoof-resistant resolution lives in one place; see ClientIp.
+        return \DPXL\Shield\Core\ClientIp::current();
     }
 }

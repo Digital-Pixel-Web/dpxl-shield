@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Firewall;
 
+// Direct access guard. The pre-WordPress firewall loads some of these classes
+// before ABSPATH exists, so its own marker is accepted too.
+defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
+
 /**
  * Blocks requests matching admin-defined patterns on specific HTTP fields.
  *
@@ -52,7 +56,7 @@ class CustomPatternBlocker {
         self::$rules = null;
 
         if (function_exists('apcu_delete')) {
-            apcu_delete(self::CACHE_KEY);
+            apcu_delete(self::apcuKey());
         }
 
         if (function_exists('delete_transient')) {
@@ -68,7 +72,7 @@ class CustomPatternBlocker {
         }
 
         if (function_exists('apcu_fetch')) {
-            $cached = apcu_fetch(self::CACHE_KEY, $ok);
+            $cached = apcu_fetch(self::apcuKey(), $ok);
 
             if ($ok && is_array($cached)) {
                 return self::$rules = $cached;
@@ -86,7 +90,7 @@ class CustomPatternBlocker {
         $rules = self::loadFromDatabase();
 
         if (function_exists('apcu_store')) {
-            apcu_store(self::CACHE_KEY, $rules, self::CACHE_TTL);
+            apcu_store(self::apcuKey(), $rules, self::CACHE_TTL);
         }
 
         if (function_exists('set_transient')) {
@@ -139,5 +143,13 @@ class CustomPatternBlocker {
 
     private static function isExpired(array $rule): bool {
         return !empty($rule['expires_at']) && strtotime((string) $rule['expires_at']) < time();
+    }
+
+    /**
+     * APCu is shared by every site in the same PHP pool, so an un-namespaced
+     * key let one site's cached list answer for another's.
+     */
+    private static function apcuKey(): string {
+        return self::CACHE_KEY . '_' . md5(__DIR__);
     }
 }

@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Bootstrap;
 
+// Direct access guard. The pre-WordPress firewall loads some of these classes
+// before ABSPATH exists, so its own marker is accepted too.
+defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
+
 use DPXL\Shield\Core\Options;
 use DPXL\Shield\Core\Cron;
 use DPXL\Shield\Firewall\FirewallEngine;
@@ -19,6 +23,8 @@ use DPXL\Shield\Alerts\AlertManager;
 use DPXL\Shield\Admin\AdminMenu;
 use DPXL\Shield\Admin\RestApi;
 use DPXL\Shield\Core\Database;
+use DPXL\Shield\Core\EarlyConfig;
+use DPXL\Shield\Firewall\WafBypass;
 
 /**
  * Normal plugin boot — runs on plugins_loaded after WordPress is available.
@@ -30,11 +36,18 @@ class PluginInit {
         Database::maybeCreateTables();
         Database::runDataFixes();
 
+        // The files Extended Protection reads before WordPress loads. Recreated
+        // here if a plugin update wiped data/ (two stat calls otherwise).
+        \DPXL\Shield\Core\EarlyConfig::ensure();
+
         $firewallEnabled = (bool) Options::get('firewall_enabled', true);
 
-        // Run WAF in basic mode (inside WordPress) only when the firewall is enabled
-        // and the extended auto_prepend_file loader did not run for this request.
-        if ($firewallEnabled && !defined('DPXL_SHIELD_EXTENDED_ACTIVE')) {
+        // The in-WordPress layer always runs when the firewall is on. When the
+        // pre-WordPress loader already evaluated the rules for this request, only
+        // the database-backed checks are left for this layer; when the loader
+        // deferred the request (admin screens, login, API calls with a login
+        // cookie) or did not run, everything is evaluated here.
+        if ($firewallEnabled) {
             self::runBasicWaf();
         }
 
@@ -47,32 +60,23 @@ class PluginInit {
     private static function runBasicWaf(): void {
         $uri = $_SERVER['REQUEST_URI'] ?? '';
 
-        // Bypass WAF for all wp-admin requests.
-        // Page builders (Elementor, Gutenberg) POST HTML/CSS/JS that triggers XSS/SQLi
-        // rules, causing false-positive blocks and auto-adding the admin's IP to the
-        // blocklist. is_admin() is a cheap constant check (WP_ADMIN is defined early).
-        if (is_admin()) {
+        // Logged-in users on admin screens and API calls skip the rules: page
+        // builders (Elementor, Gutenberg) POST raw HTML/CSS/JS that trips the
+        // XSS/SQLi rules and would get the admin's own IP banned.
+        //
+        // The session is *validated*. This used to trust is_admin() — true for
+        // the anonymous admin-ajax.php / admin-post.php endpoints too — and the
+        // mere presence of a wordpress_logged_in_* cookie, which anyone can send.
+        // Both turned the firewall off for exactly the requests attackers use.
+        if (WafBypass::shouldBypassForUser($uri, self::hasValidSession())) {
             return;
         }
-
-        // Bypass WAF for REST API and admin-ajax requests that carry a WordPress
-        // auth cookie. We check the cookie directly rather than calling
-        // is_user_logged_in() because at plugins_loaded priority -10 the user is not
-        // yet fully initialized for REST requests (REST nonce auth runs at rest_api_init).
-        // LOGGED_IN_COOKIE is defined by wp_cookie_constants() before plugins_loaded.
-        $loggedInCookie = defined('LOGGED_IN_COOKIE') ? LOGGED_IN_COOKIE : 'wordpress_logged_in';
-        $isAuthRequest  = str_contains($uri, '/wp-json/') || str_contains($uri, 'admin-ajax.php');
-
-        if ($isAuthRequest && !empty($_COOKIE[$loggedInCookie] ?? '')) {
-            return;
-        }
-
-        $configFile     = DPXL_SHIELD_PATH . 'data/early-config.php';
-        $blockedIpsFile = DPXL_SHIELD_PATH . 'data/blocked-ips.php';
 
         $request = new Request();
-        $engine  = new FirewallEngine($configFile, $blockedIpsFile);
-        $result  = $engine->evaluate($request);
+        $engine  = new FirewallEngine(EarlyConfig::configPath(), EarlyConfig::blockedIpsPath());
+        $result  = defined('DPXL_SHIELD_EARLY_EVALUATED')
+            ? $engine->evaluateDatabaseChecks($request)
+            : $engine->evaluate($request);
 
         TrafficLogger::setWafResult($result);
 
@@ -83,6 +87,25 @@ class PluginInit {
                 ['response' => 403]
             );
         }
+    }
+
+    /**
+     * Whether the request carries a real, unexpired login session of someone
+     * who edits content. wp_validate_auth_cookie() is pluggable and loaded
+     * before plugins_loaded.
+     *
+     * Subscribers and shop customers are not exempted: "authenticated
+     * (subscriber+)" is the most common class of plugin vulnerability, and an
+     * open registration form would otherwise hand anyone a WAF-free session.
+     */
+    private static function hasValidSession(): bool {
+        if (!WafBypass::hasLoginCookie($_COOKIE) || !function_exists('wp_validate_auth_cookie')) {
+            return false;
+        }
+
+        $userId = (int) wp_validate_auth_cookie('', 'logged_in');
+
+        return $userId > 0 && user_can($userId, 'edit_posts');
     }
 
     private static function registerHooks(): void {
@@ -119,6 +142,17 @@ class PluginInit {
 
         // Cron schedules.
         Cron::register();
+
+        // Keep the pre-WordPress config in step with the settings it mirrors.
+        $mirrored = ['firewall_enabled', 'rate_limit_login', 'rate_limit_xmlrpc', 'rate_limit_rest', 'allowlisted_uris'];
+        $refresh  = static function (string $option) use ($mirrored): void {
+            if (in_array(substr($option, strlen('dpxl_shield_')), $mirrored, true) && str_starts_with($option, 'dpxl_shield_')) {
+                EarlyConfig::writeConfig();
+            }
+        };
+        add_action('added_option', $refresh);
+        add_action('updated_option', $refresh);
+        add_action('deleted_option', $refresh);
 
         // Admin UI.
         if (is_admin()) {

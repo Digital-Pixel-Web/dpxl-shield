@@ -1292,10 +1292,19 @@ class RestApi {
         $settings = [];
         $skip     = ['_site_check_enc_key', '_site_check_timeout_shwp'];
 
+        // Credentials are reported as set / not set, never echoed back: a
+        // settings read should not be a way to copy API keys and webhook secrets.
+        $secrets  = ['google_safe_browsing_key', 'vuln_api_token', 'spamhaus_dqs_key', 'webhook_endpoints'];
+
         foreach ($rows as $row) {
             $key = substr((string) $row['option_name'], strlen('dpxl_shield_'));
 
             if (in_array($key, $skip, true)) {
+                continue;
+            }
+
+            if (in_array($key, $secrets, true)) {
+                $settings[$key] = !empty(maybe_unserialize($row['option_value'])) ? '(set)' : '';
                 continue;
             }
 
@@ -1312,12 +1321,22 @@ class RestApi {
             return new \WP_REST_Response(['error' => 'Invalid payload.'], 400);
         }
 
-        $protected = ['_site_check_enc_key', '_site_check_timeout_shwp'];
+        // Internal state is written by the plugin itself, never by the form.
+        $protected = [
+            '_site_check_enc_key', '_site_check_timeout_shwp',
+            'file_checksums', 'integrity_baseline_at', 'integrity_version', 'integrity_violation',
+            'known_ips', 'db_version', 'migrations_done', 'webhook_endpoints', 'webhook_status',
+        ];
 
         foreach ($settings as $key => $value) {
             $key = sanitize_key((string) $key);
 
             if (in_array($key, $protected, true)) {
+                continue;
+            }
+
+            // The placeholder getSettings() shows for a stored credential.
+            if ($value === '(set)') {
                 continue;
             }
 

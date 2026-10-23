@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Firewall;
 
+// Direct access guard. The pre-WordPress firewall loads some of these classes
+// before ABSPATH exists, so its own marker is accepted too.
+defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
+
 class IpBlocklist {
 
     private const TRANSIENT_KEY  = 'dpxl_shield_blocked_ips_cache';
@@ -44,45 +48,48 @@ class IpBlocklist {
             return false;
         }
 
-        $expiresAt = $durationSeconds !== null
-            ? gmdate('Y-m-d H:i:s', time() + $durationSeconds)
-            : null;
+        // A duration of 0 (or none) means permanent. The REST endpoint, the
+        // Live Traffic "Block" button and the importer all pass 0 for "forever",
+        // but 0 used to become expires_at = now: every manual block lapsed the
+        // moment it was saved and vanished from the list.
+        $permanent = $durationSeconds === null || $durationSeconds <= 0;
+        $expiresAt = $permanent ? null : gmdate('Y-m-d H:i:s', time() + $durationSeconds);
 
-        $existing = $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT id FROM {$wpdb->prefix}dpxl_shield_blocked_ips WHERE ip = %s",
-                $ip
-            )
+        $table    = $wpdb->prefix . 'dpxl_shield_blocked_ips';
+        $existing = $wpdb->get_row(
+            $wpdb->prepare("SELECT id, is_permanent FROM {$table} WHERE ip = %s", $ip),
+            ARRAY_A
         );
 
         if ($existing) {
-            $wpdb->update(
-                $wpdb->prefix . 'dpxl_shield_blocked_ips',
-                [
-                    'block_count'  => $wpdb->get_var(
-                        $wpdb->prepare(
-                            "SELECT block_count + 1 FROM {$wpdb->prefix}dpxl_shield_blocked_ips WHERE ip = %s",
-                            $ip
-                        )
-                    ),
-                    'last_attempt' => current_time('mysql', true),
-                    'expires_at'   => $expiresAt,
-                ],
-                ['ip' => $ip],
-                ['%d', '%s', '%s'],
-                ['%s']
-            );
+            $data    = ['last_attempt' => current_time('mysql', true)];
+            $formats = ['%s'];
+
+            // An automatic, timed block must never shorten a permanent one.
+            if ($permanent) {
+                $data['is_permanent'] = 1;
+                $data['expires_at']   = null;
+                $formats[] = '%d';
+                $formats[] = null;
+            } elseif (empty($existing['is_permanent'])) {
+                $data['expires_at'] = $expiresAt;
+                $formats[] = '%s';
+            }
+
+            $wpdb->update($table, $data, ['id' => (int) $existing['id']], $formats, ['%d']);
+            $wpdb->query($wpdb->prepare("UPDATE {$table} SET block_count = block_count + 1 WHERE id = %d", (int) $existing['id']));
         } else {
             $wpdb->insert(
-                $wpdb->prefix . 'dpxl_shield_blocked_ips',
+                $table,
                 [
-                    'ip'         => $ip,
-                    'reason'     => $reason,
-                    'source'     => $source,
-                    'expires_at' => $expiresAt,
-                    'blocked_at' => current_time('mysql', true),
+                    'ip'           => $ip,
+                    'reason'       => $reason,
+                    'source'       => $source,
+                    'expires_at'   => $expiresAt,
+                    'is_permanent' => $permanent ? 1 : 0,
+                    'blocked_at'   => current_time('mysql', true),
                 ],
-                ['%s', '%s', '%s', '%s', '%s']
+                ['%s', '%s', '%s', '%s', '%d', '%s']
             );
         }
 
@@ -112,7 +119,7 @@ class IpBlocklist {
 
         // Try APCu first (no DB hit)
         if (function_exists('apcu_fetch')) {
-            $cached = apcu_fetch(self::TRANSIENT_KEY, $success);
+            $cached = apcu_fetch(self::apcuKey(), $success);
 
             if ($success && is_array($cached)) {
                 self::$cache = $cached;
@@ -132,11 +139,20 @@ class IpBlocklist {
             }
         }
 
+        // Before WordPress loads there is no database, only the flat-file
+        // snapshot. Caching that in APCu would hand the in-WordPress layer an
+        // empty or stale list for the next five minutes, so it is not cached.
+        if (!self::databaseAvailable()) {
+            self::$cache = self::loadFromFile();
+
+            return self::$cache;
+        }
+
         $list = self::loadFromDatabase();
 
         // Store in cache
         if (function_exists('apcu_store')) {
-            apcu_store(self::TRANSIENT_KEY, $list, self::CACHE_TTL);
+            apcu_store(self::apcuKey(), $list, self::CACHE_TTL);
         }
 
         if (function_exists('set_transient')) {
@@ -154,7 +170,7 @@ class IpBlocklist {
         // WordPress not loaded, or $wpdb not yet available (Extended Protection
         // runs pre-WordPress) — fall back to the flat-file blocklist instead of
         // dereferencing a null $wpdb. Mirrors the guard in blockIp() (v1.0.19).
-        if (!function_exists('get_transient') || !$wpdb instanceof \wpdb) {
+        if (!self::databaseAvailable()) {
             return self::loadFromFile();
         }
 
@@ -178,25 +194,42 @@ class IpBlocklist {
         return $list;
     }
 
-    private static function loadFromFile(): array {
-        $file = defined('DPXL_SHIELD_PATH')
-            ? DPXL_SHIELD_PATH . 'data/blocked-ips.php'
-            : __DIR__ . '/../../data/blocked-ips.php';
+    private static function databaseAvailable(): bool {
+        global $wpdb;
 
-        if (!file_exists($file)) {
+        return function_exists('get_transient') && $wpdb instanceof \wpdb;
+    }
+
+    private static function loadFromFile(): array {
+        $data = @include \DPXL\Shield\Core\EarlyConfig::blockedIpsPath();
+
+        if (!is_array($data)) {
             return ['exact' => [], 'cidr' => []];
         }
 
-        $data = @include $file;
+        // Timed blocks carry their expiry, so the snapshot never outlives them.
+        $now  = time();
+        $live = static function ($entry) use ($now): bool {
+            return is_string($entry) || (is_array($entry) && (empty($entry[1]) || (int) $entry[1] > $now));
+        };
+        $flatten = static function ($entry): string {
+            return is_array($entry) ? (string) $entry[0] : (string) $entry;
+        };
 
-        return is_array($data) ? $data : ['exact' => [], 'cidr' => []];
+        return [
+            'exact' => array_map($flatten, array_filter((array) ($data['exact'] ?? []), $live)),
+            'cidr'  => array_map($flatten, array_filter((array) ($data['cidr'] ?? []), $live)),
+        ];
     }
 
     private static function invalidateCache(): void {
         self::$cache = null;
 
+        // Keep the pre-WordPress snapshot in step with the database.
+        \DPXL\Shield\Core\EarlyConfig::writeBlocklist();
+
         if (function_exists('apcu_delete')) {
-            apcu_delete(self::TRANSIENT_KEY);
+            apcu_delete(self::apcuKey());
         }
 
         if (function_exists('delete_transient')) {
@@ -206,6 +239,12 @@ class IpBlocklist {
 
     /** Checks whether an IPv4 address falls within a CIDR range. */
     private static function ipMatchesCidr(string $ip, string $cidr): bool {
+        // IPv6 ranges too — the readme promised CIDR support, and ip2long()
+        // below only ever understood IPv4.
+        if (str_contains($cidr, ':') || str_contains($ip, ':')) {
+            return \DPXL\Shield\Core\ClientIp::inRange($ip, $cidr);
+        }
+
         if (!str_contains($cidr, '/')) {
             return $ip === $cidr;
         }
@@ -223,5 +262,13 @@ class IpBlocklist {
         $mask = $bits === 0 ? 0 : (~0 << (32 - $bits));
 
         return ($ipLong & $mask) === ($subLong & $mask);
+    }
+
+    /**
+     * APCu is shared by every site in the same PHP pool, so an un-namespaced
+     * key let one site's cached list answer for another's.
+     */
+    private static function apcuKey(): string {
+        return self::TRANSIENT_KEY . '_' . md5(__DIR__);
     }
 }

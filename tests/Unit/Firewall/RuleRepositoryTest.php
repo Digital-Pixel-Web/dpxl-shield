@@ -102,6 +102,8 @@ class RuleRepositoryTest extends TestCase {
             ['id' => 'feed-2', 'pattern' => '/etc\/passwd/i',    'targets' => ['uri'], 'action' => 'block'],
         ]]);
 
+        $createdDir = !is_dir(dirname($defaultFeed)) && mkdir(dirname($defaultFeed), 0755, true);
+
         try {
             file_put_contents($defaultFeed, $feed);
             RuleRepository::flushCache();
@@ -110,6 +112,9 @@ class RuleRepositoryTest extends TestCase {
             $this->assertSame($builtInCount + 2, $withFeed, 'Feed rules add on top of the floor');
         } finally {
             @unlink($defaultFeed);
+            if ($createdDir) {
+                @rmdir(dirname($defaultFeed));
+            }
             RuleRepository::flushCache();
         }
     }

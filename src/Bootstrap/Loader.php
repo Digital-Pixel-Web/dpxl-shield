@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Bootstrap;
 
+// Direct access guard. The pre-WordPress firewall loads some of these classes
+// before ABSPATH exists, so its own marker is accepted too.
+defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
+
 use DPXL\Shield\Firewall\FirewallEngine;
 use DPXL\Shield\Firewall\Request;
 
@@ -24,67 +28,70 @@ class Loader {
 
         $uri = $_SERVER['REQUEST_URI'] ?? '';
 
-        // Admin, wp-login and authenticated REST/admin-ajax requests never get
-        // WAF-filtered in the pre-WordPress context (see shouldBypassEarlyWaf).
+        // Admin screens, the login screen and API calls carrying a login cookie
+        // are not judged here: a forged cookie looks exactly like a real one
+        // before WordPress loads. They are handed to the in-WordPress layer,
+        // which validates the session (see WafBypass and PluginInit).
         if (self::shouldBypassEarlyWaf($uri, $_COOKIE)) {
+            self::markDeferred();
             return;
         }
 
         // ── WAF evaluation (unauthenticated public requests only) ──────────
         $configFile = self::locateConfig();
 
-        if ($configFile === null || !self::isFirewallEnabled($configFile)) {
+        if (!self::isFirewallEnabled($configFile)) {
             return;
         }
 
-        $blockedIpsFile = dirname($configFile) . '/data/blocked-ips.php';
+        $dataDir        = $configFile !== null ? dirname($configFile) : self::defaultDataDir();
+        $blockedIpsFile = $dataDir . '/blocked-ips.php';
 
         $request  = new Request();
-        $engine   = new FirewallEngine($configFile, $blockedIpsFile);
+        $engine   = new FirewallEngine((string) $configFile, $blockedIpsFile);
         $result   = $engine->evaluate($request);
 
         if ($result->decision === 'block') {
             self::sendBlockResponse($result->ruleId, $result->reason);
         }
+
+        // The rules, rate limiter and file blocklist ran here. The in-WordPress
+        // layer still runs the checks that need the database (DB blocklist,
+        // country blocking, custom patterns) without evaluating the rules twice.
+        if (!defined('DPXL_SHIELD_EARLY_EVALUATED')) {
+            define('DPXL_SHIELD_EARLY_EVALUATED', true);
+        }
     }
 
     /**
-     * Decides whether a request must skip the pre-WordPress WAF entirely.
+     * Whether a request is left for the in-WordPress layer instead of being
+     * judged before WordPress loads. Kept under its historical name; the
+     * decision itself lives in WafBypass.
      *
-     * Pure function (no superglobals, no side effects) so the security-critical
-     * bypass logic can be unit-tested directly.
-     *
-     * - `wp-admin/` and `wp-login.php`: WordPress handles admin auth, and page
-     *   builders (Elementor, Gutenberg) POST raw HTML/CSS that trips XSS/SQLi
-     *   rules. `is_admin()` is unavailable pre-WordPress, so the URI is checked.
-     * - `wp-json/` and `admin-ajax.php` carrying a `wordpress_logged_in_*`
-     *   cookie: a logged-in user. The cookie cannot be validated pre-WordPress,
-     *   but WordPress only sets it after a successful login.
+     * Nothing is skipped outright any more: a deferred request is still
+     * filtered once WordPress can tell a real login from a forged cookie.
      *
      * @param array<string,mixed> $cookies  Typically $_COOKIE
      */
     public static function shouldBypassEarlyWaf(string $uri, array $cookies): bool {
-        if (str_contains($uri, '/wp-admin/') || str_contains($uri, '/wp-login.php')) {
-            return true;
+        return \DPXL\Shield\Firewall\WafBypass::shouldDeferEarly($uri, $cookies);
+    }
+
+    private static function markDeferred(): void {
+        if (!defined('DPXL_SHIELD_EARLY_DEFERRED')) {
+            define('DPXL_SHIELD_EARLY_DEFERRED', true);
         }
+    }
 
-        $isAuthEndpoint = str_contains($uri, '/wp-json/') || str_contains($uri, 'admin-ajax.php');
-
-        if ($isAuthEndpoint) {
-            foreach (array_keys($cookies) as $cookieName) {
-                if (str_starts_with((string) $cookieName, 'wordpress_logged_in_')) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+    /** data/ next to the plugin, where EarlyConfig writes. */
+    private static function defaultDataDir(): string {
+        return dirname(__DIR__, 2) . '/data';
     }
 
     private static function locateConfig(): ?string {
         // Walk up from the vendor autoloader to find the plugin config.
         $candidates = [
-            __DIR__ . '/../../data/early-config.php',
+            self::defaultDataDir() . '/early-config.php',
         ];
 
         foreach ($candidates as $path) {
@@ -96,14 +103,26 @@ class Loader {
         return null;
     }
 
+    /**
+     * The firewall is on unless the config file says otherwise.
+     *
+     * This used to return false when the config file was missing — and nothing
+     * ever wrote that file, so Extended Protection ran no rules at all, while
+     * also switching the in-WordPress WAF off. Missing config now means the
+     * defaults, which have the firewall on.
+     */
     private static function isFirewallEnabled(?string $configFile): bool {
         if ($configFile === null) {
-            return false;
+            return true;
         }
 
         $config = @include $configFile;
 
-        return is_array($config) && !empty($config['firewall_enabled']);
+        if (!is_array($config) || !array_key_exists('firewall_enabled', $config)) {
+            return true;
+        }
+
+        return !empty($config['firewall_enabled']);
     }
 
     private static function sendBlockResponse(string $ruleId, string $reason): void {

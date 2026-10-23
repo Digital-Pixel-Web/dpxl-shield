@@ -10,7 +10,11 @@ use DPXL\Shield\Core\Logger;
  * from the official WP.org repository.
  *
  * Before overwriting, the current file is backed up to:
- *   wp-content/shieldwp-backups/{timestamp}/{relative_path}
+ *   wp-content/shieldwp-backups/{timestamp}/{relative_path}.dpxl-bak
+ *
+ * The suffix matters: the file being replaced is usually the infected one, and
+ * a copy with its .php extension under wp-content would be a working backdoor
+ * at a guessable URL. The folder also gets deny rules and an index.php.
  *
  * Only files for which WP.org provides a canonical copy are repairable:
  *   - WordPress core files (via api.wordpress.org/core/checksums)
@@ -36,6 +40,24 @@ class FileRepair {
      * @return array{success: bool, message: string}
      */
     public function repairFile(string $absolutePath): array {
+        // Resolve "..", symlinks and the like before deciding what the file is:
+        // the prefix checks below are meaningless on an unnormalised path.
+        $real = realpath($absolutePath);
+
+        if ($real === false) {
+            // A deleted core file can be restored, so a missing file is fine as
+            // long as its directory resolves inside the install.
+            $dir  = realpath(dirname($absolutePath));
+            $real = $dir !== false ? $dir . DIRECTORY_SEPARATOR . basename($absolutePath) : false;
+        }
+
+        $root = realpath(ABSPATH);
+
+        if ($real === false || $root === false || !str_starts_with($real, rtrim($root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)) {
+            return ['success' => false, 'message' => 'Invalid file path.'];
+        }
+
+        $absolutePath = $real;
         $type = $this->classifyFile($absolutePath);
 
         if ($type === 'core') {
@@ -114,7 +136,7 @@ class FileRepair {
         $version = $wp_version ?? '';
         $url     = "https://raw.githubusercontent.com/WordPress/WordPress/{$version}/{$relative}";
 
-        return $this->downloadAndReplace($url, $absolutePath, $relative);
+        return $this->downloadAndReplace($url, $absolutePath, $relative, (string) $checksums[$relative]);
     }
 
     // ── Plugin file repair ─────────────────────────────────────────────────
@@ -191,7 +213,7 @@ class FileRepair {
     // ── Generic download + replace ─────────────────────────────────────────
 
     /** @return array{success: bool, message: string} */
-    private function downloadAndReplace(string $url, string $dest, string $label): array {
+    private function downloadAndReplace(string $url, string $dest, string $label, string $expectedMd5): array {
         $response = wp_remote_get($url, ['timeout' => 20]);
 
         if (is_wp_error($response)) {
@@ -203,6 +225,13 @@ class FileRepair {
         }
 
         $contents = wp_remote_retrieve_body($response);
+
+        // The copy comes from a GitHub mirror, so it is checked against the
+        // checksum WordPress.org published for this exact file before it is
+        // allowed to overwrite anything.
+        if ($contents === '' || !hash_equals(strtolower($expectedMd5), md5($contents))) {
+            return ['success' => false, 'message' => "Downloaded file does not match the official checksum: {$label}"];
+        }
 
         $this->backup($dest);
 
@@ -226,12 +255,25 @@ class FileRepair {
             return;
         }
 
-        $backupRoot = WP_CONTENT_DIR . '/' . self::BACKUP_DIR . '/' . gmdate('Ymd-His');
+        $baseDir    = WP_CONTENT_DIR . '/' . self::BACKUP_DIR;
+        $backupRoot = $baseDir . '/' . gmdate('Ymd-His');
         $relative   = str_replace(ABSPATH, '', $absolutePath);
-        $backupPath = $backupRoot . '/' . ltrim(str_replace(DIRECTORY_SEPARATOR, '/', $relative), '/');
+        $backupPath = $backupRoot . '/' . ltrim(str_replace(DIRECTORY_SEPARATOR, '/', $relative), '/') . '.dpxl-bak';
 
         wp_mkdir_p(dirname($backupPath));
+        self::protectDirectory($baseDir);
         @copy($absolutePath, $backupPath);
+    }
+
+    /** Deny web access to a backup folder (Apache/LiteSpeed) and hide listings. */
+    public static function protectDirectory(string $dir): void {
+        if (!is_file($dir . '/.htaccess')) {
+            @file_put_contents($dir . '/.htaccess', "<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n    Deny from all\n</IfModule>\n");
+        }
+
+        if (!is_file($dir . '/index.php')) {
+            @file_put_contents($dir . '/index.php', "<?php\n// Silence is golden.\n");
+        }
     }
 
     // ── Classification ─────────────────────────────────────────────────────

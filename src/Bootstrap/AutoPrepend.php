@@ -417,6 +417,9 @@ PHP;
             return null;
         }
 
+        // The backup is a copy of the server config — not something to serve.
+        \DPXL\Shield\Scanner\FileRepair::protectDirectory($dir);
+
         $file = $dir . '/htaccess-before-extended-' . gmdate('Ymd-His') . '.txt';
 
         if (!$this->writeFileAtomic($file, $content)) {

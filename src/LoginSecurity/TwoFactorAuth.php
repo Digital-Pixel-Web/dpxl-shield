@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\LoginSecurity;
 
+// Direct access guard. The pre-WordPress firewall loads some of these classes
+// before ABSPATH exists, so its own marker is accepted too.
+defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
+
 use DPXL\Shield\Core\Options;
 use DPXL\Shield\Core\Logger;
 
@@ -28,6 +32,8 @@ class TwoFactorAuth {
     private const PENDING_COOKIE   = 'dpxl_shield_2fa_token';
     private const PENDING_TTL      = 300;                    // 5 minutes to complete 2FA
     private const TOTP_WINDOW      = 1;                      // ±1 step = ±30 s tolerance
+    private const MAX_ATTEMPTS     = 5;                      // wrong codes per pending login
+    private const ATTEMPTS_TRANSIENT = 'dpxl_2fa_tries_';    // + token
 
     private LoginAudit $audit;
 
@@ -137,12 +143,31 @@ class TwoFactorAuth {
         if (!$valid) {
             $this->audit->record2faFailed($user->user_login, $this->currentIp());
 
+            // Without a cap, someone holding the password could try codes as
+            // fast as the server answers for the whole five minutes, and start a
+            // new five minutes by logging in again. Each wrong code now also
+            // counts toward the IP's brute-force lockout.
+            $attempts = (int) get_transient(self::ATTEMPTS_TRANSIENT . $token) + 1;
+            set_transient(self::ATTEMPTS_TRANSIENT . $token, $attempts, self::PENDING_TTL);
+
+            do_action('wp_login_failed', $user->user_login, new \WP_Error('dpxl_2fa_invalid', __('Invalid authentication code.', 'dpxl-shield')));
+
+            if ($attempts >= self::MAX_ATTEMPTS) {
+                delete_transient(self::PENDING_TRANSIENT . $token);
+                delete_transient(self::ATTEMPTS_TRANSIENT . $token);
+                setcookie(self::PENDING_COOKIE, '', time() - 3600, COOKIEPATH, COOKIE_DOMAIN);
+
+                wp_safe_redirect(wp_login_url());
+                exit;
+            }
+
             $this->renderForm($user, __('Invalid authentication code. Please try again.', 'dpxl-shield'));
             return;
         }
 
         // Code is valid — consume the pending session and complete the login.
         delete_transient(self::PENDING_TRANSIENT . $token);
+        delete_transient(self::ATTEMPTS_TRANSIENT . $token);
         setcookie(self::PENDING_COOKIE, '', time() - 3600, COOKIEPATH, COOKIE_DOMAIN);
 
         wp_set_auth_cookie($user->ID, !empty($_POST['rememberme']));
@@ -392,17 +417,7 @@ class TwoFactorAuth {
     // ── Helpers ────────────────────────────────────────────────────────────
 
     private function currentIp(): string {
-        $headers = ['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'];
-
-        foreach ($headers as $h) {
-            $value = $_SERVER[$h] ?? '';
-            $ip    = trim(explode(',', $value)[0]);
-
-            if (filter_var($ip, FILTER_VALIDATE_IP)) {
-                return $ip;
-            }
-        }
-
-        return '0.0.0.0';
+        // Spoof-resistant resolution lives in one place; see ClientIp.
+        return \DPXL\Shield\Core\ClientIp::current();
     }
 }

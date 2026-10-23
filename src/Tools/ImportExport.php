@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Tools;
 
+// Direct access guard. The pre-WordPress firewall loads some of these classes
+// before ABSPATH exists, so its own marker is accepted too.
+defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
+
 use DPXL\Shield\Core\Options;
 use DPXL\Shield\Firewall\IpBlocklist;
 use DPXL\Shield\Firewall\AllowlistManager;
@@ -53,6 +57,16 @@ class ImportExport {
         'webhook_endpoints',
         'webhook_status',
         'spamhaus_dqs_key',
+        // Same reasoning: personal API credentials, not portable settings.
+        'google_safe_browsing_key',
+        'vuln_api_token',
+        // Per-site state that must not be overwritten from another site.
+        'known_ips',
+        'file_checksums',
+        'integrity_baseline_at',
+        'integrity_version',
+        'integrity_violation',
+        'last_fatal',
     ];
 
     // ── Export ─────────────────────────────────────────────────────────────

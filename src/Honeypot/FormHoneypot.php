@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Honeypot;
 
+// Direct access guard. The pre-WordPress firewall loads some of these classes
+// before ABSPATH exists, so its own marker is accepted too.
+defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
+
 use DPXL\Shield\Firewall\IpBlocklist;
 
 /**
@@ -130,13 +134,7 @@ class FormHoneypot {
     }
 
     private function resolveIp(): string {
-        foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] as $h) {
-            $ip = trim(explode(',', $_SERVER[$h] ?? '')[0]);
-            if (filter_var($ip, FILTER_VALIDATE_IP)) {
-                return $ip;
-            }
-        }
-
-        return '0.0.0.0';
+        // Spoof-resistant resolution lives in one place; see ClientIp.
+        return \DPXL\Shield\Core\ClientIp::current();
     }
 }

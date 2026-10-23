@@ -23,3 +23,10 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
 
 \DPXL\Shield\Core\Database::dropAllTables();
 \DPXL\Shield\Core\Options::deleteAll();
+
+// The self-protection store keeps its copies under names without the
+// dpxl_shield_ prefix, so deleteAll() never reached them.
+delete_option('_site_check_timeout_shwp');
+delete_option('_site_check_enc_key');
+@unlink(WP_CONTENT_DIR . '/.shieldwp-integrity');
+@unlink(sys_get_temp_dir() . '/shwp-' . md5(ABSPATH) . '.lock');

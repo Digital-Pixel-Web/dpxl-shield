@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Threat;
 
+// Direct access guard. The pre-WordPress firewall loads some of these classes
+// before ABSPATH exists, so its own marker is accepted too.
+defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
+
 /**
  * Atomic file replacement with one-level rollback.
  *
@@ -24,6 +28,13 @@ class AtomicFile {
      */
     public static function write(string $path, string $contents): bool {
         $dir = dirname($path);
+
+        // data/ is not shipped in the repository and is wiped by plugin
+        // updates, so the first write after an install or update creates it.
+        // Without this the threat feed and the GeoIP database never landed.
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
 
         if (!is_dir($dir) || !is_writable($dir)) {
             return false;

@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Firewall;
 
+// Direct access guard. The pre-WordPress firewall loads some of these classes
+// before ABSPATH exists, so its own marker is accepted too.
+defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
+
 class RateLimiter {
 
     private const WINDOW_SECONDS = 60;
@@ -31,15 +35,18 @@ class RateLimiter {
     }
 
     private static function classifyEndpoint(string $uri): ?string {
-        if (str_contains($uri, 'wp-login.php')) {
+        // Path only: a query string mentioning wp-login.php is not a login.
+        $path = WafBypass::path($uri);
+
+        if (str_ends_with($path, '/wp-login.php')) {
             return 'login';
         }
 
-        if (str_contains($uri, 'xmlrpc.php')) {
+        if (str_ends_with($path, '/xmlrpc.php')) {
             return 'xmlrpc';
         }
 
-        if (str_contains($uri, '/wp-json/')) {
+        if (str_contains($path, '/wp-json/')) {
             return 'rest';
         }
 
@@ -49,7 +56,7 @@ class RateLimiter {
     private static function increment(string $key): int {
         // APCu path (pre-WordPress, zero latency)
         if (function_exists('apcu_inc') && function_exists('apcu_add')) {
-            $cacheKey = 'dpxl_rl_' . md5($key);
+            $cacheKey = 'dpxl_rl_' . md5(__DIR__ . '|' . $key); // per site: APCu is shared by every site in the PHP pool
             apcu_add($cacheKey, 0, self::WINDOW_SECONDS);
 
             return (int) apcu_inc($cacheKey);

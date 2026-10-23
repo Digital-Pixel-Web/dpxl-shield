@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Firewall;
 
+// Direct access guard. The pre-WordPress firewall loads some of these classes
+// before ABSPATH exists, so its own marker is accepted too.
+defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
+
 use DPXL\Shield\Firewall\Rules\RuleEngine;
 
 /**
@@ -110,6 +114,36 @@ class FirewallEngine {
         }
 
         return $result;
+    }
+
+    /**
+     * The checks that need WordPress (database blocklist, country blocking,
+     * custom patterns), for a request whose rules and rate limits the
+     * pre-WordPress layer already evaluated. Running the full pipeline twice
+     * would count every request twice against the rate limits.
+     */
+    public function evaluateDatabaseChecks(Request $request): RuleResult {
+        if ($this->isTrustedIp($request->ip) || $this->isAllowlistedUri($request->uri)) {
+            return RuleResult::pass();
+        }
+
+        if (IpBlocklist::isBlocked($request->ip)) {
+            return RuleResult::block('ip-blocklist', 'IP is in the blocklist', 'high');
+        }
+
+        $countryResult = CountryBlocker::check($request->ip);
+
+        if ($countryResult->decision === Decision::BLOCK) {
+            return $countryResult;
+        }
+
+        $patternResult = CustomPatternBlocker::check($request);
+
+        if ($patternResult->decision !== Decision::PASS) {
+            return $patternResult;
+        }
+
+        return RuleResult::pass();
     }
 
     private function isTrustedIp(string $ip): bool {

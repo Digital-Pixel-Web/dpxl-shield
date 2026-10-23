@@ -130,6 +130,11 @@ final class EarlyConfig {
             . "if (!defined('ABSPATH') && !defined('DPXL_SHIELD_EXTENDED_ACTIVE')) { exit; }\n"
             . 'return ' . var_export($data, true) . ";\n";
 
-        return AtomicFile::write($path, $php);
+        // Not web-readable (the blocklist and config are nobody's business), and
+        // no .bak copy: a .php.bak is served as plain text by most servers.
+        \DPXL\Shield\Scanner\FileRepair::protectDirectory($dir);
+        @unlink($path . '.bak');
+
+        return AtomicFile::write($path, $php, false);
     }
 }

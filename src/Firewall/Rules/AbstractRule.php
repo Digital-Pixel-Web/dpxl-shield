@@ -17,7 +17,13 @@ abstract class AbstractRule implements RuleInterface {
         return $this->enabled;
     }
 
-    public function setEnabled(bool $enabled): static {
+    /**
+     * `self`, not `static`: a `static` return type is PHP 8.0+ and was a parse
+     * error on the 7.4 floor the plugin declares.
+     *
+     * @return static
+     */
+    public function setEnabled(bool $enabled): self {
         $this->enabled = $enabled;
 
         return $this;

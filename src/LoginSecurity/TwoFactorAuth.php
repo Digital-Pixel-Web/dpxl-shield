@@ -416,9 +416,24 @@ class TwoFactorAuth {
             return false;
         }
 
+        // A code is good for about 90 seconds (±1 step). Without remembering
+        // which ones were used, the same code could complete a second login —
+        // by anyone who saw it over a shoulder or captured it.
+        $usedKey = 'dpxl_2fa_used_' . md5($userId . '|' . $code);
+
+        if (get_transient($usedKey)) {
+            return false;
+        }
+
         $totp = Totp::fromSecret($secret);
 
-        return $totp->verify($code, null, self::TOTP_WINDOW);
+        if (!$totp->verify($code, null, self::TOTP_WINDOW)) {
+            return false;
+        }
+
+        set_transient($usedKey, 1, 3 * 30);
+
+        return true;
     }
 
     // ── Status Checks ──────────────────────────────────────────────────────

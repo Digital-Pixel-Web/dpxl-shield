@@ -26,7 +26,7 @@ class AtomicFile {
      * `<path>.bak` first. Returns false (leaving the existing file untouched)
      * on any failure.
      */
-    public static function write(string $path, string $contents): bool {
+    public static function write(string $path, string $contents, bool $keepBackup = true): bool {
         $dir = dirname($path);
 
         // data/ is not shipped in the repository and is wiped by plugin
@@ -41,7 +41,7 @@ class AtomicFile {
         }
 
         // Back up the current good copy before swapping (best-effort rollback point).
-        if (is_file($path)) {
+        if ($keepBackup && is_file($path)) {
             @copy($path, $path . '.bak');
         }
 

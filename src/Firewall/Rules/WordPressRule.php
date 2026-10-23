@@ -8,6 +8,7 @@ namespace DPXL\Shield\Firewall\Rules;
 defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
 
 use DPXL\Shield\Firewall\Request;
+use DPXL\Shield\Firewall\WafBypass;
 use DPXL\Shield\Firewall\RuleResult;
 
 class WordPressRule extends AbstractRule {
@@ -44,9 +45,17 @@ class WordPressRule extends AbstractRule {
         return RuleResult::pass();
     }
 
+    /**
+     * system.multicall packs hundreds of password guesses into one request,
+     * which is what makes XML-RPC a brute-force vector. Every other XML-RPC
+     * call is left to the rate limiter and the login lockout: blocking all of
+     * them (and banning the IP for an hour) broke Jetpack, the WordPress mobile
+     * apps and pingbacks while the settings said XML-RPC was on.
+     */
     private function isXmlRpcAbuse(Request $request): bool {
-        return str_contains($request->uri, 'xmlrpc.php')
-            && $request->method === 'POST';
+        return str_ends_with(WafBypass::path($request->uri), '/xmlrpc.php')
+            && $request->method === 'POST'
+            && stripos($request->rawBody, 'system.multicall') !== false;
     }
 
     private function isUserEnumeration(Request $request): bool {

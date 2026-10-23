@@ -19,10 +19,17 @@ class RateLimiter {
         '404'    => 20,
     ];
 
-    public static function isExceeded(string $ip, string $uri): bool {
+    public static function isExceeded(string $ip, string $uri, string $method = 'POST'): bool {
         $endpoint = self::classifyEndpoint($uri);
 
         if ($endpoint === null) {
+            return false;
+        }
+
+        // Only login *attempts* count. Counting page loads too meant a normal
+        // login with two-factor (load form, submit, load code form, submit) used
+        // four of the five allowed requests, and one typo banned the user.
+        if ($endpoint === 'login' && strtoupper($method) !== 'POST') {
             return false;
         }
 

@@ -19,7 +19,11 @@ class RateLimiter {
         '404'    => 20,
     ];
 
-    public static function isExceeded(string $ip, string $uri, string $method = 'POST'): bool {
+    /**
+     * @param string $action wp-login.php `action`, read the way WordPress reads it
+     *                       ($_REQUEST: the POST value wins over the query string).
+     */
+    public static function isExceeded(string $ip, string $uri, string $method = 'POST', string $action = ''): bool {
         $endpoint = self::classifyEndpoint($uri);
 
         if ($endpoint === null) {
@@ -33,12 +37,34 @@ class RateLimiter {
             return false;
         }
 
+        // The two-factor code form is not a password guess: it needs the token
+        // issued only after the right password, and has its own limit (five
+        // codes per token) plus the brute-force lockout. Counting it here meant
+        // one password plus five codes tripped the limit and banned the user.
+        if ($endpoint === 'login' && $action === 'dpxl_2fa') {
+            return false;
+        }
+
         $limit = self::$limits[$endpoint];
         $key   = $ip . ':' . $endpoint;
 
         $count = self::increment($key);
 
         return $count > $limit;
+    }
+
+    /**
+     * wp-login.php's `action` as WordPress resolves it: from $_REQUEST, where
+     * the POST value wins. Reading only the query string would let a client put
+     * ?action=dpxl_2fa in the URL and action=login in the body to skip the count.
+     *
+     * @param array<string,mixed> $get
+     * @param array<string,mixed> $post
+     */
+    public static function loginAction(array $get, array $post): string {
+        $action = $post['action'] ?? $get['action'] ?? '';
+
+        return is_string($action) ? $action : '';
     }
 
     private static function classifyEndpoint(string $uri): ?string {

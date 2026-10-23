@@ -53,9 +53,49 @@ class WordPressRule extends AbstractRule {
      * apps and pingbacks while the settings said XML-RPC was on.
      */
     private function isXmlRpcAbuse(Request $request): bool {
-        return str_ends_with(WafBypass::path($request->uri), '/xmlrpc.php')
-            && $request->method === 'POST'
-            && stripos($request->rawBody, 'system.multicall') !== false;
+        if (!str_ends_with(WafBypass::path($request->uri), '/xmlrpc.php') || $request->method !== 'POST') {
+            return false;
+        }
+
+        $body = $request->rawBody;
+
+        if (stripos($body, 'system.multicall') !== false) {
+            return true;
+        }
+
+        // No XML-RPC client sends a DOCTYPE; it is only useful for entity tricks.
+        if (stripos($body, '<!DOCTYPE') !== false) {
+            return true;
+        }
+
+        // The XML parser decodes character references and CDATA before the
+        // method is dispatched, so "&#115;ystem.multicall" or a CDATA section
+        // slips past a plain text search. Compare the parsed method name.
+        return self::xmlRpcMethodName($body) === 'system.multicall';
+    }
+
+    private static function xmlRpcMethodName(string $body): ?string {
+        if (stripos($body, 'methodName') === false || !function_exists('simplexml_load_string')) {
+            return null;
+        }
+
+        $previous = libxml_use_internal_errors(true);
+        $xml      = simplexml_load_string($body, 'SimpleXMLElement', LIBXML_NONET);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        if ($xml === false) {
+            return null;
+        }
+
+        // Like WordPress's IXR parser: any methodName element, the last one wins.
+        $names = $xml->xpath('//methodName');
+
+        if (!is_array($names) || $names === []) {
+            return null;
+        }
+
+        return trim((string) end($names));
     }
 
     private function isUserEnumeration(Request $request): bool {

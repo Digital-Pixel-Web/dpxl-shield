@@ -175,7 +175,7 @@ class Diagnostics {
             'status' => ($loaded && $enabled) ? 'ok' : 'warning',
             'label'  => 'Cache APCu',
             'value'  => ($loaded && $enabled) ? 'Disponível' : ($loaded ? 'Carregado, mas desligado' : 'Indisponível'),
-            'note'   => (!$loaded || !$enabled) ? 'O APCu é recomendado para o desempenho da limitação de taxa.' : '',
+            'note'   => (!$loaded || !$enabled) ? 'Sem APCu, a limitação de taxa conta no banco de dados, e com a Proteção Estendida só depois que o WordPress carrega.' : '',
         ];
     }
 

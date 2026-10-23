@@ -22,7 +22,9 @@ $tab  = in_array($tab, $tabs, true) ? $tab : '2fa';
         <?php
         $userId    = get_current_user_id();
         $user      = wp_get_current_user();
-        $has2fa    = !empty(get_user_meta($userId, '_dpxl_shield_totp_secret', true));
+        // TwoFactorAuth stores the flag under this key; the old check read a key
+        // nothing writes, so the screen always offered first-time setup.
+        $has2fa    = (bool) get_user_meta($userId, 'dpxl_shield_totp_enabled', true);
         ?>
         <?php
         // The screen only ever answered "is 2FA on for me". The question the
@@ -100,7 +102,7 @@ $tab  = in_array($tab, $tabs, true) ? $tab : '2fa';
                 </div>
                 <div class="dpxl-2fa-info">
                     <span><?php esc_html_e('Server Time:', 'dpxl-shield'); ?> <?php echo esc_html(gmdate('H:i:s T')); ?></span>
-                    <span><?php esc_html_e('Detected IP:', 'dpxl-shield'); ?> <code><?php echo esc_html(sanitize_text_field($_SERVER['REMOTE_ADDR'] ?? '')); ?></code></span>
+                    <span><?php esc_html_e('Detected IP:', 'dpxl-shield'); ?> <code><?php echo esc_html(\DPXL\Shield\Core\ClientIp::current()); ?></code></span>
                 </div>
             <?php endif; ?>
         </div>

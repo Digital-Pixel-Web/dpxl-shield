@@ -154,6 +154,8 @@ Privately, through GitHub: [Report a vulnerability](https://github.com/Digital-P
 * Security: a two-factor code can no longer be reused for a second login. The firewall's data folder is no longer web-readable.
 * Fixed: entering a few wrong two-factor codes no longer trips the login rate limit and bans the user. Blocked XML-RPC and REST requests now return HTTP 403, and blocked requests no longer log a translation notice.
 * Fixed: requests blocked by the firewall now appear in Live Traffic and the dashboard counters.
+* Fixed: the Login Security screen showed first-time two-factor setup to users who already had it on, hiding the disable and regenerate options.
+* Fixed: without APCu, login, XML-RPC and REST rate limits now also apply when Extended Protection is on.
 * Fixed: uninstalling now removes two-factor secrets, backup codes, known login IPs and the plugin's transients.
 * Security: `system.multicall` is recognised even when hidden with XML character references or CDATA.
 * New: Diagnostics shows how visitor IPs are detected.

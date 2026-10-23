@@ -3,7 +3,7 @@
  * Plugin Name:       DPXL Shield
  * Plugin URI:        https://digitalpixel.com.br/shieldwp/
  * Description:       Firewall, malware scanner, login protection and two-factor authentication for WordPress. Free and open source.
- * Version:           1.11.0
+ * Version:           1.12.0
  * Author:            Digital Pixel
  * Author URI:        https://digitalpixel.com.br/
  * License:           GPL-2.0-or-later
@@ -24,7 +24,7 @@ if (!defined('ABSPATH')) {
 // else — the code below uses str_contains() and does not wait for the autoloader.
 require_once __DIR__ . '/src/Compat/php-polyfill.php';
 
-define('DPXL_SHIELD_VERSION', '1.11.0');
+define('DPXL_SHIELD_VERSION', '1.12.0');
 define('DPXL_SHIELD_PATH', plugin_dir_path(__FILE__));
 define('DPXL_SHIELD_URL', plugin_dir_url(__FILE__));
 define('DPXL_SHIELD_FILE', __FILE__);

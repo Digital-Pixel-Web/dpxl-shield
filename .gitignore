@@ -35,9 +35,6 @@
 # "../docs-internal/", fora da pasta do plugin.
 /docs/
 
-# Claude settings (local apenas)
-.claude/
-
 # GeoLite2 (runtime, baixado/distribuído fora do repo — nunca versionar)
 /data/*.mmdb
 GeoIP.conf

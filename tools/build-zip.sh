@@ -68,7 +68,7 @@ php "$PLUGIN_DIR/tools/check-php74.php" \
 rsync -a \
     --exclude '/.git/' \
     --exclude '/.github/' \
-    --exclude '/.claude/' \
+    --exclude '/.*/' \
     --exclude '/tests/' \
     --exclude '/tools/' \
     --exclude '/docs/' \

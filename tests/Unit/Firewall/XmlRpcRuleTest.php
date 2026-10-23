@@ -40,4 +40,31 @@ class XmlRpcRuleTest extends TestCase {
 
         $this->assertSame('pass', (new WordPressRule())->evaluate($request)->decision);
     }
+
+    public function testEncodedMulticallIsBlocked(): void {
+        foreach ([
+            '<methodCall><methodName>&#115;ystem.multicall</methodName></methodCall>',
+            '<methodCall><methodName><![CDATA[system.multi]]><![CDATA[call]]></methodName></methodCall>',
+            "<methodCall><methodName>\n  system&#x2E;multicall  </methodName></methodCall>",
+        ] as $body) {
+            $request = $this->request('/xmlrpc.php', 'POST');
+            $request->rawBody = $body;
+
+            $this->assertSame('block', (new WordPressRule())->evaluate($request)->decision, $body);
+        }
+    }
+
+    public function testDoctypeIsBlocked(): void {
+        $request = $this->request('/xmlrpc.php', 'POST');
+        $request->rawBody = '<!DOCTYPE x [<!ENTITY m "multicall">]><methodCall><methodName>system.&m;</methodName></methodCall>';
+
+        $this->assertSame('block', (new WordPressRule())->evaluate($request)->decision);
+    }
+
+    public function testMalformedBodyPasses(): void {
+        $request = $this->request('/xmlrpc.php', 'POST');
+        $request->rawBody = '<methodCall><methodName>wp.getUsersBlogs';
+
+        $this->assertSame('pass', (new WordPressRule())->evaluate($request)->decision);
+    }
 }

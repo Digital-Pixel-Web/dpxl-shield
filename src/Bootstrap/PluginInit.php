@@ -81,12 +81,35 @@ class PluginInit {
         TrafficLogger::setWafResult($result);
 
         if ($result->decision === 'block') {
-            wp_die(
-                esc_html__('Your request has been blocked by DPXL Shield.', 'dpxl-shield'),
-                esc_html__('403 Forbidden', 'dpxl-shield'),
-                ['response' => 403]
-            );
+            self::denyRequest();
         }
+    }
+
+    private static function denyRequest(): void {
+        // XML-RPC and REST requests get a bare 403. wp_die() hands XML-RPC to a
+        // handler that needs the XML-RPC server, which does not exist yet at
+        // plugins_loaded, so the block went out as an empty HTTP 200.
+        if ((defined('XMLRPC_REQUEST') && XMLRPC_REQUEST) || (defined('REST_REQUEST') && REST_REQUEST)
+            || str_contains(WafBypass::path((string) ($_SERVER['REQUEST_URI'] ?? '')), '/wp-json/')) {
+            if (!headers_sent()) {
+                status_header(403);
+                nocache_headers();
+                header('Content-Type: text/plain; charset=utf-8');
+            }
+
+            echo 'Forbidden';
+            exit;
+        }
+
+        // Translations load at init; translating earlier logs a notice on
+        // every blocked request (WordPress 6.7+).
+        $translate = did_action('init') > 0;
+
+        wp_die(
+            esc_html($translate ? __('Your request has been blocked by DPXL Shield.', 'dpxl-shield') : 'Your request has been blocked by DPXL Shield.'),
+            esc_html($translate ? __('403 Forbidden', 'dpxl-shield') : '403 Forbidden'),
+            ['response' => 403]
+        );
     }
 
     /**

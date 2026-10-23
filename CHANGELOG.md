@@ -16,6 +16,8 @@ Histórico completo de versões do DPXL Shield. O `readme.txt` traz só as vers�
 * **Corrigido: o plugin não carregava em PHP 7.4**, o mínimo que ele declara (um tipo de retorno do PHP 8 nas regras do firewall). A checagem de compatibilidade agora pega esse caso.
 * **Alterado:** o XML-RPC só é bloqueado para requisições `system.multicall` (força bruta em lote), então Jetpack, apps móveis e pingbacks voltam a funcionar. O limite de login conta tentativas, não carregamentos da página.
 * **Segurança:** um código do 2FA não pode mais ser reaproveitado num segundo login. A pasta de dados do firewall deixa de ser legível pela web.
+* **Corrigido:** errar alguns códigos do 2FA não estoura mais o limite de login nem bane o usuário. Bloqueios no XML-RPC e na API REST passam a responder HTTP 403, e cada bloqueio deixa de gerar um aviso de tradução no debug.log.
+* **Segurança:** o `system.multicall` é reconhecido mesmo disfarçado com referências de caractere XML ou CDATA.
 * **Novo:** o Diagnóstico mostra como o IP do visitante está sendo detectado.
 
 ## 1.11.0

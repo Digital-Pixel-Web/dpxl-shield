@@ -152,6 +152,8 @@ Privately, through GitHub: [Report a vulnerability](https://github.com/Digital-P
 * Fixed: the plugin did not load on PHP 7.4, the minimum it declares (a PHP 8 return type in the firewall rules). The compatibility check now catches it.
 * Changed: XML-RPC is blocked only for `system.multicall` brute-force requests, so Jetpack, the mobile apps and pingbacks work again. Login rate limiting counts login attempts, not page loads.
 * Security: a two-factor code can no longer be reused for a second login. The firewall's data folder is no longer web-readable.
+* Fixed: entering a few wrong two-factor codes no longer trips the login rate limit and bans the user. Blocked XML-RPC and REST requests now return HTTP 403, and blocked requests no longer log a translation notice.
+* Security: `system.multicall` is recognised even when hidden with XML character references or CDATA.
 * New: Diagnostics shows how visitor IPs are detected.
 * Full history in [CHANGELOG.md](https://github.com/Digital-Pixel-Web/dpxl-shield/blob/main/CHANGELOG.md).
 

@@ -134,7 +134,7 @@ class AnomalyDetector {
         if (function_exists('apcu_fetch')) {
             $this->apcuIncrement($ip, $metric, $value, $track);
         } else {
-            $this->dbIncrement($ip, $metric);
+            $this->dbIncrement($ip, $metric, $value, $track);
         }
     }
 
@@ -160,14 +160,31 @@ class AnomalyDetector {
         }
     }
 
-    private function dbIncrement(string $ip, string $metric): void {
+    private function dbIncrement(string $ip, string $metric, string $value = '', bool $track = false): void {
         if (!function_exists('get_transient')) {
             return;
         }
 
-        $key      = "dpxl_anomaly_{$metric}_" . md5($ip);
-        $current  = (int) get_transient($key);
-        set_transient($key, $current + 1, self::WINDOW_SECONDS);
+        $key     = "dpxl_anomaly_{$metric}_" . md5($ip);
+        $current = get_transient($key);
+
+        if ($track && $value !== '') {
+            // A set of URLs, like the APCu path. Counting every hit here banned
+            // any client that made 50 requests a minute to the same endpoint
+            // (a headless front end, an app, uptime monitoring) as a "scanner".
+            $set  = is_array($current) ? $current : [];
+            $hash = substr(md5($value), 0, 12);
+
+            // Past the threshold the exact size no longer matters.
+            if (!in_array($hash, $set, true) && count($set) <= self::RULES[$metric]['threshold']) {
+                $set[] = $hash;
+                set_transient($key, $set, self::WINDOW_SECONDS);
+            }
+
+            return;
+        }
+
+        set_transient($key, (int) $current + 1, self::WINDOW_SECONDS);
     }
 
     private function getCount(string $ip, string $metric): int {
@@ -189,7 +206,9 @@ class AnomalyDetector {
         }
 
         if (function_exists('get_transient')) {
-            return (int) get_transient("dpxl_anomaly_{$metric}_" . md5($ip));
+            $data = get_transient("dpxl_anomaly_{$metric}_" . md5($ip));
+
+            return is_array($data) ? count($data) : (int) $data;
         }
 
         return 0;

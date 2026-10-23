@@ -53,6 +53,13 @@ class TrafficLogger {
     // ── Shutdown handler ───────────────────────────────────────────────────
 
     public function writeLog(): void {
+        // WP-CLI runs are not traffic. And after `wp plugin uninstall` in the
+        // same process the plugin's files are gone, so loading another class
+        // here would end the command with a fatal error.
+        if (PHP_SAPI === 'cli' || (defined('DPXL_SHIELD_FILE') && !file_exists(DPXL_SHIELD_FILE))) {
+            return;
+        }
+
         if (!Options::get('traffic_log_enabled', true)) {
             return;
         }

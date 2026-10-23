@@ -31,17 +31,25 @@ delete_option('_site_check_enc_key');
 @unlink(WP_CONTENT_DIR . '/.shieldwp-integrity');
 @unlink(sys_get_temp_dir() . '/shwp-' . md5(ABSPATH) . '.lock');
 
-// Per-user data: two-factor secrets and backup codes, known login IPs and the
-// breached-password flag. Leaving the TOTP secrets behind would keep a working
-// second factor in the database of a site that no longer uses the plugin.
-foreach (['dpxl_shield_totp_secret', '_dpxl_shield_totp_secret', 'dpxl_shield_totp_enabled',
-          'dpxl_shield_backup_codes', 'dpxl_shield_known_ips', '_dpxl_shield_pwned_password'] as $dpxlShieldMetaKey) {
-    delete_metadata('user', 0, $dpxlShieldMetaKey, '', true);
+// Per-user data: two-factor secrets (also half-finished setups) and backup
+// codes, known login IPs and the breached-password flag. Leaving the TOTP
+// secrets behind would keep a working second factor in the database of a site
+// that no longer uses the plugin. Deleted by prefix so new keys are covered.
+global $wpdb;
+
+foreach (['dpxl_shield_', '_dpxl_shield_'] as $dpxlShieldPrefix) {
+    $wpdb->query(
+        $wpdb->prepare(
+            "DELETE FROM {$wpdb->usermeta} WHERE meta_key LIKE %s",
+            $wpdb->esc_like($dpxlShieldPrefix) . '%'
+        )
+    );
 }
+
+wp_cache_flush();
 
 // Transients (2FA tokens, lockouts, caches). They expire anyway; removing
 // them now leaves the options table as it was before the plugin.
-global $wpdb;
 
 foreach (['_transient_dpxl', '_transient_timeout_dpxl', '_site_transient_dpxl', '_site_transient_timeout_dpxl'] as $dpxlShieldPrefix) {
     $wpdb->query(

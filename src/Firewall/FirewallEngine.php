@@ -131,6 +131,15 @@ class FirewallEngine {
             return RuleResult::block('ip-blocklist', 'IP is in the blocklist', 'high');
         }
 
+        // Before WordPress the limiter can only count in APCu. Without it the
+        // count happens here, against the database, or never at all.
+        if (!function_exists('apcu_inc')
+            && RateLimiter::isExceeded($request->ip, $request->uri, $request->method, RateLimiter::loginAction($request->get, $request->post))) {
+            IpBlocklist::blockIp($request->ip, 'Rate limit exceeded', 'auto_rate', 600);
+
+            return RuleResult::block('rate-limit', 'Rate limit exceeded', 'medium');
+        }
+
         $countryResult = CountryBlocker::check($request->ip);
 
         if ($countryResult->decision === Decision::BLOCK) {

@@ -174,6 +174,13 @@ final class Php74Visitor extends NodeVisitorAbstract {
                 $this->flag($node, '8.1', 'intersection type');
             }
 
+            // php-parser v5 represents a `static` return type as a Name, not an
+            // Identifier, so the check below never saw it — that is how
+            // `: static` shipped to 7.4 hosts as a parse error.
+            if ($type instanceof Node\Name && $type->toLowerString() === 'static') {
+                $this->flag($node, '8.0', 'static return type');
+            }
+
             if ($type instanceof Node\Identifier) {
                 $name = strtolower($type->name);
 

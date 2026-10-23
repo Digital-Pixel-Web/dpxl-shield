@@ -13,6 +13,9 @@ Histórico completo de versões do DPXL Shield. O `readme.txt` traz só as vers�
 * **Segurança: 2FA limitado a 5 tentativas por login**, e as falhas contam para o bloqueio por força bruta.
 * **Segurança:** leitura e exportação de configurações não incluem mais chaves de API.
 * **Corrigido:** o feed de regras e a base GeoIP não conseguiam ser gravados numa instalação nova.
+* **Corrigido: o plugin não carregava em PHP 7.4**, o mínimo que ele declara (um tipo de retorno do PHP 8 nas regras do firewall). A checagem de compatibilidade agora pega esse caso.
+* **Alterado:** o XML-RPC só é bloqueado para requisições `system.multicall` (força bruta em lote), então Jetpack, apps móveis e pingbacks voltam a funcionar. O limite de login conta tentativas, não carregamentos da página.
+* **Segurança:** um código do 2FA não pode mais ser reaproveitado num segundo login. A pasta de dados do firewall deixa de ser legível pela web.
 * **Novo:** o Diagnóstico mostra como o IP do visitante está sendo detectado.
 
 ## 1.11.0

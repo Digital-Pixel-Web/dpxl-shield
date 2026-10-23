@@ -149,6 +149,9 @@ Privately, through GitHub: [Report a vulnerability](https://github.com/Digital-P
 * Security: two-factor codes are limited to 5 attempts per login, and failures count toward the brute-force lockout.
 * Security: settings reads and exports no longer include API keys.
 * Fixed: the threat feed and GeoIP database could not be saved on a fresh install.
+* Fixed: the plugin did not load on PHP 7.4, the minimum it declares (a PHP 8 return type in the firewall rules). The compatibility check now catches it.
+* Changed: XML-RPC is blocked only for `system.multicall` brute-force requests, so Jetpack, the mobile apps and pingbacks work again. Login rate limiting counts login attempts, not page loads.
+* Security: a two-factor code can no longer be reused for a second login. The firewall's data folder is no longer web-readable.
 * New: Diagnostics shows how visitor IPs are detected.
 * Full history in [CHANGELOG.md](https://github.com/Digital-Pixel-Web/dpxl-shield/blob/main/CHANGELOG.md).
 

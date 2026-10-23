@@ -73,7 +73,7 @@ class FirewallEngine {
         }
 
         // 4. Rate Limiter
-        if (RateLimiter::isExceeded($request->ip, $request->uri)) {
+        if (RateLimiter::isExceeded($request->ip, $request->uri, $request->method)) {
             // Auto-add to blocklist for 10 minutes on rate limit hit.
             IpBlocklist::blockIp($request->ip, 'Rate limit exceeded', 'auto_rate', 600);
 

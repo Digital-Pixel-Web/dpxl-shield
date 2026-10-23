@@ -72,6 +72,11 @@ class PluginInit {
             return;
         }
 
+        // Hooked before evaluating: a blocked request ends in wp_die(), and the
+        // shutdown log entry is the only record of the block in Live Traffic
+        // and the dashboard counters. registerHooks() is idempotent.
+        (new TrafficLogger())->registerHooks();
+
         $request = new Request();
         $engine  = new FirewallEngine(EarlyConfig::configPath(), EarlyConfig::blockedIpsPath());
         $result  = defined('DPXL_SHIELD_EARLY_EVALUATED')

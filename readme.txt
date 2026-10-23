@@ -153,6 +153,8 @@ Privately, through GitHub: [Report a vulnerability](https://github.com/Digital-P
 * Changed: XML-RPC is blocked only for `system.multicall` brute-force requests, so Jetpack, the mobile apps and pingbacks work again. Login rate limiting counts login attempts, not page loads.
 * Security: a two-factor code can no longer be reused for a second login. The firewall's data folder is no longer web-readable.
 * Fixed: entering a few wrong two-factor codes no longer trips the login rate limit and bans the user. Blocked XML-RPC and REST requests now return HTTP 403, and blocked requests no longer log a translation notice.
+* Fixed: requests blocked by the firewall now appear in Live Traffic and the dashboard counters.
+* Fixed: uninstalling now removes two-factor secrets, backup codes, known login IPs and the plugin's transients.
 * Security: `system.multicall` is recognised even when hidden with XML character references or CDATA.
 * New: Diagnostics shows how visitor IPs are detected.
 * Full history in [CHANGELOG.md](https://github.com/Digital-Pixel-Web/dpxl-shield/blob/main/CHANGELOG.md).

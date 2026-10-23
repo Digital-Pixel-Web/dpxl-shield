@@ -99,6 +99,45 @@ class TrafficLogger {
         );
     }
 
+    /**
+     * A request Extended Protection blocked before WordPress loaded, imported
+     * from EarlyEvents on a later request.
+     *
+     * @param array<string,mixed> $event
+     */
+    public static function logEarlyBlock(array $event): void {
+        if (!Options::get('traffic_log_enabled', true)) {
+            return;
+        }
+
+        global $wpdb;
+
+        $ip        = (string) $event['ip'];
+        $userAgent = (string) ($event['ua'] ?? '');
+        $country   = CountryBlocker::resolveCountry($ip);
+
+        $wpdb->insert(
+            $wpdb->prefix . 'dpxl_shield_traffic_log',
+            [
+                'ip'            => $ip,
+                'method'        => strtoupper(substr((string) ($event['method'] ?? 'GET'), 0, 10)),
+                'uri'           => substr((string) ($event['uri'] ?? '/'), 0, 2000),
+                'query_string'  => ((string) ($event['query'] ?? '')) ?: null,
+                'status_code'   => 403,
+                'user_agent'    => $userAgent ?: null,
+                'referer'       => ((string) ($event['ref'] ?? '')) ?: null,
+                'waf_action'    => 'block',
+                'waf_rule_id'   => ((string) ($event['rule'] ?? '')) ?: null,
+                'response_time' => 0,
+                'is_bot'        => (new TrafficClassifier())->isBot($userAgent, $ip) ? 1 : 0,
+                'country'       => $country ?: null,
+                // `timestamp` keeps its database default, like every other row:
+                // the import runs on the next WordPress request, seconds later.
+            ],
+            ['%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%f', '%d', '%s']
+        );
+    }
+
     // ── IP resolution ──────────────────────────────────────────────────────
 
     private function resolveIp(): string {

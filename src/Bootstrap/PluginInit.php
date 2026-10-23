@@ -40,6 +40,10 @@ class PluginInit {
         // here if a plugin update wiped data/ (two stat calls otherwise).
         \DPXL\Shield\Core\EarlyConfig::ensure();
 
+        // Bans and blocks recorded by Extended Protection before WordPress
+        // could store them (one stat call when there are none).
+        self::importEarlyEvents();
+
         $firewallEnabled = (bool) Options::get('firewall_enabled', true);
 
         // The in-WordPress layer always runs when the firewall is on. When the
@@ -55,6 +59,25 @@ class PluginInit {
         // REST_REQUEST is not reliably defined during plugins_loaded, so the REST API
         // must be hooked unconditionally and let rest_api_init decide whether it runs.
         self::registerHooks();
+    }
+
+    private static function importEarlyEvents(): void {
+        foreach (\DPXL\Shield\Firewall\EarlyEvents::drain() as $event) {
+            $ip = (string) $event['ip'];
+
+            if ($event['kind'] === 'ban') {
+                $duration = isset($event['duration']) ? (int) $event['duration'] : null;
+
+                \DPXL\Shield\Firewall\IpBlocklist::blockIp(
+                    $ip,
+                    (string) ($event['reason'] ?? 'Blocked by Extended Protection'),
+                    (string) ($event['source'] ?? 'auto_waf'),
+                    $duration
+                );
+            } elseif ($event['kind'] === 'block') {
+                TrafficLogger::logEarlyBlock($event);
+            }
+        }
     }
 
     private static function runBasicWaf(): void {
@@ -91,6 +114,10 @@ class PluginInit {
     }
 
     private static function denyRequest(): void {
+        if (!headers_sent()) {
+            header('X-DPXL-Shield: blocked');
+        }
+
         // XML-RPC and REST requests get a bare 403. wp_die() hands XML-RPC to a
         // handler that needs the XML-RPC server, which does not exist yet at
         // plugins_loaded, so the block went out as an empty HTTP 200.

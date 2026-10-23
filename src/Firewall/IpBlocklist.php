@@ -45,6 +45,10 @@ class IpBlocklist {
         // before WordPress loads. Guard here to prevent a fatal "call to member function
         // on null" when the WAF blocks a request pre-WordPress.
         if (!$wpdb instanceof \wpdb) {
+            // Extended Protection: queue it for the next request that loads
+            // WordPress, which writes it through this same method.
+            EarlyEvents::queueBan($ip, $reason, $source, $durationSeconds);
+
             return false;
         }
 

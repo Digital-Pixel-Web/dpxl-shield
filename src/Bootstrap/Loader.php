@@ -52,6 +52,7 @@ class Loader {
         $result   = $engine->evaluate($request);
 
         if ($result->decision === 'block') {
+            \DPXL\Shield\Firewall\EarlyEvents::queueBlock($request, (string) $result->ruleId);
             self::sendBlockResponse($result->ruleId, $result->reason);
         }
 

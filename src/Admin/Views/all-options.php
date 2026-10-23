@@ -127,7 +127,7 @@
                     'title'   => __('Limitação de taxa', 'dpxl-shield'),
                     'options' => [
                         'rate_limit_login'   => ['type' => 'number', 'label' => __('Login page limit (req/min)', 'dpxl-shield'), 'default' => 5],
-                        'rate_limit_xmlrpc'  => ['type' => 'number', 'label' => __('XML-RPC limit (req/min)', 'dpxl-shield'),   'default' => 3],
+                        'rate_limit_xmlrpc'  => ['type' => 'number', 'label' => __('XML-RPC limit (req/min)', 'dpxl-shield'),   'default' => 10],
                         'rate_limit_rest'    => ['type' => 'number', 'label' => __('REST API limit (req/min)', 'dpxl-shield'),  'default' => 60],
                     ],
                 ],

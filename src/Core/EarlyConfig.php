@@ -67,7 +67,7 @@ final class EarlyConfig {
             'firewall_enabled' => (bool) Options::get('firewall_enabled', true),
             'rate_limits'      => [
                 'login'  => (int) Options::get('rate_limit_login', 5),
-                'xmlrpc' => (int) Options::get('rate_limit_xmlrpc', 3),
+                'xmlrpc' => (int) Options::get('rate_limit_xmlrpc', 10),
                 'rest'   => (int) Options::get('rate_limit_rest', 60),
             ],
             'allowlisted_uris' => array_values(array_map('strval', (array) Options::get('allowlisted_uris', []))),

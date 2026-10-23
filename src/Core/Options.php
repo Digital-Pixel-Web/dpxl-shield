@@ -16,7 +16,7 @@ class Options {
         'firewall_mode'                => 'basic',         // basic | extended
         'waf_rules_version'            => '',
         'rate_limit_login'             => 5,               // per minute
-        'rate_limit_xmlrpc'            => 3,
+        'rate_limit_xmlrpc'            => 10,
         'rate_limit_rest'              => 60,
         'rate_limit_404'               => 20,
         'brute_force_enabled'          => true,

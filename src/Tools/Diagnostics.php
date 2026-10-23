@@ -290,8 +290,8 @@ class Diagnostics {
                 'label'  => 'Base GeoLite2 da MaxMind',
                 'value'  => $enabled ? 'Ainda não instalada' : 'Não instalada (atualização automática desligada)',
                 'note'   => $enabled
-                    ? 'Country features stay idle until the database downloads. It installs itself on the daily update — or use "Check now" in All Options to fetch it immediately.'
-                    : 'Auto-update is disabled, so the database will never download. Enable it in All Options → Firewall.',
+                    ? 'O bloqueio e as estatísticas por país ficam parados até a base ser baixada. Ela se instala sozinha na atualização diária, ou use "Verificar agora" em Todas as Opções para baixar na hora.'
+                    : 'A atualização automática está desligada, então a base nunca será baixada. Ligue em Todas as Opções → Firewall.',
             ];
         }
 
@@ -310,7 +310,7 @@ class Diagnostics {
             $status = 'ok';
         }
 
-        $value = 'Present (' . $this->humanSize((int) filesize($path)) . ')'
+        $value = 'Instalada (' . $this->humanSize((int) filesize($path)) . ')'
             . ($version !== '' ? ' · ' . $version : '')
             . ($lastStatus !== '' ? ' · ' . $lastStatus : '');
 

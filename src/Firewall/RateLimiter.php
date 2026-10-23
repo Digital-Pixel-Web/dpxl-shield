@@ -14,7 +14,7 @@ class RateLimiter {
     /** Limits: endpoint pattern → max requests per window */
     private static array $limits = [
         'login'  => 5,
-        'xmlrpc' => 3,
+        'xmlrpc' => 10,
         'rest'   => 60,
         '404'    => 20,
     ];

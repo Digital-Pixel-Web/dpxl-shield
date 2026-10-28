@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Tests\Unit\Integrations;
 
+use Brain\Monkey;
+use Brain\Monkey\Functions;
 use DPXL\Shield\Integrations\Severity;
 use DPXL\Shield\Integrations\WebhookEndpoint;
 use PHPUnit\Framework\TestCase;
@@ -12,6 +14,17 @@ use PHPUnit\Framework\TestCase;
  * the dispatcher, so most of what matters here is what it *refuses*.
  */
 class WebhookEndpointTest extends TestCase {
+
+    protected function setUp(): void {
+        parent::setUp();
+        Monkey\setUp();
+        Functions\when('wp_parse_url')->alias('parse_url');
+    }
+
+    protected function tearDown(): void {
+        Monkey\tearDown();
+        parent::tearDown();
+    }
 
     /** @param array<string,mixed> $overrides */
     private function endpoint(array $overrides = []): ?WebhookEndpoint {

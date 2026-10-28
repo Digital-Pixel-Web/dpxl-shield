@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\LoginSecurity;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Core\Logger;
 
 /**
@@ -62,9 +58,15 @@ class PasswordAudit {
      * @param object $user Partial user object, passed by reference by WordPress.
      */
     public function onProfileUpdate(\WP_Error $errors, bool $update, $user): \WP_Error {
-        $password = $_POST['pass1'] ?? '';
+        // Core checked the form's nonce before this hook. A password is used
+        // exactly as typed (never sanitized, stored or shown): it is hashed
+        // for the breach lookup and dropped.
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+        $password  = isset($_POST['pass1']) ? (string) wp_unslash($_POST['pass1']) : '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+        $password2 = isset($_POST['pass2']) ? (string) wp_unslash($_POST['pass2']) : '';
 
-        if ($password === '' || $password !== ($_POST['pass2'] ?? '')) {
+        if ($password === '' || $password !== $password2) {
             return $errors;
         }
 
@@ -106,9 +108,15 @@ class PasswordAudit {
             return;
         }
 
-        $password = $_POST['pass1'] ?? '';
+        // Core checked the form's nonce before this hook. A password is used
+        // exactly as typed (never sanitized, stored or shown): it is hashed
+        // for the breach lookup and dropped.
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+        $password  = isset($_POST['pass1']) ? (string) wp_unslash($_POST['pass1']) : '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+        $password2 = isset($_POST['pass2']) ? (string) wp_unslash($_POST['pass2']) : '';
 
-        if ($password === '' || $password !== ($_POST['pass2'] ?? '')) {
+        if ($password === '' || $password !== $password2) {
             return;
         }
 
@@ -125,6 +133,7 @@ class PasswordAudit {
             $errors->add(
                 'dpxl_pwned_password',
                 sprintf(
+                    /* translators: %d: number of breaches. */
                     __('This password has appeared in %d known data breaches. Please choose a different password.', 'dpxl-shield'),
                     $count
                 )

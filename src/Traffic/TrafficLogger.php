@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Traffic;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Firewall\RuleResult;
 use DPXL\Shield\Firewall\CountryBlocker;
 use DPXL\Shield\Core\Options;
@@ -71,11 +67,15 @@ class TrafficLogger {
         global $wpdb;
 
         $ip           = $this->resolveIp();
+        // Logged as received, so the log shows what an attacker actually sent.
+        // Stored through $wpdb->insert() and escaped when displayed.
+        // phpcs:disable WordPress.Security.ValidatedSanitizedInput
         $method       = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
         $uri          = substr($_SERVER['REQUEST_URI'] ?? '/', 0, 2000);
         $queryString  = substr($_SERVER['QUERY_STRING'] ?? '', 0, 1000) ?: null;
         $userAgent    = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500) ?: null;
         $referer      = substr($_SERVER['HTTP_REFERER'] ?? '', 0, 500) ?: null;
+        // phpcs:enable
         $responseTime = round((microtime(true) - self::$startTime) * 1000, 2); // ms
         $statusCode   = http_response_code() ?: 200;
 
@@ -83,7 +83,7 @@ class TrafficLogger {
         $isBot      = $classifier->isBot($userAgent ?? '', $ip) ? 1 : 0;
 
         // Geolocate the IP so the dashboard/report country widgets have data.
-        // resolveCountry() is a cheap no-op (null) when the GeoLite2 DB is absent.
+        // resolveCountry() is a cheap no-op (null) when the country DB is absent.
         $country = CountryBlocker::resolveCountry($ip);
 
         $wpdb->insert(

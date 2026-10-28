@@ -13,7 +13,8 @@
         "php": ">=7.4",
         "dompdf/dompdf": "^3.1",
         "maxmind-db/reader": "^1.11",
-        "paragonie/constant_time_encoding": "^2.0"
+        "paragonie/constant_time_encoding": "^2.0",
+        "symfony/polyfill-php80": "^1.31"
     },
     "require-dev": {
         "brain/monkey": "^2.6",
@@ -22,10 +23,7 @@
     "autoload": {
         "psr-4": {
             "DPXL\\Shield\\": "src/"
-        },
-        "files": [
-            "src/Compat/php-polyfill.php"
-        ]
+        }
     },
     "autoload-dev": {
         "psr-4": {

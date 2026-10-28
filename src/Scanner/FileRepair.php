@@ -10,21 +10,21 @@ use DPXL\Shield\Core\Logger;
  * from the official WP.org repository.
  *
  * Before overwriting, the current file is backed up to:
- *   wp-content/shieldwp-backups/{timestamp}/{relative_path}.dpxl-bak
+ *   uploads/dpxl-shield/backups/{timestamp}/{relative_path}.dpxl-bak
  *
  * The suffix matters: the file being replaced is usually the infected one, and
  * a copy with its .php extension under wp-content would be a working backdoor
  * at a guessable URL. The folder also gets deny rules and an index.php.
  *
- * Only files for which WP.org provides a canonical copy are repairable:
- *   - WordPress core files (via api.wordpress.org/core/checksums)
- *   - Plugin files installed from WP.org (via downloads.wordpress.org/plugin)
+ * Only files for which WordPress.org provides a canonical copy are repairable,
+ * and the copy is always downloaded from WordPress.org itself:
+ *   - WordPress core files (core.svn.wordpress.org, checked against
+ *     api.wordpress.org/core/checksums)
+ *   - Plugin files installed from WordPress.org (downloads.wordpress.org/plugin)
  *
  * Theme files and custom files cannot be repaired automatically.
  */
 class FileRepair {
-
-    private const BACKUP_DIR = 'shieldwp-backups';
 
     private WpOrgChecksumApi $checksumApi;
 
@@ -134,7 +134,9 @@ class FileRepair {
         }
 
         $version = $wp_version ?? '';
-        $url     = "https://raw.githubusercontent.com/WordPress/WordPress/{$version}/{$relative}";
+        // core.svn.wordpress.org holds the built release, file by file, for
+        // every tagged version.
+        $url     = "https://core.svn.wordpress.org/tags/{$version}/{$relative}";
 
         return $this->downloadAndReplace($url, $absolutePath, $relative, (string) $checksums[$relative]);
     }
@@ -186,14 +188,14 @@ class FileRepair {
         $zip = new \ZipArchive();
 
         if ($zip->open($tmpFile) !== true) {
-            @unlink($tmpFile);
+            wp_delete_file($tmpFile);
             return ['success' => false, 'message' => 'Failed to open plugin zip.'];
         }
 
         $entryName = "{$pluginSlug}/{$fileInPlugin}";
         $contents  = $zip->getFromName($entryName);
         $zip->close();
-        @unlink($tmpFile);
+        wp_delete_file($tmpFile);
 
         if ($contents === false) {
             return ['success' => false, 'message' => "File not found in zip: {$entryName}"];
@@ -226,9 +228,8 @@ class FileRepair {
 
         $contents = wp_remote_retrieve_body($response);
 
-        // The copy comes from a GitHub mirror, so it is checked against the
-        // checksum WordPress.org published for this exact file before it is
-        // allowed to overwrite anything.
+        // Checked against the checksum WordPress.org published for this exact
+        // file before it is allowed to overwrite anything.
         if ($contents === '' || !hash_equals(strtolower($expectedMd5), md5($contents))) {
             return ['success' => false, 'message' => "Downloaded file does not match the official checksum: {$label}"];
         }
@@ -255,7 +256,11 @@ class FileRepair {
             return;
         }
 
-        $baseDir    = WP_CONTENT_DIR . '/' . self::BACKUP_DIR;
+        if (!\DPXL\Shield\Core\EarlyConfig::ensureDataDir()) {
+            return;
+        }
+
+        $baseDir    = \DPXL\Shield\Core\EarlyConfig::dataDir() . '/backups';
         $backupRoot = $baseDir . '/' . gmdate('Ymd-His');
         $relative   = str_replace(ABSPATH, '', $absolutePath);
         $backupPath = $backupRoot . '/' . ltrim(str_replace(DIRECTORY_SEPARATOR, '/', $relative), '/') . '.dpxl-bak';

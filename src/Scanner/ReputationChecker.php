@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Scanner;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Core\Options;
 use DPXL\Shield\Core\Logger;
 
@@ -44,7 +40,7 @@ class ReputationChecker {
             }
         }
 
-        $domain = (string) (parse_url(get_option('siteurl'), PHP_URL_HOST) ?? '');
+        $domain = (string) (wp_parse_url(get_option('siteurl'), PHP_URL_HOST) ?? '');
         $ips    = $this->resolveSiteIps($domain);
         $ip     = implode(', ', $ips);
 

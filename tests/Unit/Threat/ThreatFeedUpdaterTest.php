@@ -159,6 +159,28 @@ class ThreatFeedUpdaterTest extends TestCase {
         $this->options['dpxl_shield_threat_feed_version'] = '2026.07.26';
         $feed = $this->makeFeed('2026.07.26', self::RULES_BODY); // same version
         $this->stubNetwork([self::MANIFEST_URL => $feed['manifest'], self::ARTIFACT_URL => $feed['artifact']]);
+        file_put_contents($this->activePath, self::RULES_BODY); // the installed copy is on disk
+
+        $this->assertSame(ThreatFeedUpdater::NO_CHANGE, $this->updater()->run());
+    }
+
+    /** A missing active file (fresh data folder) brings the recorded version back. */
+    public function testSameVersionIsReinstalledWhenTheFileIsGone(): void {
+        $this->stubOptionsAndTransients();
+        $this->options['dpxl_shield_threat_feed_version'] = '2026.07.26';
+        $feed = $this->makeFeed('2026.07.26', self::RULES_BODY);
+        $this->stubNetwork([self::MANIFEST_URL => $feed['manifest'], self::ARTIFACT_URL => $feed['artifact']]);
+
+        $this->assertSame(ThreatFeedUpdater::OK, $this->updater()->run());
+        $this->assertFileExists($this->activePath);
+    }
+
+    /** ...but never an older one, even then. */
+    public function testOlderVersionIsRefusedEvenWhenTheFileIsGone(): void {
+        $this->stubOptionsAndTransients();
+        $this->options['dpxl_shield_threat_feed_version'] = '2026.07.27';
+        $feed = $this->makeFeed('2026.07.26', self::RULES_BODY);
+        $this->stubNetwork([self::MANIFEST_URL => $feed['manifest'], self::ARTIFACT_URL => $feed['artifact']]);
 
         $this->assertSame(ThreatFeedUpdater::NO_CHANGE, $this->updater()->run());
     }

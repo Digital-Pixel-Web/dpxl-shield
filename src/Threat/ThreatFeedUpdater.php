@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Threat;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Core\Options;
 use DPXL\Shield\Firewall\Rules\RuleRepository;
 
@@ -24,9 +20,12 @@ use DPXL\Shield\Firewall\Rules\RuleRepository;
  */
 class ThreatFeedUpdater {
 
-    /** Stable manifest URL (branch ref); the manifest points artifacts at immutable tags. */
+    /**
+     * Stable manifest URL (branch ref); the manifest points artifacts at immutable tags.
+     * A JSON data file served from the public rules repository, not an asset loaded in the browser.
+     */
     public const DEFAULT_MANIFEST_URL =
-        'https://cdn.jsdelivr.net/gh/Digital-Pixel-Sites/dpxl-shield-rules@main/dist/manifest.json';
+        'https://cdn.jsdelivr.net/gh/Digital-Pixel-Sites/dpxl-shield-rules@main/dist/manifest.json'; // phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent -- server-side data download, see readme "External services".
 
     private const MAX_ARTIFACT_BYTES = 524288; // 512 KB
     private const LOCK_KEY           = 'dpxl_shield_threat_feed_lock';
@@ -59,7 +58,7 @@ class ThreatFeedUpdater {
 
         $this->manifestUrl  = $manifestUrl ?? ($configured !== '' ? $configured : self::DEFAULT_MANIFEST_URL);
         $this->publicKeyB64 = $publicKeyB64 ?? FeedVerifier::defaultPublicKey();
-        $this->activePath   = $activePath ?? ((defined('DPXL_SHIELD_PATH') ? DPXL_SHIELD_PATH : '') . 'data/waf-rules.active.json');
+        $this->activePath   = $activePath ?? (\DPXL\Shield\Core\EarlyConfig::dataDir() . '/waf-rules.active.json');
     }
 
     /** Runs the update. Returns one of the status constants. */
@@ -112,9 +111,14 @@ class ThreatFeedUpdater {
             return self::INCOMPATIBLE;
         }
 
-        // 3. Anti-rollback — only apply a strictly newer feed.
+        // 3. Anti-rollback — only apply a strictly newer feed. When the active
+        // file is gone (fresh data folder, restored backup) the version already
+        // recorded is accepted again, so the rules come back without waiting
+        // for the next feed release — but nothing older ever is.
         $newVersion = (string) $manifest['feed_version'];
-        if (!FeedVerifier::isNewerVersion($newVersion, (string) Options::get('threat_feed_version', ''))) {
+        $installed  = (string) Options::get('threat_feed_version', '');
+        $reinstall  = !is_file($this->activePath) && $newVersion === $installed;
+        if (!$reinstall && !FeedVerifier::isNewerVersion($newVersion, $installed)) {
             return self::NO_CHANGE;
         }
 

@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Hardening;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Core\Logger;
 
 /**
@@ -77,7 +73,8 @@ HTACCESS;
 
         // If the file is now empty, delete it entirely.
         if (trim((string) $newContent) === '') {
-            return @unlink($path);
+            wp_delete_file($path);
+            return !file_exists($path);
         }
 
         return @file_put_contents($path, $newContent) !== false;
@@ -111,7 +108,7 @@ NGINX;
         $path  = $this->htaccessPath();
         $block = self::MARKER_BEGIN . self::HTACCESS_RULES . self::MARKER_END . "\n";
 
-        if (!is_writable(dirname($path))) {
+        if (!wp_is_writable(dirname($path))) {
             Logger::error('PhpExecutionBlocker: uploads directory is not writable.');
             return false;
         }

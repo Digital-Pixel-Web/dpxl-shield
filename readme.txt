@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, two-factor authentication, brute forc
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.12.0
+Stable tag: 1.12.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -15,6 +15,19 @@ Free WordPress security: firewall, malware scanner, login protection, two-factor
 Most hacked WordPress sites are not taken down by a sophisticated attack. They fall to a weak password, an outdated plugin, or a modified file nobody noticed. DPXL Shield closes those doors and tells you, in plain language, when something needs your attention.
 
 It is built and maintained by [Digital Pixel](https://digitalpixel.com.br/), a WordPress agency, and given to the community for free. There is no premium version and nothing in the dashboard is locked.
+
+= Why another security plugin? =
+
+Because the parts small sites need most are usually the paid ones. In DPXL Shield they are all in the free plugin, with no limits and no upgrade prompts:
+
+* **Country blocking and IP range blocking**, applied from the first request.
+* **A tamper-evident audit log** (each entry is hash-chained to the previous one).
+* **A PDF activity report** you can send to a client or a manager.
+* **Email delivery monitoring**, so a broken mail setup does not silently swallow every other alert.
+* **Signed webhooks and a read-only REST API** for Slack, Discord, PagerDuty or a SIEM.
+* **No telemetry and no account.** Nothing is sent to Digital Pixel.
+
+It was written for agencies and freelancers who look after many small sites, and its dashboard is in Brazilian Portuguese first.
 
 = Blocks attacks before they reach your site =
 
@@ -65,23 +78,54 @@ It is built and maintained by [Digital Pixel](https://digitalpixel.com.br/), a W
 
 The admin interface is currently in Brazilian Portuguese. An English interface is planned.
 
-= Privacy and external services =
+= Where it keeps its data =
 
-Data stays in your site's database. The plugin sends no telemetry and nothing goes to Digital Pixel servers. It connects to these services only for the purposes listed:
+Settings, logs and blocklists are in your site's database. Files the plugin writes at runtime (firewall config, blocklist snapshot, rule updates, the country database and file-repair backups) go to `wp-content/uploads/dpxl-shield/`, closed to the web, never inside the plugin folder.
 
-* `api.wordpress.org` — official core checksums, during scans. [Privacy policy](https://wordpress.org/about/privacy/)
-* `raw.githubusercontent.com` and `downloads.wordpress.org` — original files, only when you repair a file. [GitHub privacy](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement)
-* `api.pwnedpasswords.com` — leaked password check on login and password change; only the first 5 characters of the SHA-1 hash are sent. [Privacy policy](https://haveibeenpwned.com/Privacy)
-* `cdn.jsdelivr.net` — signed firewall rule updates, daily; can be turned off. [Privacy policy](https://www.jsdelivr.com/terms/privacy-policy-jsdelivr-net)
-* `github.com` — GeoLite2 country database, when a newer one is published; can be turned off.
-* `ip-api.com` — WHOIS/GeoIP, only when you run a lookup. [Privacy policy](https://ip-api.com/docs/legal)
-* `safebrowsing.googleapis.com` — domain reputation, only with your own API key. [Terms](https://developers.google.com/safe-browsing/terms)
-* Spamhaus DQS — domain reputation, only with your own key. [Privacy policy](https://www.spamhaus.com/privacy-notice/)
-* `wpscan.com` — known vulnerabilities, only with your own token. [Privacy policy](https://automattic.com/privacy/)
+== External services ==
 
-These are plain downloads and lookups: no site data, identifiers or telemetry are sent with them beyond what each lookup needs.
+DPXL Shield sends no telemetry and nothing goes to Digital Pixel servers. It connects to the services below only for the purpose listed. Each one can be avoided by leaving the feature off.
 
-This product includes GeoLite2 data created by MaxMind, available from [https://www.maxmind.com](https://www.maxmind.com).
+= WordPress.org =
+
+* `api.wordpress.org`: the official checksums of WordPress core, so the scan can tell which core files were changed. Sent: your WordPress version. When: during each scan (daily, and when you run one).
+* `core.svn.wordpress.org` and `downloads.wordpress.org`: the original copy of a core file or of a WordPress.org plugin, only when you click Repair on a file. Sent: the WordPress or plugin version and the file requested.
+* [Privacy policy](https://wordpress.org/about/privacy/)
+
+= Rules and country database updates (jsDelivr and GitHub) =
+
+The firewall rules and the IP-to-country database are updated from Digital Pixel's public rules repository on GitHub, served through jsDelivr. They are data files (JSON rules and a MaxMind DB format database), signed with Ed25519 and checked before use; nothing downloaded is ever executed.
+
+* Sent: a plain download request (your server's IP address and a "DPXL Shield" user agent). When: once a day, and when you click "Check now". Both updates can be turned off under All Options.
+* jsDelivr: [Terms](https://www.jsdelivr.com/terms) and [Privacy policy](https://www.jsdelivr.com/terms/privacy-policy-jsdelivr-net)
+* GitHub: [Terms of service](https://docs.github.com/site-policy/github-terms/github-terms-of-service) and [Privacy statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement)
+
+The country database is DB-IP's "IP to Country Lite", licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): IP geolocation by [DB-IP](https://db-ip.com).
+
+= Have I Been Pwned (Pwned Passwords) =
+
+Checks whether a password appears in known data breaches. Sent: only the first 5 characters of the password's SHA-1 hash (k-anonymity); the password itself never leaves your server. When: on login and when a password is changed or reset, if the option is on.
+
+* [Privacy policy](https://haveibeenpwned.com/Privacy)
+
+= IP lookups (ipinfo.io and regional internet registries) =
+
+The WHOIS tool looks up an IP address you type. Sent: that IP address, to the WHOIS server of the regional internet registry that holds it (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC, on port 43) and, when WHOIS gives no answer, to ipinfo.io. When: only when you run a lookup.
+
+* ipinfo.io: [Terms of service](https://ipinfo.io/terms-of-service) and [Privacy policy](https://ipinfo.io/privacy-policy)
+* ARIN: [Terms of use](https://www.arin.net/resources/registry/whois/tou/)
+
+= Optional services that need your own key =
+
+None of these run until you enter your own key or token.
+
+* Google Safe Browsing: checks whether your domain is flagged. Sent: your site's address and your API key. When: during scans. [Terms](https://developers.google.com/safe-browsing/terms) and [Privacy policy](https://policies.google.com/privacy)
+* Spamhaus DQS: checks whether your domain or server IP is on a blocklist, through DNS queries. Sent: your domain, your server's IP address and your key. When: during scans. [Privacy notice](https://www.spamhaus.com/privacy-notice/)
+* WPScan: known vulnerabilities in your plugins and themes. Sent: the slugs and versions of installed plugins and themes, and your token. When: during scans. [Privacy policy](https://automattic.com/privacy/)
+
+= Webhooks you configure =
+
+If you add a webhook (Slack, Discord, PagerDuty or any URL), security alerts are sent to that address: the event, its severity, the IP involved and your site's address. Nothing is sent until you add one.
 
 == Installation ==
 
@@ -139,6 +183,17 @@ Privately, through GitHub: [Report a vulnerability](https://github.com/Digital-P
 
 == Changelog ==
 
+= 1.12.1 =
+* Changed: files the plugin writes at runtime moved from the plugin folder to `wp-content/uploads/dpxl-shield/`. Plugin updates no longer wipe the rule updates, the country database or the firewall config.
+* Changed: file repair downloads original core files from WordPress.org (`core.svn.wordpress.org`) instead of a GitHub mirror.
+* Changed: the country database comes from DB-IP's IP to Country Lite (CC BY 4.0), which may be redistributed; the credit line follows the database installed.
+* Changed: the self-protection copies use prefixed option and file names, and are compared as JSON.
+* Changed: errors go to the PHP error log only with `WP_DEBUG` on.
+* Fixed: with Extended Protection on, blocks made before WordPress loads ban the IP and appear in Live Traffic.
+* Fixed: without APCu, the anomaly detector counts distinct URLs, so repeated requests to one endpoint are no longer taken for a scanner. Live Traffic ignores WP-CLI.
+* Changed: XML-RPC limit raised from 3 to 10 requests per minute.
+* Code: fixes for what Plugin Check reports (output escaping, input sanitization, prepared queries, WordPress file functions).
+
 = 1.12.0 =
 * Security: forwarded IP headers are only trusted from known proxies (Cloudflare, local network, or `DPXL_SHIELD_TRUSTED_PROXIES`). Before, a visitor could choose their own IP to avoid lockouts or get someone else's IP blocked.
 * Security: the firewall can no longer be skipped by adding an admin path to the query string, through the anonymous `admin-ajax.php` / `admin-post.php` endpoints, or with a forged login cookie. Logged-in sessions are validated.
@@ -171,6 +226,9 @@ Privately, through GitHub: [Report a vulnerability](https://github.com/Digital-P
 * New: email on every administrator login.
 
 == Upgrade Notice ==
+
+= 1.12.1 =
+Runtime files move to wp-content/uploads/dpxl-shield, so updates no longer reset the rule updates and the country database.
 
 = 1.12.0 =
 Important security update: fixes firewall bypasses and IP spoofing, and makes Extended Protection run its rules. Update as soon as possible.

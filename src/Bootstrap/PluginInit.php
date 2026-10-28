@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Bootstrap;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Core\Options;
 use DPXL\Shield\Core\Cron;
 use DPXL\Shield\Firewall\FirewallEngine;
@@ -37,7 +33,7 @@ class PluginInit {
         Database::runDataFixes();
 
         // The files Extended Protection reads before WordPress loads. Recreated
-        // here if a plugin update wiped data/ (two stat calls otherwise).
+        // here when missing, e.g. right after install (two stat calls otherwise).
         \DPXL\Shield\Core\EarlyConfig::ensure();
 
         // Bans and blocks recorded by Extended Protection before WordPress
@@ -81,7 +77,7 @@ class PluginInit {
     }
 
     private static function runBasicWaf(): void {
-        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        $uri = $_SERVER['REQUEST_URI'] ?? ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- raw on purpose: the same value the pre-WordPress firewall sees.
 
         // Logged-in users on admin screens and API calls skip the rules: page
         // builders (Elementor, Gutenberg) POST raw HTML/CSS/JS that trips the
@@ -122,7 +118,7 @@ class PluginInit {
         // handler that needs the XML-RPC server, which does not exist yet at
         // plugins_loaded, so the block went out as an empty HTTP 200.
         if ((defined('XMLRPC_REQUEST') && XMLRPC_REQUEST) || (defined('REST_REQUEST') && REST_REQUEST)
-            || str_contains(WafBypass::path((string) ($_SERVER['REQUEST_URI'] ?? '')), '/wp-json/')) {
+            || str_contains(WafBypass::path((string) ($_SERVER['REQUEST_URI'] ?? '')), '/wp-json/')) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- only compared, never output.
             if (!headers_sent()) {
                 status_header(403);
                 nocache_headers();

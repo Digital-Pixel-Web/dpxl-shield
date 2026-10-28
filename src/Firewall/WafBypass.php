@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Firewall;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 /**
  * Which requests may skip the WAF rules, decided from the request *path*.
  *
@@ -36,7 +32,7 @@ final class WafBypass {
     public static function path(string $uri): string {
         // Absolute-form request targets ("http://host/path") are rare but legal.
         if (preg_match('#^[a-z][a-z0-9+.-]*://#i', $uri) === 1) {
-            $uri = (string) parse_url($uri, PHP_URL_PATH);
+            $uri = (string) parse_url($uri, PHP_URL_PATH); // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- runs before WordPress loads.
         }
 
         // Cut by hand rather than parse_url(): it reads "//wp-admin/x" as a

@@ -24,12 +24,40 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
 \DPXL\Shield\Core\Database::dropAllTables();
 \DPXL\Shield\Core\Options::deleteAll();
 
-// The self-protection store keeps its copies under names without the
-// dpxl_shield_ prefix, so deleteAll() never reached them.
-delete_option('_site_check_timeout_shwp');
-delete_option('_site_check_enc_key');
-@unlink(WP_CONTENT_DIR . '/.shieldwp-integrity');
-@unlink(sys_get_temp_dir() . '/shwp-' . md5(ABSPATH) . '.lock');
+// The self-protection store: deleteAll() took its options; this removes its
+// copy in the temp folder and the unprefixed copies 1.12.0 and earlier wrote.
+\DPXL\Shield\SelfProtection\IntegrityStore::deleteLegacy();
+wp_delete_file(\DPXL\Shield\SelfProtection\IntegrityStore::tempFilePath());
+
+// Runtime files in the data folder (uploads/dpxl-shield), and the folder
+// inside the plugin that 1.12.0 and earlier used. Repair backups in backups/
+// stay: they may hold the only copy of an original file.
+foreach ([\DPXL\Shield\Core\EarlyConfig::dataDir(), \DPXL\Shield\Core\EarlyConfig::legacyDataDir()] as $dpxlShieldDir) {
+    if (!is_dir($dpxlShieldDir)) {
+        continue;
+    }
+
+    $dpxlShieldKeep = is_dir($dpxlShieldDir . '/backups');
+
+    foreach (array_merge((array) glob($dpxlShieldDir . '/*'), [$dpxlShieldDir . '/.htaccess']) as $dpxlShieldFile) {
+        if (!is_string($dpxlShieldFile) || !is_file($dpxlShieldFile)) {
+            continue;
+        }
+
+        // With backups left behind, the folder keeps its web lock.
+        if ($dpxlShieldKeep && in_array(basename($dpxlShieldFile), ['.htaccess', 'index.php'], true)) {
+            continue;
+        }
+
+        wp_delete_file($dpxlShieldFile);
+    }
+
+    if (!$dpxlShieldKeep) {
+        require_once ABSPATH . 'wp-admin/includes/class-wp-filesystem-base.php';
+        require_once ABSPATH . 'wp-admin/includes/class-wp-filesystem-direct.php';
+        (new WP_Filesystem_Direct(null))->rmdir($dpxlShieldDir);
+    }
+}
 
 // Per-user data: two-factor secrets (also half-finished setups) and backup
 // codes, known login IPs and the breached-password flag. Leaving the TOTP
@@ -62,5 +90,4 @@ foreach (['_transient_dpxl', '_transient_timeout_dpxl', '_site_transient_dpxl', 
 
 // The prepend file and .user.ini are left as harmless no-ops on purpose: PHP
 // caches .user.ini for up to five minutes, and deleting the file it points to
-// before then would take the site down. Repair backups in
-// wp-content/dpxl-shield-backups are kept too: they may hold original files.
+// before then would take the site down.

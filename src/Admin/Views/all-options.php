@@ -11,21 +11,22 @@
     <div class="dpxl-notice dpxl-notice--success dpxl-hidden" id="all-options-saved"><?php esc_html_e('Settings saved.', 'dpxl-shield'); ?></div>
 
     <?php
-    if (isset($_GET['dpxl_feed_checked'])) {
-        $feedStatus = get_transient('dpxl_shield_feed_check_' . get_current_user_id());
+    if (isset($_GET['dpxl_feed_checked'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only: picks which tab or notice to show.
+        $dpxlFeedStatus = get_transient('dpxl_shield_feed_check_' . get_current_user_id());
         delete_transient('dpxl_shield_feed_check_' . get_current_user_id());
 
         // Back-compat: an old single-string result is treated as the rules status.
-        if (is_string($feedStatus)) {
-            $feedStatus = ['rules' => $feedStatus];
+        if (is_string($dpxlFeedStatus)) {
+            $dpxlFeedStatus = ['rules' => $dpxlFeedStatus];
         }
 
-        if (is_array($feedStatus)) {
-            $rulesVersion = (string) \DPXL\Shield\Core\Options::get('threat_feed_version', '');
-            $geoVersion   = (string) \DPXL\Shield\Core\Options::get('geo_db_version', '');
+        if (is_array($dpxlFeedStatus)) {
+            $dpxlRulesVersion = (string) \DPXL\Shield\Core\Options::get('threat_feed_version', '');
+            $dpxlGeoVersion   = (string) \DPXL\Shield\Core\Options::get('geo_db_version', '');
 
-            $rulesMessages = [
-                'ok'        => ['success', sprintf(__('WAF rules updated to version %s.', 'dpxl-shield'), $rulesVersion)],
+            $dpxlRulesMessages = [
+                /* translators: %s: rules version. */
+                'ok'        => ['success', sprintf(__('WAF rules updated to version %s.', 'dpxl-shield'), $dpxlRulesVersion)],
                 'no_change' => ['success', __('WAF rules are already up to date.', 'dpxl-shield')],
                 'net_fail'  => ['warning', __('Could not reach the feed for WAF rules.', 'dpxl-shield')],
                 'sig_fail'  => ['error',   __('WAF rules verification failed — rejected.', 'dpxl-shield')],
@@ -34,20 +35,21 @@
                 'disabled'  => ['warning', __('The threat feed is disabled.', 'dpxl-shield')],
             ];
 
-            $geoMessages = [
-                'ok'        => ['success', sprintf(__('GeoLite2 database installed/updated (%s).', 'dpxl-shield'), $geoVersion)],
-                'no_change' => ['success', __('GeoLite2 database is already up to date.', 'dpxl-shield')],
-                'net_fail'  => ['warning', __('Could not download the GeoLite2 database.', 'dpxl-shield')],
-                'sig_fail'  => ['error',   __('GeoLite2 database verification failed — rejected.', 'dpxl-shield')],
-                'hash_fail' => ['error',   __('GeoLite2 database verification failed — rejected.', 'dpxl-shield')],
-                'no_geo'    => ['warning', __('No GeoLite2 database is available in the feed yet.', 'dpxl-shield')],
-                'disabled'  => ['warning', __('GeoLite2 auto-update is disabled.', 'dpxl-shield')],
+            $dpxlGeoMessages = [
+                /* translators: %s: database version. */
+                'ok'        => ['success', sprintf(__('Country database installed/updated (%s).', 'dpxl-shield'), $dpxlGeoVersion)],
+                'no_change' => ['success', __('Country database is already up to date.', 'dpxl-shield')],
+                'net_fail'  => ['warning', __('Could not download the country database.', 'dpxl-shield')],
+                'sig_fail'  => ['error',   __('Country database verification failed — rejected.', 'dpxl-shield')],
+                'hash_fail' => ['error',   __('Country database verification failed — rejected.', 'dpxl-shield')],
+                'no_geo'    => ['warning', __('No country database is available in the feed yet.', 'dpxl-shield')],
+                'disabled'  => ['warning', __('Country database auto-update is disabled.', 'dpxl-shield')],
             ];
 
-            $rulesMsg = $rulesMessages[$feedStatus['rules'] ?? ''] ?? null;
-            $geoMsg   = $geoMessages[$feedStatus['geo'] ?? ''] ?? null;
+            $dpxlRulesMsg = $dpxlRulesMessages[$dpxlFeedStatus['rules'] ?? ''] ?? null;
+            $dpxlGeoMsg   = $dpxlGeoMessages[$dpxlFeedStatus['geo'] ?? ''] ?? null;
 
-            foreach ([$rulesMsg, $geoMsg] as $m) {
+            foreach ([$dpxlRulesMsg, $dpxlGeoMsg] as $m) {
                 if ($m !== null) {
                     printf('<div class="dpxl-notice dpxl-notice--%s">%s</div>', esc_attr($m[0]), esc_html($m[1]));
                 }
@@ -58,7 +60,7 @@
 
     <form id="all-options-form">
     <?php
-    $sections = [
+    $dpxlSections = [
         'global' => [
             'title'   => __('Global Options', 'dpxl-shield'),
             'groups'  => [
@@ -192,58 +194,58 @@
         ],
     ];
 
-    foreach ($sections as $sectionId => $section) :
+    foreach ($dpxlSections as $dpxlSectionId => $dpxlSection) :
     ?>
-    <div class="dpxl-options-section" id="section-<?php echo esc_attr($sectionId); ?>">
-        <h2 class="dpxl-section-title"><?php echo esc_html($section['title']); ?></h2>
-        <?php foreach ($section['groups'] as $groupId => $group) : ?>
-        <div class="dpxl-option-group" id="group-<?php echo esc_attr($groupId); ?>">
+    <div class="dpxl-options-section" id="section-<?php echo esc_attr($dpxlSectionId); ?>">
+        <h2 class="dpxl-section-title"><?php echo esc_html($dpxlSection['title']); ?></h2>
+        <?php foreach ($dpxlSection['groups'] as $dpxlGroupId => $dpxlGroup) : ?>
+        <div class="dpxl-option-group" id="group-<?php echo esc_attr($dpxlGroupId); ?>">
             <button type="button" class="dpxl-option-group__toggle">
-                <span class="dpxl-toggle-arrow"><?php \DPXL\Shield\Admin\Icons::render('chevron-right'); ?></span> <?php echo esc_html($group['title']); ?>
+                <span class="dpxl-toggle-arrow"><?php \DPXL\Shield\Admin\Icons::render('chevron-right'); ?></span> <?php echo esc_html($dpxlGroup['title']); ?>
             </button>
             <div class="dpxl-option-group__body dpxl-hidden">
-                <?php foreach ($group['options'] as $key => $opt) :
-                    $val = \DPXL\Shield\Core\Options::get($key, $opt['default'] ?? null);
+                <?php foreach ($dpxlGroup['options'] as $dpxlKey => $dpxlOpt) :
+                    $dpxlVal = \DPXL\Shield\Core\Options::get($dpxlKey, $dpxlOpt['default'] ?? null);
                 ?>
-                <div class="dpxl-option-row" data-search-text="<?php echo esc_attr(strtolower($opt['label'])); ?>">
-                    <label for="opt-<?php echo esc_attr($key); ?>"><?php echo esc_html($opt['label']); ?></label>
-                    <?php if ($opt['type'] === 'toggle') : ?>
+                <div class="dpxl-option-row" data-search-text="<?php echo esc_attr(strtolower($dpxlOpt['label'])); ?>">
+                    <label for="opt-<?php echo esc_attr($dpxlKey); ?>"><?php echo esc_html($dpxlOpt['label']); ?></label>
+                    <?php if ($dpxlOpt['type'] === 'toggle') : ?>
                         <label class="dpxl-toggle">
-                            <input type="checkbox" id="opt-<?php echo esc_attr($key); ?>" name="<?php echo esc_attr($key); ?>" value="1" <?php checked((bool) $val); ?>>
+                            <input type="checkbox" id="opt-<?php echo esc_attr($dpxlKey); ?>" name="<?php echo esc_attr($dpxlKey); ?>" value="1" <?php checked((bool) $dpxlVal); ?>>
                             <span></span>
                         </label>
-                    <?php elseif ($opt['type'] === 'select') : ?>
-                        <select class="dpxl-select" id="opt-<?php echo esc_attr($key); ?>" name="<?php echo esc_attr($key); ?>">
-                            <?php foreach (($opt['options'] ?? []) as $optVal => $optLabel) : ?>
-                                <option value="<?php echo esc_attr($optVal); ?>" <?php selected((string) $val, (string) $optVal); ?>><?php echo esc_html($optLabel); ?></option>
+                    <?php elseif ($dpxlOpt['type'] === 'select') : ?>
+                        <select class="dpxl-select" id="opt-<?php echo esc_attr($dpxlKey); ?>" name="<?php echo esc_attr($dpxlKey); ?>">
+                            <?php foreach (($dpxlOpt['options'] ?? []) as $dpxlOptVal => $dpxlOptLabel) : ?>
+                                <option value="<?php echo esc_attr($dpxlOptVal); ?>" <?php selected((string) $dpxlVal, (string) $dpxlOptVal); ?>><?php echo esc_html($dpxlOptLabel); ?></option>
                             <?php endforeach; ?>
                         </select>
-                    <?php elseif ($opt['type'] === 'email') : ?>
-                        <input type="email" class="dpxl-input" id="opt-<?php echo esc_attr($key); ?>" name="<?php echo esc_attr($key); ?>"
-                               value="<?php echo esc_attr((string) $val); ?>">
-                    <?php elseif ($opt['type'] === 'text') : ?>
-                        <input type="text" class="dpxl-input" id="opt-<?php echo esc_attr($key); ?>" name="<?php echo esc_attr($key); ?>"
-                               value="<?php echo esc_attr((string) $val); ?>"
-                               <?php if (!empty($opt['placeholder'])) : ?>placeholder="<?php echo esc_attr((string) $opt['placeholder']); ?>"<?php endif; ?>
+                    <?php elseif ($dpxlOpt['type'] === 'email') : ?>
+                        <input type="email" class="dpxl-input" id="opt-<?php echo esc_attr($dpxlKey); ?>" name="<?php echo esc_attr($dpxlKey); ?>"
+                               value="<?php echo esc_attr((string) $dpxlVal); ?>">
+                    <?php elseif ($dpxlOpt['type'] === 'text') : ?>
+                        <input type="text" class="dpxl-input" id="opt-<?php echo esc_attr($dpxlKey); ?>" name="<?php echo esc_attr($dpxlKey); ?>"
+                               value="<?php echo esc_attr((string) $dpxlVal); ?>"
+                               <?php if (!empty($dpxlOpt['placeholder'])) : ?>placeholder="<?php echo esc_attr((string) $dpxlOpt['placeholder']); ?>"<?php endif; ?>
                                spellcheck="false" autocomplete="off">
-                    <?php elseif ($opt['type'] === 'link') : ?>
-                        <?php $newtab = ($opt['newtab'] ?? true) !== false; ?>
-                        <a class="dpxl-btn dpxl-btn--sm" href="<?php echo esc_url((string) ($opt['href'] ?? '#')); ?>"<?php echo $newtab ? ' target="_blank" rel="noopener"' : ''; ?>>
-                            <?php echo esc_html((string) ($opt['button'] ?? $opt['label'])); ?>
+                    <?php elseif ($dpxlOpt['type'] === 'link') : ?>
+                        <?php $dpxlNewtab = ($dpxlOpt['newtab'] ?? true) !== false; ?>
+                        <a class="dpxl-btn dpxl-btn--sm" href="<?php echo esc_url((string) ($dpxlOpt['href'] ?? '#')); ?>"<?php echo $dpxlNewtab ? ' target="_blank" rel="noopener"' : ''; ?>>
+                            <?php echo esc_html((string) ($dpxlOpt['button'] ?? $dpxlOpt['label'])); ?>
                         </a>
                     <?php else : ?>
-                        <input type="number" class="dpxl-input dpxl-input--sm" id="opt-<?php echo esc_attr($key); ?>" name="<?php echo esc_attr($key); ?>"
-                               value="<?php echo esc_attr((string) $val); ?>"
-                               <?php if (isset($opt['min'])) echo 'min="' . (int) $opt['min'] . '"'; ?>
-                               <?php if (isset($opt['max'])) echo 'max="' . (int) $opt['max'] . '"'; ?>>
+                        <input type="number" class="dpxl-input dpxl-input--sm" id="opt-<?php echo esc_attr($dpxlKey); ?>" name="<?php echo esc_attr($dpxlKey); ?>"
+                               value="<?php echo esc_attr((string) $dpxlVal); ?>"
+                               <?php if (isset($dpxlOpt['min'])) echo 'min="' . (int) $dpxlOpt['min'] . '"'; ?>
+                               <?php if (isset($dpxlOpt['max'])) echo 'max="' . (int) $dpxlOpt['max'] . '"'; ?>>
                     <?php endif; ?>
-                    <?php if (!empty($opt['help'])) : ?>
-                        <p class="dpxl-option-row__help"><?php echo esc_html((string) $opt['help']); ?></p>
+                    <?php if (!empty($dpxlOpt['help'])) : ?>
+                        <p class="dpxl-option-row__help"><?php echo esc_html((string) $dpxlOpt['help']); ?></p>
                     <?php endif; ?>
                 </div>
                 <?php endforeach; ?>
                 <div class="dpxl-option-group__footer">
-                    <button type="button" class="dpxl-btn dpxl-btn--sm dpxl-btn--save-group" data-group="<?php echo esc_attr($groupId); ?>">
+                    <button type="button" class="dpxl-btn dpxl-btn--sm dpxl-btn--save-group" data-group="<?php echo esc_attr($dpxlGroupId); ?>">
                         <?php esc_html_e('Save Changes', 'dpxl-shield'); ?>
                     </button>
                 </div>

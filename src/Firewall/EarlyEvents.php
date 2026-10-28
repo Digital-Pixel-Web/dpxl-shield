@@ -3,11 +3,8 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Firewall;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Core\EarlyConfig;
+use DPXL\Shield\Core\Fs;
 
 /**
  * Hands what the pre-WordPress firewall did over to WordPress.
@@ -17,14 +14,15 @@ use DPXL\Shield\Core\EarlyConfig;
  * nor logged: the attacker could keep trying, and Live Traffic and the dashboard
  * never saw the attack. The same attack in basic mode earned a one-hour ban.
  *
- * The early layer now appends one line per event to data/early-events.php, and
+ * The early layer now appends one line per event to early-events.php in the
+ * data folder, and
  * the next request that loads WordPress imports them: bans go through
  * IpBlocklist::blockIp(), blocks become traffic-log rows. From then on the
  * banned IP is stopped by the database blocklist, and — once the blocklist
  * snapshot is rewritten — before WordPress too.
  *
- * The file starts with `<?php exit;` so a web server that ignores the data/
- * .htaccess (nginx) runs it instead of serving it. It is capped in size so a
+ * The file starts with `<?php exit;` so a web server that ignores the data
+ * folder's .htaccess (nginx) runs it instead of serving it. It is capped in size so a
  * flood of blocked requests cannot fill the disk.
  */
 final class EarlyEvents {
@@ -77,14 +75,14 @@ final class EarlyEvents {
             return [];
         }
 
-        $claimed = $path . '.' . getmypid() . '.' . mt_rand() . '.tmp';
+        $claimed = $path . '.' . getmypid() . '.' . bin2hex(random_bytes(4)) . '.tmp';
 
-        if (!@rename($path, $claimed)) {
+        if (!Fs::move($path, $claimed)) {
             return [];
         }
 
         $lines = @file($claimed, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        @unlink($claimed);
+        Fs::delete($claimed);
 
         if (!is_array($lines)) {
             return [];
@@ -109,7 +107,7 @@ final class EarlyEvents {
         $path = self::path();
         $dir  = dirname($path);
 
-        if (!is_dir($dir) && !@mkdir($dir, 0755, true)) {
+        if (!Fs::mkdirP($dir)) {
             return;
         }
 
@@ -134,6 +132,7 @@ final class EarlyEvents {
             return;
         }
 
+        // phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen, WordPress.WP.AlternativeFunctions.file_system_operations_fwrite, WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- runs before WordPress loads; the lock keeps concurrent requests from interleaving lines.
         $handle = @fopen($path, 'ab');
 
         if ($handle === false) {
@@ -157,5 +156,6 @@ final class EarlyEvents {
         }
 
         fclose($handle);
+        // phpcs:enable
     }
 }

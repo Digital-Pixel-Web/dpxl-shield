@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Traffic;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Firewall\IpBlocklist;
 use DPXL\Shield\Core\Logger;
 
@@ -68,7 +64,7 @@ class AnomalyDetector {
         }
 
         $ip  = $this->resolveIp();
-        $uri = $_SERVER['REQUEST_URI'] ?? '/';
+        $uri = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash($_SERVER['REQUEST_URI'])) : '/';
 
         // Track unique URLs.
         $this->increment($ip, 'unique_urls', $uri, true);

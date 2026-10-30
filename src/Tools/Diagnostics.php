@@ -299,7 +299,9 @@ class Diagnostics {
         $ageDays = (int) floor((time() - (int) filemtime($path)) / DAY_IN_SECONDS);
 
         $verificationFailed = in_array($lastStatus, ['sig_fail', 'hash_fail'], true);
-        $stale              = $ageDays > 30;
+        // DB-IP publishes monthly and the feed picks the new month up in its
+        // weekly run, so a healthy install can hold the same file ~38 days.
+        $stale              = $ageDays > 45;
 
         if ($verificationFailed) {
             $status = 'error';

@@ -5,7 +5,7 @@
         <div class="dpxl-whois-form">
             <input type="text" class="dpxl-input dpxl-input--lg" id="whois-ip-input"
                    placeholder="<?php esc_attr_e('Enter IP address or domain…', 'dpxl-shield'); ?>"
-                   value="<?php echo esc_attr(sanitize_text_field($_GET['ip'] ?? '')); ?>">
+                   value="<?php echo esc_attr(sanitize_text_field(wp_unslash($_GET['ip'] ?? ''))); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only prefill of the lookup box. ?>">
             <button class="dpxl-btn dpxl-btn--primary" id="btn-whois-lookup">
                 <?php esc_html_e('Lookup', 'dpxl-shield'); ?>
             </button>

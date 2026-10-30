@@ -69,7 +69,7 @@
         <!-- Category legend -->
         <div class="dpxl-audit-legend">
             <?php
-            $cats = [
+            $dpxlCats = [
                 'auth'     => ['color' => 'yellow',  'label' => __('Authentication', 'dpxl-shield')],
                 'user'     => ['color' => 'purple',  'label' => __('User/Permissions', 'dpxl-shield')],
                 'plugin'   => ['color' => 'blue',    'label' => __('Plugin/Updates', 'dpxl-shield')],
@@ -77,9 +77,9 @@
                 'settings' => ['color' => 'green',   'label' => __('Site Settings', 'dpxl-shield')],
                 'content'  => ['color' => 'gray',    'label' => __('Content', 'dpxl-shield')],
             ];
-            foreach ($cats as $cat => $meta) : ?>
-                <span class="dpxl-audit-dot dpxl-audit-dot--<?php echo esc_attr($meta['color']); ?>"></span>
-                <?php echo esc_html($meta['label']); ?>
+            foreach ($dpxlCats as $dpxlCat => $dpxlMeta) : ?>
+                <span class="dpxl-audit-dot dpxl-audit-dot--<?php echo esc_attr($dpxlMeta['color']); ?>"></span>
+                <?php echo esc_html($dpxlMeta['label']); ?>
             <?php endforeach; ?>
         </div>
     </div>

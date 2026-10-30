@@ -101,6 +101,12 @@ composer install \
 
 rm -f "$DEST/composer.lock"
 
+# When a dist archive is unavailable Composer falls back to a git clone, which
+# leaves .git, .github and other dot files per package: tens of MB of hidden
+# files that Plugin Check rejects. None is loaded at runtime, so strip them all
+# and the zip is the same whichever way Composer fetched.
+find "$DEST/vendor" -mindepth 1 -name '.*' -prune -exec rm -rf {} +
+
 # ── 3. Trim the Dompdf font bundle ───────────────────────────────────────────
 # The PDF report renders with 'DejaVu Sans', sans-serif (src/Alerts/PdfReport.php).
 # DejaVu Serif and DejaVu Sans Mono are never referenced: the generic serif and

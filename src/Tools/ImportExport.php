@@ -91,7 +91,7 @@ class ImportExport {
 
         $filename = sprintf(
             'dpxl-shield-export-%s-%s.json',
-            parse_url(get_option('siteurl'), PHP_URL_HOST) ?: 'site',
+            wp_parse_url((string) get_option('siteurl'), PHP_URL_HOST) ?: 'site',
             gmdate('Ymd-His')
         );
 

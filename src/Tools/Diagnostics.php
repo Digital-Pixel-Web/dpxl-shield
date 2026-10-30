@@ -216,8 +216,8 @@ class Diagnostics {
      */
     private function checkClientIp(): array {
         $resolved  = \DPXL\Shield\Core\ClientIp::current();
-        $remote    = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
-        $forwarded = (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ($_SERVER['HTTP_X_REAL_IP'] ?? ''));
+        $remote    = sanitize_text_field(wp_unslash((string) ($_SERVER['REMOTE_ADDR'] ?? '')));
+        $forwarded = sanitize_text_field(wp_unslash((string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ($_SERVER['HTTP_X_REAL_IP'] ?? ''))));
 
         if ($forwarded !== '' && $resolved === $remote) {
             return [

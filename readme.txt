@@ -187,6 +187,7 @@ Privately, through GitHub: [Report a vulnerability](https://github.com/Digital-P
 * Changed: files the plugin writes at runtime moved from the plugin folder to `wp-content/uploads/dpxl-shield/`. Plugin updates no longer wipe the rule updates, the country database or the firewall config.
 * Changed: file repair downloads original core files from WordPress.org (`core.svn.wordpress.org`) instead of a GitHub mirror.
 * Changed: the country database comes from DB-IP's IP to Country Lite (CC BY 4.0), which may be redistributed; the credit line follows the database installed.
+* Changed: the signed rules feed moved to `Digital-Pixel-Web/dpxl-shield-rules` and is signed with a new Ed25519 key.
 * Changed: the self-protection copies use prefixed option and file names, and are compared as JSON.
 * Changed: errors go to the PHP error log only with `WP_DEBUG` on.
 * Fixed: with Extended Protection on, blocks made before WordPress loads ban the IP and appear in Live Traffic.

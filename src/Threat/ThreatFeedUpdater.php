@@ -25,7 +25,7 @@ class ThreatFeedUpdater {
      * A JSON data file served from the public rules repository, not an asset loaded in the browser.
      */
     public const DEFAULT_MANIFEST_URL =
-        'https://cdn.jsdelivr.net/gh/Digital-Pixel-Sites/dpxl-shield-rules@main/dist/manifest.json'; // phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent -- server-side data download, see readme "External services".
+        'https://cdn.jsdelivr.net/gh/Digital-Pixel-Web/dpxl-shield-rules@main/dist/manifest.json'; // phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent -- server-side data download, see readme "External services".
 
     private const MAX_ARTIFACT_BYTES = 524288; // 512 KB
     private const LOCK_KEY           = 'dpxl_shield_threat_feed_lock';

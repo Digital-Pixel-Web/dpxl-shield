@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Tools;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 /**
  * Performs WHOIS lookups for any IP address or hostname.
  *
@@ -56,7 +52,7 @@ class WhoisLookup {
             $ip = $input;
         } else {
             // Strip scheme/path in case user pastes a URL.
-            $host = (string) parse_url(
+            $host = (string) wp_parse_url(
                 str_contains($input, '://') ? $input : 'http://' . $input,
                 PHP_URL_HOST
             );
@@ -170,6 +166,9 @@ class WhoisLookup {
     }
 
     private function rawWhois(string $ip, string $server): ?string {
+        // WHOIS is a raw TCP protocol on port 43 (RFC 3912): the WordPress HTTP
+        // API and WP_Filesystem cannot speak it, so a plain socket is the only way.
+        // phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fsockopen, WordPress.WP.AlternativeFunctions.file_system_operations_fwrite, WordPress.WP.AlternativeFunctions.file_system_operations_fclose
         $socket = @fsockopen($server, 43, $errno, $errstr, self::SOCK_TIMEOUT);
 
         if (!$socket) {
@@ -189,6 +188,7 @@ class WhoisLookup {
         }
 
         fclose($socket);
+        // phpcs:enable
 
         return $response !== '' ? $response : null;
     }

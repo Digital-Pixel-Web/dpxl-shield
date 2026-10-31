@@ -1,0 +1,69 @@
+name: Release
+
+# Pushing a tag like v1.12.1 builds the plugin zip and publishes the GitHub
+# release. The zip is attached twice: as dpxl-shield.zip, the fixed name behind
+# /releases/latest/download/dpxl-shield.zip (landing page and QR code), and
+# with the version in the name.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          extensions: apcu, mbstring, openssl, json
+          ini-values: apc.enable_cli=1
+          coverage: none
+          tools: composer:v2
+
+      - name: Tag must match the plugin version
+        run: |
+          VERSION="$(grep -m1 -E '^\s*\*\s*Version:' dpxl-shield.php | sed -E 's/.*Version:[[:space:]]*//' | tr -d '[:space:]')"
+          STABLE="$(grep -m1 '^Stable tag:' readme.txt | sed -E 's/Stable tag:[[:space:]]*//' | tr -d '[:space:]')"
+          echo "Tag ${GITHUB_REF_NAME}, plugin ${VERSION}, readme ${STABLE}"
+          test "v${VERSION}" = "${GITHUB_REF_NAME}"
+          test "${STABLE}" = "${VERSION}"
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: PHP 7.4 compatibility and tests
+        run: composer check
+
+      - name: Build zip
+        run: |
+          tools/build-zip.sh
+          mkdir -p dist
+          cp "../dpxl-shield-${VERSION}.zip" "dist/dpxl-shield-${VERSION}.zip"
+          cp "../dpxl-shield-${VERSION}.zip" dist/dpxl-shield.zip
+          sha256sum dist/*.zip
+
+      - name: Release notes from CHANGELOG.md
+        run: |
+          awk -v v="## ${VERSION}" '$0==v{f=1;next} /^## /{if(f)exit} f' CHANGELOG.md > notes.md
+          printf '\n---\nInstale pelo arquivo **dpxl-shield.zip** abaixo, não pelo "Source code" (falta a pasta vendor/).\n' >> notes.md
+          test -s notes.md
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/*.zip --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/*.zip \
+              --title "DPXL Shield ${VERSION}" \
+              --notes-file notes.md \
+              --latest
+          fi

@@ -3,26 +3,38 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\SelfProtection;
 
+use DPXL\Shield\Core\EarlyConfig;
+use DPXL\Shield\Core\Fs;
 use DPXL\Shield\Core\Logger;
 
 /**
  * Redundant integrity store — writes to and reads from 3 independent locations.
  *
  * Locations:
- *   1. wp_options  (obfuscated key, AES-256-CBC encrypted value)
- *   2. wp-content/.shieldwp-integrity  (outside the plugin directory)
- *   3. sys_get_temp_dir()/shwp-{site_hash}.lock
+ *   1. wp_options  (dpxl_shield_integrity_store, AES-256-CBC encrypted value)
+ *   2. the data folder: uploads/dpxl-shield/integrity.dat (outside the plugin)
+ *   3. the system temp folder: dpxl-shield-{site_hash}.integrity
  *
  * Reading uses majority vote (2/3). An attacker who modifies the plugin
  * directory cannot forge the result without also compromising the database
  * and the temp directory.
+ *
+ * Before 1.12.1 the copies lived under unprefixed names (the option
+ * `_site_check_timeout_shwp`, `wp-content/.shieldwp-integrity`). They are
+ * deleted on the next save and by uninstall.
  */
 class IntegrityStore {
 
-    // Obfuscated option name — doesn't obviously reveal what it stores.
-    private const OPTION_KEY    = '_site_check_timeout_shwp';
-    private const ENC_KEY_OPT   = '_site_check_enc_key';
-    private const INTEGRITY_FILE = '.shieldwp-integrity';
+    private const OPTION_KEY     = 'dpxl_shield_integrity_store';
+    private const ENC_KEY_OPT    = 'dpxl_shield_integrity_key';
+    private const INTEGRITY_FILE = 'integrity.dat';
+
+    /** Names used before 1.12.1. @var array{option:string,key:string,file:string} */
+    public const LEGACY = [
+        'option' => '_site_check_timeout_shwp',
+        'key'    => '_site_check_enc_key',
+        'file'   => '.shieldwp-integrity',
+    ];
 
     // ── Write ──────────────────────────────────────────────────────────────
 
@@ -33,6 +45,23 @@ class IntegrityStore {
         $this->saveToOptions($payload);
         $this->saveToContentFile($payload);
         $this->saveToTempFile($payload);
+
+        self::deleteLegacy();
+    }
+
+    /** Removes the copies written under the pre-1.12.1 names. */
+    public static function deleteLegacy(): void {
+        delete_option(self::LEGACY['option']);
+        delete_option(self::LEGACY['key']);
+
+        if (defined('WP_CONTENT_DIR') && is_file(WP_CONTENT_DIR . '/' . self::LEGACY['file'])) {
+            Fs::delete(WP_CONTENT_DIR . '/' . self::LEGACY['file']);
+        }
+
+        $oldTemp = sys_get_temp_dir() . '/shwp-' . md5(ABSPATH) . '.lock';
+        if (is_file($oldTemp)) {
+            Fs::delete($oldTemp);
+        }
     }
 
     // ── Read (majority vote) ───────────────────────────────────────────────
@@ -49,22 +78,26 @@ class IntegrityStore {
             return null;
         }
 
-        // All agree — fast path.
-        $serialized = array_map('serialize', $candidates);
+        // All agree — fast path. Compared as JSON: the candidates are plain
+        // arrays of strings, decoded from JSON in the first place.
+        $encoded = array_map(static function (array $candidate): string {
+            return (string) wp_json_encode($candidate);
+        }, $candidates);
 
-        if (count(array_unique($serialized)) === 1) {
+        if (count(array_unique($encoded)) === 1) {
             return reset($candidates);
         }
 
         // Majority vote — 2/3 agreement required.
-        $counts  = array_count_values($serialized);
+        $counts  = array_count_values($encoded);
         arsort($counts);
         $winner  = (string) array_key_first($counts);
         $topCount = $counts[$winner];
 
         if ($topCount >= 2) {
             Logger::error('IntegrityStore: mismatch between storage locations — possible tampering.');
-            return unserialize($winner);
+            $decoded = json_decode($winner, true);
+            return is_array($decoded) ? $decoded : null;
         }
 
         // All 3 differ — cannot determine truth.
@@ -91,13 +124,19 @@ class IntegrityStore {
     }
 
     private function saveToContentFile(string $payload): void {
-        $path = WP_CONTENT_DIR . '/' . self::INTEGRITY_FILE;
-        @file_put_contents($path, $payload);
-        @chmod($path, 0600);
+        if (!EarlyConfig::ensureDataDir()) {
+            return;
+        }
+
+        @file_put_contents(self::contentFilePath(), $payload);
+    }
+
+    public static function contentFilePath(): string {
+        return EarlyConfig::dataDir() . '/' . self::INTEGRITY_FILE;
     }
 
     private function loadFromContentFile(): ?array {
-        $path = WP_CONTENT_DIR . '/' . self::INTEGRITY_FILE;
+        $path = self::contentFilePath();
 
         if (!file_exists($path)) {
             return null;
@@ -108,11 +147,11 @@ class IntegrityStore {
     }
 
     private function saveToTempFile(string $payload): void {
-        @file_put_contents($this->tempFilePath(), $payload);
+        @file_put_contents(self::tempFilePath(), $payload);
     }
 
     private function loadFromTempFile(): ?array {
-        $path = $this->tempFilePath();
+        $path = self::tempFilePath();
 
         if (!file_exists($path)) {
             return null;
@@ -122,8 +161,8 @@ class IntegrityStore {
         return $raw !== false ? $this->decrypt($raw) : null;
     }
 
-    private function tempFilePath(): string {
-        return sys_get_temp_dir() . '/shwp-' . md5(ABSPATH) . '.lock';
+    public static function tempFilePath(): string {
+        return get_temp_dir() . 'dpxl-shield-' . md5(ABSPATH) . '.integrity';
     }
 
     // ── Encryption (AES-256-CBC) ───────────────────────────────────────────

@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Traffic;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Firewall\RuleResult;
 use DPXL\Shield\Firewall\CountryBlocker;
 use DPXL\Shield\Core\Options;
@@ -53,6 +49,13 @@ class TrafficLogger {
     // ── Shutdown handler ───────────────────────────────────────────────────
 
     public function writeLog(): void {
+        // WP-CLI runs are not traffic. And after `wp plugin uninstall` in the
+        // same process the plugin's files are gone, so loading another class
+        // here would end the command with a fatal error.
+        if (PHP_SAPI === 'cli' || (defined('DPXL_SHIELD_FILE') && !file_exists(DPXL_SHIELD_FILE))) {
+            return;
+        }
+
         if (!Options::get('traffic_log_enabled', true)) {
             return;
         }
@@ -64,11 +67,15 @@ class TrafficLogger {
         global $wpdb;
 
         $ip           = $this->resolveIp();
+        // Logged as received, so the log shows what an attacker actually sent.
+        // Stored through $wpdb->insert() and escaped when displayed.
+        // phpcs:disable WordPress.Security.ValidatedSanitizedInput
         $method       = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
         $uri          = substr($_SERVER['REQUEST_URI'] ?? '/', 0, 2000);
         $queryString  = substr($_SERVER['QUERY_STRING'] ?? '', 0, 1000) ?: null;
         $userAgent    = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500) ?: null;
         $referer      = substr($_SERVER['HTTP_REFERER'] ?? '', 0, 500) ?: null;
+        // phpcs:enable
         $responseTime = round((microtime(true) - self::$startTime) * 1000, 2); // ms
         $statusCode   = http_response_code() ?: 200;
 
@@ -76,7 +83,7 @@ class TrafficLogger {
         $isBot      = $classifier->isBot($userAgent ?? '', $ip) ? 1 : 0;
 
         // Geolocate the IP so the dashboard/report country widgets have data.
-        // resolveCountry() is a cheap no-op (null) when the GeoLite2 DB is absent.
+        // resolveCountry() is a cheap no-op (null) when the country DB is absent.
         $country = CountryBlocker::resolveCountry($ip);
 
         $wpdb->insert(
@@ -94,6 +101,45 @@ class TrafficLogger {
                 'response_time' => $responseTime,
                 'is_bot'        => $isBot,
                 'country'       => $country ?: null,
+            ],
+            ['%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%f', '%d', '%s']
+        );
+    }
+
+    /**
+     * A request Extended Protection blocked before WordPress loaded, imported
+     * from EarlyEvents on a later request.
+     *
+     * @param array<string,mixed> $event
+     */
+    public static function logEarlyBlock(array $event): void {
+        if (!Options::get('traffic_log_enabled', true)) {
+            return;
+        }
+
+        global $wpdb;
+
+        $ip        = (string) $event['ip'];
+        $userAgent = (string) ($event['ua'] ?? '');
+        $country   = CountryBlocker::resolveCountry($ip);
+
+        $wpdb->insert(
+            $wpdb->prefix . 'dpxl_shield_traffic_log',
+            [
+                'ip'            => $ip,
+                'method'        => strtoupper(substr((string) ($event['method'] ?? 'GET'), 0, 10)),
+                'uri'           => substr((string) ($event['uri'] ?? '/'), 0, 2000),
+                'query_string'  => ((string) ($event['query'] ?? '')) ?: null,
+                'status_code'   => 403,
+                'user_agent'    => $userAgent ?: null,
+                'referer'       => ((string) ($event['ref'] ?? '')) ?: null,
+                'waf_action'    => 'block',
+                'waf_rule_id'   => ((string) ($event['rule'] ?? '')) ?: null,
+                'response_time' => 0,
+                'is_bot'        => (new TrafficClassifier())->isBot($userAgent, $ip) ? 1 : 0,
+                'country'       => $country ?: null,
+                // `timestamp` keeps its database default, like every other row:
+                // the import runs on the next WordPress request, seconds later.
             ],
             ['%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%f', '%d', '%s']
         );

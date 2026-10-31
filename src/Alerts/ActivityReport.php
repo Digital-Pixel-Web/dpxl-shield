@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Alerts;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Core\Options;
 
 /**
@@ -65,7 +61,7 @@ class ActivityReport {
         );
 
         if ($pdfPath !== null && file_exists($pdfPath)) {
-            @unlink($pdfPath);
+            wp_delete_file($pdfPath);
         }
 
         Options::set('activity_report_last_sent', time());
@@ -105,6 +101,7 @@ class ActivityReport {
 
         $period = $this->periodLabel((string) ($data['freq'] ?? 'weekly'));
         $since  = strtotime((string) ($data['since'] ?? '')) ?: time();
+        /* translators: %s: report period (daily, weekly or monthly). */
         $title  = sprintf(__('%s security report', 'dpxl-shield'), $period);
 
         $headline = $criticals > 0

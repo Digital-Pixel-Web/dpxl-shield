@@ -11,9 +11,9 @@
             <div class="dpxl-option-group__body">
                 <div class="dpxl-mode-selector">
                     <label><?php esc_html_e('Logging mode:', 'dpxl-shield'); ?></label>
-                    <?php foreach (['disabled' => __('Desativado', 'dpxl-shield'), 'preview' => __('Pré-visualização', 'dpxl-shield'), 'significant_events' => __('Eventos significativos', 'dpxl-shield'), 'all_events' => __('Todos os eventos', 'dpxl-shield')] as $val => $label) : ?>
-                        <button class="dpxl-btn dpxl-mode-btn <?php echo \DPXL\Shield\Core\Options::get('audit_mode', 'significant_events') === $val ? 'dpxl-btn--active' : ''; ?>"
-                                data-mode="<?php echo esc_attr($val); ?>"><?php echo esc_html($label); ?></button>
+                    <?php foreach (['disabled' => __('Desativado', 'dpxl-shield'), 'preview' => __('Pré-visualização', 'dpxl-shield'), 'significant_events' => __('Eventos significativos', 'dpxl-shield'), 'all_events' => __('Todos os eventos', 'dpxl-shield')] as $dpxlVal => $dpxlLabel) : ?>
+                        <button class="dpxl-btn dpxl-mode-btn <?php echo \DPXL\Shield\Core\Options::get('audit_mode', 'significant_events') === $dpxlVal ? 'dpxl-btn--active' : ''; ?>"
+                                data-mode="<?php echo esc_attr($dpxlVal); ?>"><?php echo esc_html($dpxlLabel); ?></button>
                     <?php endforeach; ?>
                 </div>
                 <input type="hidden" id="audit-mode-value" name="audit_mode" value="<?php echo esc_attr((string) \DPXL\Shield\Core\Options::get('audit_mode', 'significant_events')); ?>">
@@ -69,7 +69,7 @@
         <!-- Category legend -->
         <div class="dpxl-audit-legend">
             <?php
-            $cats = [
+            $dpxlCats = [
                 'auth'     => ['color' => 'yellow',  'label' => __('Authentication', 'dpxl-shield')],
                 'user'     => ['color' => 'purple',  'label' => __('User/Permissions', 'dpxl-shield')],
                 'plugin'   => ['color' => 'blue',    'label' => __('Plugin/Updates', 'dpxl-shield')],
@@ -77,9 +77,9 @@
                 'settings' => ['color' => 'green',   'label' => __('Site Settings', 'dpxl-shield')],
                 'content'  => ['color' => 'gray',    'label' => __('Content', 'dpxl-shield')],
             ];
-            foreach ($cats as $cat => $meta) : ?>
-                <span class="dpxl-audit-dot dpxl-audit-dot--<?php echo esc_attr($meta['color']); ?>"></span>
-                <?php echo esc_html($meta['label']); ?>
+            foreach ($dpxlCats as $dpxlCat => $dpxlMeta) : ?>
+                <span class="dpxl-audit-dot dpxl-audit-dot--<?php echo esc_attr($dpxlMeta['color']); ?>"></span>
+                <?php echo esc_html($dpxlMeta['label']); ?>
             <?php endforeach; ?>
         </div>
     </div>

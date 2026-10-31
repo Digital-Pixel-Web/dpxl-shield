@@ -2,6 +2,19 @@
 
 Histórico completo de versões do DPXL Shield. O `readme.txt` traz só as versões recentes, como pede o diretório do WordPress.org.
 
+## 1.12.1
+
+* **Alterado: os arquivos que o plugin grava em funcionamento saíram da pasta do plugin** e foram para `wp-content/uploads/dpxl-shield/` (configuração do firewall, lista de bloqueio, atualizações de regras, base de países, fila de eventos e backups de reparo). Antes, cada atualização do plugin apagava tudo isso. Exigência do diretório do WordPress.org.
+* **Alterado: o reparo de arquivos do core baixa o original do próprio WordPress.org** (`core.svn.wordpress.org`) em vez de um espelho no GitHub.
+* **Alterado: a base de países passa a ser a IP to Country Lite da DB-IP** (CC BY 4.0, que permite redistribuir). A GeoLite2 da MaxMind não pode ser repassada a outros sites sem licença comercial. O crédito exibido acompanha a base instalada.
+* **Alterado: o feed assinado de regras mudou para `Digital-Pixel-Web/dpxl-shield-rules`**, junto do plugin, e passou a ser assinado com uma chave Ed25519 nova.
+* **Alterado:** as cópias da autoproteção usam nomes com o prefixo do plugin (antes `_site_check_*` e `wp-content/.shieldwp-integrity`) e são comparadas como JSON, sem `unserialize`.
+* **Alterado:** erros só vão para o log do PHP com `WP_DEBUG` ligado.
+* **Corrigido:** com a Proteção Estendida, bloqueios feitos antes do WordPress banem o IP e aparecem no Tráfego ao vivo.
+* **Corrigido:** sem APCu, o detector de anomalias conta URLs distintas, então requisições repetidas ao mesmo endpoint não são mais tratadas como varredura. O Tráfego ao vivo ignora o WP-CLI.
+* **Alterado:** limite do XML-RPC de 3 para 10 requisições por minuto.
+* **Código:** correções do que o Plugin Check aponta (escape de saída, sanitização de entrada, consultas preparadas, funções de arquivo do WordPress). `readme.txt` ganhou a seção "External services".
+
 ## 1.12.0
 
 * **Segurança: IP do visitante não pode mais ser falsificado.** Cabeçalhos como `X-Forwarded-For` e `CF-Connecting-IP` só são aceitos de proxies confiáveis (Cloudflare, rede local ou a constante `DPXL_SHIELD_TRUSTED_PROXIES`). Antes, qualquer visitante escolhia o próprio IP para escapar de bloqueios ou fazer o IP de outra pessoa ser bloqueado.

@@ -31,7 +31,9 @@ class ScanOrchestrator {
      * Called by the daily cron hook `dpxl_shield_full_scan`.
      */
     public function runFullScan(): array {
-        @set_time_limit(0);
+        // A full scan reads every file of the install; the default 30 s limit
+        // would cut it off midway on a large site. Runs from cron only.
+        @set_time_limit(0); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged
         @ignore_user_abort(true);
 
         $this->results     = [];

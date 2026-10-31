@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Admin;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Core\Options;
 use DPXL\Shield\Bootstrap\AutoPrepend;
 use DPXL\Shield\Alerts\ReportData;
@@ -196,9 +192,9 @@ class AdminMenu {
             'Blocklist Checks' => 'Checagens de blocklist',
             'Copy' => 'Copiar',
             'Copy this token now — it will not be shown again.' => 'Copie este token agora — ele não será mostrado de novo.',
-            'Could not download the GeoLite2 database.' => 'Não foi possível baixar a base GeoLite2.',
+            'Could not download the country database.' => 'Não foi possível baixar a base de países.',
             'Could not reach the feed for WAF rules.' => 'Não foi possível acessar o feed de regras do WAF.',
-            'Country data: this product includes GeoLite2 data created by MaxMind, available from %s.' => 'Dados de país: este produto inclui dados GeoLite2 criados pela MaxMind, disponíveis em %s.',
+            'IP geolocation by %s, licensed under CC BY 4.0.' => 'Geolocalização de IP por %s, sob licença CC BY 4.0.',
             'Create token' => 'Criar token',
             'Critical only' => 'Somente críticos',
             'Date' => 'Data',
@@ -214,10 +210,10 @@ class AdminMenu {
             'Filter by IP, reason…' => 'Filtrar por IP, motivo…',
             'For systems that prefer to pull rather than receive. A token grants read-only access to the audit log, traffic log, scan results and firewall status — nothing can be changed through it.' => 'Para sistemas que preferem buscar em vez de receber. O token dá acesso somente de leitura ao log de auditoria, ao log de tráfego, aos resultados de varredura e ao estado do firewall — nada pode ser alterado por ele.',
             'Generic JSON (SIEM)' => 'JSON genérico (SIEM)',
-            'GeoLite2 auto-update is disabled.' => 'A atualização automática da base GeoLite2 está desligada.',
-            'GeoLite2 database installed/updated (%s).' => 'Base GeoLite2 instalada/atualizada (%s).',
-            'GeoLite2 database is already up to date.' => 'A base GeoLite2 já está atualizada.',
-            'GeoLite2 database verification failed — rejected.' => 'A verificação da base GeoLite2 falhou — base rejeitada.',
+            'Country database auto-update is disabled.' => 'A atualização automática da base de países está desligada.',
+            'Country database installed/updated (%s).' => 'Base de países instalada/atualizada (%s).',
+            'Country database is already up to date.' => 'A base de países já está atualizada.',
+            'Country database verification failed — rejected.' => 'A verificação da base de países falhou — base rejeitada.',
             'Give each integration its own token so you can revoke one without disturbing the others. Revoking takes effect immediately.' => 'Dê um token próprio a cada integração, assim você revoga um sem mexer nos outros. A revogação vale na hora.',
             'High and above' => 'Alto e acima',
             'How to use it' => 'Como usar',
@@ -226,7 +222,7 @@ class AdminMenu {
             'Low and above' => 'Baixo e acima',
             'Medium and above' => 'Médio e acima',
             'Name' => 'Nome',
-            'No GeoLite2 database is available in the feed yet.' => 'Ainda não há base GeoLite2 disponível no feed.',
+            'No country database is available in the feed yet.' => 'Ainda não há base de países disponível no feed.',
             'Outbound webhooks' => 'Webhooks de saída',
             'Plain HTTP is refused — these payloads describe attacks on your site and must not travel in the clear.' => 'HTTP sem TLS é recusado — esses envios descrevem ataques ao seu site e não podem trafegar abertos.',
             'Push security events to Slack, Discord, PagerDuty or any SIEM as they happen. Each endpoint has its own severity threshold, so a chat channel can take only the serious ones while a SIEM takes everything.' => 'Envie eventos de segurança para Slack, Discord, PagerDuty ou qualquer SIEM assim que acontecem. Cada destino tem seu próprio limite de severidade, então um canal de chat pode receber só o que é grave enquanto um SIEM recebe tudo.',
@@ -592,7 +588,7 @@ class AdminMenu {
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Content-Length: ' . strlen($content));
 
-        echo $content;
+        echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- plain-text file download (the site's own .htaccess), not HTML.
         exit;
     }
 
@@ -622,7 +618,7 @@ class AdminMenu {
         header('Content-Disposition: attachment; filename="' . $report->filename($data) . '"');
         header('Content-Length: ' . strlen($pdf));
 
-        echo $pdf; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped — binary PDF
+        echo $pdf; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- binary PDF download, not HTML.
         exit;
     }
 
@@ -637,7 +633,7 @@ class AdminMenu {
 
         check_admin_referer('dpxl_shield_check_feed');
 
-        // "Check now" covers the whole feed: WAF rules and the GeoLite2 database.
+        // "Check now" covers the whole feed: WAF rules and the country database.
         $status    = (new ThreatFeedUpdater())->run();
         $geoStatus = (new GeoDbUpdater())->run();
         set_transient(
@@ -679,7 +675,7 @@ class AdminMenu {
             return;
         }
 
-        if (isset($_GET['dpxl_extended_result'])) {
+        if (isset($_GET['dpxl_extended_result'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only: picks which tab or notice to show.
             $result = get_transient('dpxl_shield_extended_result_' . get_current_user_id());
             delete_transient('dpxl_shield_extended_result_' . get_current_user_id());
 
@@ -700,7 +696,9 @@ class AdminMenu {
         echo '<div class="notice notice-warning dpxl-notice dpxl-notice--extended-warning">';
         echo '<p><strong>' . esc_html__('DPXL Shield', 'dpxl-shield') . '</strong> — ';
         echo esc_html__('Extended Protection is not active. Your firewall loads after WordPress, reducing protection.', 'dpxl-shield') . ' ';
-        echo '<a href="' . esc_url($wizardUrl) . '">' . esc_html__('Enable now', 'dpxl-shield') . ' ' . Icons::svg('arrow-right', '', 13) . '</a></p>';
+        echo '<a href="' . esc_url($wizardUrl) . '">' . esc_html__('Enable now', 'dpxl-shield') . ' ';
+        Icons::render('arrow-right', '', 13);
+        echo '</a></p>';
         echo '</div>';
     }
 
@@ -727,7 +725,7 @@ class AdminMenu {
             wp_die(esc_html__('You do not have permission to view this page.', 'dpxl-shield'));
         }
 
-        $tab  = sanitize_key($_GET['tab'] ?? 'live-traffic');
+        $tab  = sanitize_key($_GET['tab'] ?? 'live-traffic'); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only: picks which tab or notice to show.
         // Must stay in step with $toolTabs in Views/tools.php and with the
         // partials in Views/tools/. A tab missing here is still drawn in the
         // nav and still has a view file, but the whitelist silently rewrites

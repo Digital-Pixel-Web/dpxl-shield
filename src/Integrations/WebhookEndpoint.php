@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Integrations;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 /**
  * One configured outbound webhook destination.
  *
@@ -104,7 +100,7 @@ final class WebhookEndpoint {
         $label = isset($data['label']) ? trim((string) $data['label']) : '';
 
         if ($label === '') {
-            $host  = parse_url($url, PHP_URL_HOST);
+            $host  = wp_parse_url($url, PHP_URL_HOST);
             $label = is_string($host) && $host !== '' ? $host : $format;
         }
 

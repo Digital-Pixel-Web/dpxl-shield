@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Firewall;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 class IpBlocklist {
 
     private const TRANSIENT_KEY  = 'dpxl_shield_blocked_ips_cache';
@@ -45,6 +41,10 @@ class IpBlocklist {
         // before WordPress loads. Guard here to prevent a fatal "call to member function
         // on null" when the WAF blocks a request pre-WordPress.
         if (!$wpdb instanceof \wpdb) {
+            // Extended Protection: queue it for the next request that loads
+            // WordPress, which writes it through this same method.
+            EarlyEvents::queueBan($ip, $reason, $source, $durationSeconds);
+
             return false;
         }
 

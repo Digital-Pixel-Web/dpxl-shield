@@ -86,7 +86,7 @@ class RuleRepositoryTest extends TestCase {
 
     public function testFeedNeverShrinksTheBuiltInFloor(): void {
         // A RuleEngine with no feed file present has exactly the 6 built-in rules.
-        $defaultFeed = DPXL_SHIELD_PATH . 'data/waf-rules.active.json';
+        $defaultFeed = \DPXL\Shield\Core\EarlyConfig::dataDir() . '/waf-rules.active.json';
 
         if (is_file($defaultFeed)) {
             $this->markTestSkipped('A real feed file is present; skipping the floor-count assertion.');

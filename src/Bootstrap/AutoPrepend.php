@@ -85,7 +85,7 @@ class AutoPrepend {
         if (ServerDetector::supportsHtaccess()) {
             $target = file_exists($htaccessPath) ? $htaccessPath : dirname($htaccessPath);
 
-            if (is_writable($target)) {
+            if (wp_is_writable($target)) {
                 $htaccessAttempted = true;
                 $original = file_exists($htaccessPath) ? (string) @file_get_contents($htaccessPath) : '';
                 $block    = $this->buildHtaccessBlock($prependFile);
@@ -251,7 +251,7 @@ class AutoPrepend {
             'htaccess_backup_downloaded_at' => $backupInfo['downloaded_at'],
             'user_ini_path'                  => $this->getUserIniPath(),
             'user_ini_exists'                => file_exists($this->getUserIniPath()),
-            'user_ini_writable'              => is_writable(file_exists($this->getUserIniPath()) ? $this->getUserIniPath() : dirname($this->getUserIniPath())),
+            'user_ini_writable'              => wp_is_writable(file_exists($this->getUserIniPath()) ? $this->getUserIniPath() : dirname($this->getUserIniPath())),
             'last_error'                    => get_option(self::ERROR_OPTION, null),
             'manual_snippet'                => $this->manualSnippet($prependFile, $this->getWafFile()),
         ];
@@ -290,7 +290,7 @@ class AutoPrepend {
             'path'          => $path,
             'exists'        => $exists,
             'size'          => $exists ? (int) @filesize($path) : 0,
-            'writable'      => is_writable($target),
+            'writable'      => wp_is_writable($target),
             'downloaded'    => $this->hasDownloadedHtaccessBackup(),
             'downloaded_at' => get_option(self::BACKUP_OPTION, ''),
         ];
@@ -325,49 +325,51 @@ class AutoPrepend {
     }
 
     private function buildActivePrependLoader(string $wafFile): string {
-        $exportedWafFile = var_export($wafFile, true);
+        $exportedWafFile = var_export($wafFile, true); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export -- writes a PHP literal into a generated file, not debug output.
+        $exportedDataDir = var_export(\DPXL\Shield\Core\EarlyConfig::dataDir(), true); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export -- writes a PHP literal into a generated file, not debug output.
 
-        return <<<PHP
-<?php
-/**
- * DPXL Shield safe prepend loader.
- *
- * This file is intentionally stored outside the plugin folder. The server's
- * auto_prepend_file directive points here instead of pointing directly to the
- * plugin directory. If DPXL Shield is deleted or unavailable, this loader no-ops
- * so the site does not break.
- */
-if (!defined('DPXL_SHIELD_PREPEND_LOADED')) {
-    define('DPXL_SHIELD_PREPEND_LOADED', true);
-}
-
-// The installer validates this header against a temporary PHP file, not the
-// homepage, to avoid false negatives caused by page cache/CDN cache.
-if (!headers_sent()) {
-    header('X-DPXL-Shield-Prepend: active');
-}
-
-\$dpxlShieldWafFile = {$exportedWafFile};
-
-if (is_string(\$dpxlShieldWafFile) && file_exists(\$dpxlShieldWafFile) && is_readable(\$dpxlShieldWafFile)) {
-    require_once \$dpxlShieldWafFile;
-}
-
-return;
-PHP;
+        return '<?php' . "\n"
+            . '/**' . "\n"
+            . ' * DPXL Shield safe prepend loader.' . "\n"
+            . ' *' . "\n"
+            . ' * This file is intentionally stored outside the plugin folder. The server\'s' . "\n"
+            . ' * auto_prepend_file directive points here instead of pointing directly to the' . "\n"
+            . ' * plugin directory. If DPXL Shield is deleted or unavailable, this loader no-ops' . "\n"
+            . ' * so the site does not break.' . "\n"
+            . ' */' . "\n"
+            . 'if (!defined(\'DPXL_SHIELD_PREPEND_LOADED\')) {' . "\n"
+            . '    define(\'DPXL_SHIELD_PREPEND_LOADED\', true);' . "\n"
+            . '}' . "\n"
+            . "\n"
+            . '// The installer validates this header against a temporary PHP file, not the' . "\n"
+            . '// homepage, to avoid false negatives caused by page cache/CDN cache.' . "\n"
+            . 'if (!headers_sent()) {' . "\n"
+            . '    header(\'X-DPXL-Shield-Prepend: active\');' . "\n"
+            . '}' . "\n"
+            . "\n"
+            . '// Where the firewall keeps its config and blocklist (uploads/dpxl-shield).' . "\n"
+            . 'if (!defined(\'DPXL_SHIELD_DATA_DIR\')) {' . "\n"
+            . '    define(\'DPXL_SHIELD_DATA_DIR\', ' . $exportedDataDir . ');' . "\n"
+            . '}' . "\n"
+            . "\n"
+            . '$dpxlShieldWafFile = ' . $exportedWafFile . ';' . "\n"
+            . "\n"
+            . 'if (is_string($dpxlShieldWafFile) && file_exists($dpxlShieldWafFile) && is_readable($dpxlShieldWafFile)) {' . "\n"
+            . '    require_once $dpxlShieldWafFile;' . "\n"
+            . '}' . "\n"
+            . "\n"
+            . 'return;';
     }
 
     private function buildNoopPrependLoader(): string {
-        return <<<PHP
-<?php
-/**
- * DPXL Shield safe prepend loader disabled.
- *
- * This no-op file is kept intentionally. If an auto_prepend_file directive still
- * points here after deactivation or uninstall, the site remains online.
- */
-return;
-PHP;
+        return '<?php' . "\n"
+            . '/**' . "\n"
+            . ' * DPXL Shield safe prepend loader disabled.' . "\n"
+            . ' *' . "\n"
+            . ' * This no-op file is kept intentionally. If an auto_prepend_file directive still' . "\n"
+            . ' * points here after deactivation or uninstall, the site remains online.' . "\n"
+            . ' */' . "\n"
+            . 'return;';
     }
 
     // ── .htaccess handling ────────────────────────────────────────────────
@@ -411,7 +413,11 @@ PHP;
     }
 
     private function createServerSideBackup(string $content): ?string {
-        $dir = wp_normalize_path(WP_CONTENT_DIR . '/dpxl-shield-backups');
+        if (!\DPXL\Shield\Core\EarlyConfig::ensureDataDir()) {
+            return null;
+        }
+
+        $dir = wp_normalize_path(\DPXL\Shield\Core\EarlyConfig::dataDir() . '/backups');
 
         if (!wp_mkdir_p($dir)) {
             return null;
@@ -437,7 +443,7 @@ PHP;
     private function writeFileAtomic(string $path, string $content): bool {
         $dir = dirname($path);
 
-        if (!is_dir($dir) || !is_writable(file_exists($path) ? $path : $dir)) {
+        if (!is_dir($dir) || !wp_is_writable(file_exists($path) ? $path : $dir)) {
             return false;
         }
 
@@ -447,14 +453,16 @@ PHP;
             return false;
         }
 
+        // Keep the permissions of the file being replaced.
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- a temp file is swapped in; WP_Filesystem::chmod() would need credentials for .htaccess on some hosts.
         @chmod($temp, file_exists($path) ? (fileperms($path) & 0777) : 0644);
 
-        if (@rename($temp, $path)) {
+        if (\DPXL\Shield\Core\Fs::move($temp, $path)) {
             clearstatcache(true, $path);
             return true;
         }
 
-        @unlink($temp);
+        wp_delete_file($temp);
 
         if (@file_put_contents($path, $content, LOCK_EX) !== false) {
             clearstatcache(true, $path);
@@ -509,7 +517,7 @@ PHP;
                 ],
             ]);
 
-            @unlink($testFile);
+            wp_delete_file($testFile);
 
             if (is_wp_error($response)) {
                 $lastResult = [
@@ -587,7 +595,7 @@ PHP;
             return true;
         }
 
-        if (!is_writable($path)) {
+        if (!wp_is_writable($path)) {
             return false;
         }
 
@@ -607,7 +615,7 @@ PHP;
             return true;
         }
 
-        if (!is_writable($path)) {
+        if (!wp_is_writable($path)) {
             return false;
         }
 
@@ -627,7 +635,7 @@ PHP;
         $path   = $this->getUserIniPath();
         $target = file_exists($path) ? $path : dirname($path);
 
-        if (!is_writable($target)) {
+        if (!wp_is_writable($target)) {
             return [
                 'success' => false,
                 'active'  => false,
@@ -724,64 +732,60 @@ PHP;
         $userIniPath = $this->getUserIniPath();
 
         if ($server === ServerDetector::NGINX) {
-            return <<<NGINX
-# DPXL Shield manual fallback for Nginx / PHP-FPM
-#
-# 1) Create this file first:
-# {$prependFile}
-
-{$activeLoader}
-
-# 2) Add this inside the PHP location block / fastcgi configuration:
-fastcgi_param PHP_VALUE "auto_prepend_file={$prependFile}";
-
-# Safety note:
-# If DPXL Shield is removed, keep {$prependFile} as a no-op file or remove the
-# fastcgi_param line before deleting the file.
-NGINX;
+            return '# DPXL Shield manual fallback for Nginx / PHP-FPM' . "\n"
+                . '#' . "\n"
+                . '# 1) Create this file first:' . "\n"
+                . '# ' . $prependFile . "\n"
+                . "\n"
+                . $activeLoader . "\n"
+                . "\n"
+                . '# 2) Add this inside the PHP location block / fastcgi configuration:' . "\n"
+                . 'fastcgi_param PHP_VALUE "auto_prepend_file=' . $prependFile . '";' . "\n"
+                . "\n"
+                . '# Safety note:' . "\n"
+                . '# If DPXL Shield is removed, keep ' . $prependFile . ' as a no-op file or remove the' . "\n"
+                . '# fastcgi_param line before deleting the file.';
         }
 
-        return <<<HTACCESS
-# DPXL Shield manual fallback
-#
-# 1) Create this file first:
-# {$prependFile}
-
-{$activeLoader}
-
-# 2) Add this to the WordPress root .htaccess file:
-# BEGIN DPXL Shield Extended Protection
-<IfModule LiteSpeed>
-    php_value auto_prepend_file "{$prependFile}"
-</IfModule>
-<IfModule lsapi_module>
-    php_value auto_prepend_file "{$prependFile}"
-</IfModule>
-<IfModule mod_php.c>
-    php_value auto_prepend_file "{$prependFile}"
-</IfModule>
-<IfModule mod_php5.c>
-    php_value auto_prepend_file "{$prependFile}"
-</IfModule>
-<IfModule mod_php7.c>
-    php_value auto_prepend_file "{$prependFile}"
-</IfModule>
-<IfModule mod_php8.c>
-    php_value auto_prepend_file "{$prependFile}"
-</IfModule>
-# END DPXL Shield Extended Protection
-
-# If your host uses PHP-FPM/CGI and .htaccess php_value is ignored,
-# create or edit {$userIniPath} and add this instead.
-# It may take a few minutes because PHP can cache .user.ini values:
-; BEGIN DPXL Shield Extended Protection
-auto_prepend_file = "{$prependFile}"
-; END DPXL Shield Extended Protection
-
-# Safety note:
-# Do not point auto_prepend_file directly to the plugin folder.
-# Use the safe loader above so the site does not go down if the plugin is deleted.
-HTACCESS;
+        return '# DPXL Shield manual fallback' . "\n"
+            . '#' . "\n"
+            . '# 1) Create this file first:' . "\n"
+            . '# ' . $prependFile . "\n"
+            . "\n"
+            . $activeLoader . "\n"
+            . "\n"
+            . '# 2) Add this to the WordPress root .htaccess file:' . "\n"
+            . '# BEGIN DPXL Shield Extended Protection' . "\n"
+            . '<IfModule LiteSpeed>' . "\n"
+            . '    php_value auto_prepend_file "' . $prependFile . '"' . "\n"
+            . '</IfModule>' . "\n"
+            . '<IfModule lsapi_module>' . "\n"
+            . '    php_value auto_prepend_file "' . $prependFile . '"' . "\n"
+            . '</IfModule>' . "\n"
+            . '<IfModule mod_php.c>' . "\n"
+            . '    php_value auto_prepend_file "' . $prependFile . '"' . "\n"
+            . '</IfModule>' . "\n"
+            . '<IfModule mod_php5.c>' . "\n"
+            . '    php_value auto_prepend_file "' . $prependFile . '"' . "\n"
+            . '</IfModule>' . "\n"
+            . '<IfModule mod_php7.c>' . "\n"
+            . '    php_value auto_prepend_file "' . $prependFile . '"' . "\n"
+            . '</IfModule>' . "\n"
+            . '<IfModule mod_php8.c>' . "\n"
+            . '    php_value auto_prepend_file "' . $prependFile . '"' . "\n"
+            . '</IfModule>' . "\n"
+            . '# END DPXL Shield Extended Protection' . "\n"
+            . "\n"
+            . '# If your host uses PHP-FPM/CGI and .htaccess php_value is ignored,' . "\n"
+            . '# create or edit ' . $userIniPath . ' and add this instead.' . "\n"
+            . '# It may take a few minutes because PHP can cache .user.ini values:' . "\n"
+            . '; BEGIN DPXL Shield Extended Protection' . "\n"
+            . 'auto_prepend_file = "' . $prependFile . '"' . "\n"
+            . '; END DPXL Shield Extended Protection' . "\n"
+            . "\n"
+            . '# Safety note:' . "\n"
+            . '# Do not point auto_prepend_file directly to the plugin folder.' . "\n"
+            . '# Use the safe loader above so the site does not go down if the plugin is deleted.';
     }
 
     private function fail(string $code, string $message, array $extra = []): array {

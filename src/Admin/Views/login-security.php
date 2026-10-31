@@ -1,5 +1,5 @@
 <?php defined('ABSPATH') || exit;
-$tab  = sanitize_key($_GET['tab'] ?? '2fa');
+$tab  = sanitize_key($_GET['tab'] ?? '2fa'); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only: picks which tab or notice to show.
 $tabs = ['2fa', 'settings'];
 $tab  = in_array($tab, $tabs, true) ? $tab : '2fa';
 ?>
@@ -20,29 +20,29 @@ $tab  = in_array($tab, $tabs, true) ? $tab : '2fa';
     <?php if ($tab === '2fa') : ?>
     <div class="dpxl-tab-pane" id="tab-2fa">
         <?php
-        $userId    = get_current_user_id();
-        $user      = wp_get_current_user();
+        $dpxlUserId    = get_current_user_id();
+        $dpxlUser      = wp_get_current_user();
         // TwoFactorAuth stores the flag under this key; the old check read a key
         // nothing writes, so the screen always offered first-time setup.
-        $has2fa    = (bool) get_user_meta($userId, 'dpxl_shield_totp_enabled', true);
+        $dpxlHas2fa    = (bool) get_user_meta($dpxlUserId, 'dpxl_shield_totp_enabled', true);
         ?>
         <?php
         // The screen only ever answered "is 2FA on for me". The question the
         // dashboard gauge actually asks — and the one that decides whether the
         // site is covered — is how many administrators have finished setting it
         // up. On the staging install that was zero while the gauge read 100%.
-        $admins    = get_users(['role' => 'administrator', 'fields' => 'ID', 'number' => 100]);
-        $adminCt   = is_array($admins) ? count($admins) : 0;
-        $covered   = 0;
+        $dpxlAdmins    = get_users(['role' => 'administrator', 'fields' => 'ID', 'number' => 100]);
+        $dpxlAdminCt   = is_array($dpxlAdmins) ? count($dpxlAdmins) : 0;
+        $dpxlCovered   = 0;
 
-        foreach ((array) $admins as $adminId) {
-            if (get_user_meta((int) $adminId, 'dpxl_shield_totp_enabled', true)) {
-                $covered++;
+        foreach ((array) $dpxlAdmins as $dpxlAdminId) {
+            if (get_user_meta((int) $dpxlAdminId, 'dpxl_shield_totp_enabled', true)) {
+                $dpxlCovered++;
             }
         }
         ?>
-        <div class="dpxl-card dpxl-2fa-coverage dpxl-2fa-coverage--<?php echo $covered > 0 ? 'ok' : 'warn'; ?>">
-            <?php \DPXL\Shield\Admin\Icons::render($covered > 0 ? 'check-circle' : 'alert-triangle', $covered > 0 ? 'dpxl-icon--ok' : 'dpxl-icon--medium'); ?>
+        <div class="dpxl-card dpxl-2fa-coverage dpxl-2fa-coverage--<?php echo $dpxlCovered > 0 ? 'ok' : 'warn'; ?>">
+            <?php \DPXL\Shield\Admin\Icons::render($dpxlCovered > 0 ? 'check-circle' : 'alert-triangle', $dpxlCovered > 0 ? 'dpxl-icon--ok' : 'dpxl-icon--medium'); ?>
             <div>
                 <strong><?php
                     printf(
@@ -50,15 +50,15 @@ $tab  = in_array($tab, $tabs, true) ? $tab : '2fa';
                         esc_html(_n(
                             '%1$d de %2$d administrador com verificação em duas etapas ativa',
                             '%1$d de %2$d administradores com verificação em duas etapas ativa',
-                            $adminCt,
+                            $dpxlAdminCt,
                             'dpxl-shield'
                         )),
-                        $covered,
-                        $adminCt
+                        absint($dpxlCovered),
+                        absint($dpxlAdminCt)
                     );
                 ?></strong>
                 <p class="dpxl-muted"><?php
-                    echo $covered > 0
+                    echo $dpxlCovered > 0
                         ? esc_html__('Uma conta de administrador sem segunda etapa continua sendo uma senha só. Vale cobrir todas.', 'dpxl-shield')
                         : esc_html__('Enquanto for zero, a senha é a única coisa entre um invasor e o painel deste site.', 'dpxl-shield');
                 ?></p>
@@ -67,9 +67,11 @@ $tab  = in_array($tab, $tabs, true) ? $tab : '2fa';
 
         <div class="dpxl-card">
             <h2><?php \DPXL\Shield\Admin\Icons::render('lock'); ?> <?php esc_html_e('Two-Factor Authentication', 'dpxl-shield'); ?> <a href="#" class="dpxl-learn-more"><?php esc_html_e('Learn more', 'dpxl-shield'); ?> <?php \DPXL\Shield\Admin\Icons::render('external-link', '', 13); ?></a></h2>
-            <p><?php printf(esc_html__('Editing user: %s (you)', 'dpxl-shield'), esc_html($user->user_login)); ?></p>
+            <p><?php
+                /* translators: %s: user login. */
+                printf(esc_html__('Editing user: %s (you)', 'dpxl-shield'), esc_html($dpxlUser->user_login)); ?></p>
 
-            <?php if ($has2fa) : ?>
+            <?php if ($dpxlHas2fa) : ?>
                 <div class="dpxl-notice dpxl-notice--success">
                     <?php \DPXL\Shield\Admin\Icons::render('check-circle', 'dpxl-icon--ok'); ?> <?php esc_html_e('Two-Factor Authentication is ACTIVE for this account.', 'dpxl-shield'); ?>
                 </div>
@@ -128,25 +130,25 @@ $tab  = in_array($tab, $tabs, true) ? $tab : '2fa';
         </div>
         <div class="dpxl-card">
             <h2><?php esc_html_e('Enforce 2FA by Role', 'dpxl-shield'); ?></h2>
-            <?php foreach (['administrator' => 'Administrator', 'editor' => 'Editor', 'author' => 'Author', 'contributor' => 'Contributor'] as $role => $label) : ?>
+            <?php foreach (['administrator' => 'Administrator', 'editor' => 'Editor', 'author' => 'Author', 'contributor' => 'Contributor'] as $role => $dpxlLabel) : ?>
                 <label class="dpxl-checkbox-label">
                     <input type="checkbox" name="2fa_required_roles[]" value="<?php echo esc_attr($role); ?>" <?php echo $role === 'administrator' ? 'checked' : ''; ?>>
-                    <?php echo esc_html($label); ?>
+                    <?php echo esc_html($dpxlLabel); ?>
                 </label>
             <?php endforeach; ?>
         </div>
         <div class="dpxl-card">
             <h2><?php esc_html_e('Additional Options', 'dpxl-shield'); ?></h2>
             <?php
-            $opts = [
+            $dpxlOpts = [
                 'password_audit_enabled'  => __('Check passwords against breach database (HaveIBeenPwned)', 'dpxl-shield'),
                 'generic_login_errors'    => __('Hide WordPress login errors (generic message)', 'dpxl-shield'),
                 'disable_xmlrpc_auth'     => __('Disable XML-RPC authentication', 'dpxl-shield'),
             ];
-            foreach ($opts as $name => $label) : ?>
+            foreach ($dpxlOpts as $dpxlName => $dpxlLabel) : ?>
                 <div class="dpxl-option-row">
-                    <label><?php echo esc_html($label); ?></label>
-                    <label class="dpxl-toggle"><input type="checkbox" name="<?php echo esc_attr($name); ?>" value="1"> <span></span></label>
+                    <label><?php echo esc_html($dpxlLabel); ?></label>
+                    <label class="dpxl-toggle"><input type="checkbox" name="<?php echo esc_attr($dpxlName); ?>" value="1"> <span></span></label>
                 </div>
             <?php endforeach; ?>
         </div>

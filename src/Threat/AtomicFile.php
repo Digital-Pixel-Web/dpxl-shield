@@ -3,14 +3,12 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Threat;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
+use DPXL\Shield\Core\Fs;
 
 /**
  * Atomic file replacement with one-level rollback.
  *
- * The active feed file (data/waf-rules.active.json) is read by the firewall
+ * The active feed file (waf-rules.active.json in the data folder) is read by the firewall
  * *before WordPress loads* (Extended mode). A half-written file there could
  * break the firewall and, worst case, 500 the whole site. So writes go to a
  * sibling temp file, are flushed to disk, and are swapped in with rename() —
@@ -29,14 +27,12 @@ class AtomicFile {
     public static function write(string $path, string $contents, bool $keepBackup = true): bool {
         $dir = dirname($path);
 
-        // data/ is not shipped in the repository and is wiped by plugin
-        // updates, so the first write after an install or update creates it.
-        // Without this the threat feed and the GeoIP database never landed.
-        if (!is_dir($dir)) {
-            @mkdir($dir, 0755, true);
-        }
+        // The data folder does not exist on a fresh install, so the first
+        // write creates it. Without this the threat feed and the country
+        // database never landed.
+        Fs::mkdirP($dir);
 
-        if (!is_dir($dir) || !is_writable($dir)) {
+        if (!is_dir($dir) || !Fs::isWritable($dir)) {
             return false;
         }
 
@@ -47,14 +43,14 @@ class AtomicFile {
 
         $tmp = $path . '.' . getmypid() . '.tmp';
 
-        if (!self::putContentsSynced($tmp, $contents)) {
-            @unlink($tmp);
+        if (!Fs::putSynced($tmp, $contents)) {
+            Fs::delete($tmp);
             return false;
         }
 
         // rename() is atomic within the same filesystem and overwrites the target.
-        if (!@rename($tmp, $path)) {
-            @unlink($tmp);
+        if (!Fs::move($tmp, $path)) {
+            Fs::delete($tmp);
             return false;
         }
 
@@ -70,36 +66,5 @@ class AtomicFile {
         }
 
         return @copy($bak, $path);
-    }
-
-    // ── Internals ──────────────────────────────────────────────────────────
-
-    /** Writes $contents to $path and fsyncs before returning. */
-    private static function putContentsSynced(string $path, string $contents): bool {
-        $handle = @fopen($path, 'wb');
-
-        if ($handle === false) {
-            return false;
-        }
-
-        $ok = true;
-
-        if (@fwrite($handle, $contents) === false) {
-            $ok = false;
-        }
-
-        if ($ok && function_exists('fflush')) {
-            @fflush($handle);
-        }
-
-        // fsync (PHP 8.1+) forces the bytes to disk so a crash can't leave a
-        // torn file behind the rename. Guarded in case it is disabled.
-        if ($ok && function_exists('fsync')) {
-            @fsync($handle);
-        }
-
-        @fclose($handle);
-
-        return $ok;
     }
 }

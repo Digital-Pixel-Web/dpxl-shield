@@ -216,8 +216,8 @@ class Diagnostics {
      */
     private function checkClientIp(): array {
         $resolved  = \DPXL\Shield\Core\ClientIp::current();
-        $remote    = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
-        $forwarded = (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ($_SERVER['HTTP_X_REAL_IP'] ?? ''));
+        $remote    = sanitize_text_field(wp_unslash((string) ($_SERVER['REMOTE_ADDR'] ?? '')));
+        $forwarded = sanitize_text_field(wp_unslash((string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ($_SERVER['HTTP_X_REAL_IP'] ?? ''))));
 
         if ($forwarded !== '' && $resolved === $remote) {
             return [
@@ -274,7 +274,7 @@ class Diagnostics {
 
     /** @return array{status:string,label:string,value:string,note:string} */
     private function checkMaxMindDb(): array {
-        $path   = defined('DPXL_SHIELD_PATH') ? DPXL_SHIELD_PATH . 'data/GeoLite2-Country.mmdb' : '';
+        $path   = \DPXL\Shield\Firewall\CountryBlocker::mmdbPath();
         $exists = $path && file_exists($path);
 
         $version    = (string) get_option('dpxl_shield_geo_db_version', '');
@@ -287,20 +287,21 @@ class Diagnostics {
         if (!$exists) {
             return [
                 'status' => 'warning',
-                'label'  => 'Base GeoLite2 da MaxMind',
+                'label'  => 'Base de países (geolocalização)',
                 'value'  => $enabled ? 'Ainda não instalada' : 'Não instalada (atualização automática desligada)',
                 'note'   => $enabled
-                    ? 'Country features stay idle until the database downloads. It installs itself on the daily update — or use "Check now" in All Options to fetch it immediately.'
-                    : 'Auto-update is disabled, so the database will never download. Enable it in All Options → Firewall.',
+                    ? 'O bloqueio e as estatísticas por país ficam parados até a base ser baixada. Ela se instala sozinha na atualização diária, ou use "Verificar agora" em Todas as Opções para baixar na hora.'
+                    : 'A atualização automática está desligada, então a base nunca será baixada. Ligue em Todas as Opções → Firewall.',
             ];
         }
 
-        // Stale is a real risk here: MaxMind requires redistributed copies to be
-        // under 30 days old, and an old DB silently mislabels traffic.
+        // Stale is a real risk here: an old DB silently mislabels traffic.
         $ageDays = (int) floor((time() - (int) filemtime($path)) / DAY_IN_SECONDS);
 
         $verificationFailed = in_array($lastStatus, ['sig_fail', 'hash_fail'], true);
-        $stale              = $ageDays > 30;
+        // DB-IP publishes monthly and the feed picks the new month up in its
+        // weekly run, so a healthy install can hold the same file ~38 days.
+        $stale              = $ageDays > 45;
 
         if ($verificationFailed) {
             $status = 'error';
@@ -310,14 +311,14 @@ class Diagnostics {
             $status = 'ok';
         }
 
-        $value = 'Present (' . $this->humanSize((int) filesize($path)) . ')'
+        $value = 'Instalada (' . $this->humanSize((int) filesize($path)) . ')'
             . ($version !== '' ? ' · ' . $version : '')
             . ($lastStatus !== '' ? ' · ' . $lastStatus : '');
 
         if ($verificationFailed) {
             $note = 'The downloaded database failed signature/integrity verification and was NOT applied. Possible feed-channel tampering.';
         } elseif ($stale) {
-            $note = "Database is {$ageDays} days old. MaxMind requires redistributed copies to stay under 30 days — check that the daily cron is running.";
+            $note = "Database is {$ageDays} days old — check that the daily cron is running.";
         } elseif (!$enabled) {
             $note = 'Auto-update is disabled; this database will go stale. Enable it in All Options → Firewall.';
         } elseif ($lastStatus === 'net_fail') {
@@ -330,7 +331,7 @@ class Diagnostics {
 
         return [
             'status' => $status,
-            'label'  => 'Base GeoLite2 da MaxMind',
+            'label'  => 'Base de países (geolocalização)',
             'value'  => $value,
             'note'   => $note,
         ];

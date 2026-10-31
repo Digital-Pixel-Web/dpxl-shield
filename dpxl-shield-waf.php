@@ -26,11 +26,9 @@ if (!defined('ABSPATH')) {
 
     $dpxlPluginDir = __DIR__;
 
-    // PHP 8 string helpers for the 7.4 floor. WordPress core's copy lives in
-    // wp-includes/compat.php, which does not exist on this path — the WAF runs
-    // before WordPress — so the plugin brings its own.
-    require_once $dpxlPluginDir . '/src/Compat/php-polyfill.php';
-
+    // PHP 8 string helpers for the 7.4 floor come with the autoloader
+    // (symfony/polyfill-php80): WordPress core's copy in wp-includes/compat.php
+    // does not exist yet on this path.
     if (file_exists($dpxlPluginDir . '/vendor/autoload.php')) {
         require_once $dpxlPluginDir . '/vendor/autoload.php';
     } else {

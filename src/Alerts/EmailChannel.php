@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Alerts;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Core\Options;
 use DPXL\Shield\Firewall\CountryBlocker;
 use DPXL\Shield\LoginSecurity\LoginAudit;
@@ -179,7 +175,7 @@ class EmailChannel {
     }
 
     /**
-     * Country from the bundled GeoLite2 (a local file read), organisation from
+     * Country from the local country database (a file read), organisation from
      * whatever the Whois tool has already cached.
      *
      * Nothing here goes out to the network — see WhoisLookup::cached(). An

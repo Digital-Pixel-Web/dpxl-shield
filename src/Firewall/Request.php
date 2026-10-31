@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Firewall;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 /**
  * Value object representing the current HTTP request.
  * Safe to instantiate before WordPress loads.
@@ -52,6 +48,10 @@ class Request {
 
     public function __construct() {
         $this->ip          = $this->resolveIp();
+        // The firewall inspects the request exactly as it arrived: sanitizing
+        // first would hide the payloads the rules look for. Nothing here is
+        // output or stored as-is; rules only match against it.
+        // phpcs:disable WordPress.Security.ValidatedSanitizedInput, WordPress.Security.NonceVerification
         $this->method      = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
         $this->uri         = $_SERVER['REQUEST_URI'] ?? '/';
         $this->queryString = $_SERVER['QUERY_STRING'] ?? '';
@@ -61,6 +61,7 @@ class Request {
         $this->get         = $_GET ?? [];
         $this->post        = $_POST ?? [];
         $this->cookies     = $_COOKIE ?? [];
+        // phpcs:enable
         $this->rawBody     = (string) @file_get_contents('php://input');
     }
 

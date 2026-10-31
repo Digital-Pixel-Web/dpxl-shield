@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\LoginSecurity;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Core\Options;
 
 /**
@@ -124,7 +120,7 @@ class LoginAudit {
                 'timestamp'  => current_time('mysql', true),
                 'user_login' => $userLogin,
                 'ip'         => $ip,
-                'user_agent' => substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500),
+                'user_agent' => substr(isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'])) : '', 0, 500),
                 'result'     => $result,
             ],
             ['%s', '%s', '%s', '%s', '%s']

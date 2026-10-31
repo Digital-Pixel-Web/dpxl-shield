@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Firewall;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 class RateLimiter {
 
     private const WINDOW_SECONDS = 60;
@@ -14,7 +10,7 @@ class RateLimiter {
     /** Limits: endpoint pattern → max requests per window */
     private static array $limits = [
         'login'  => 5,
-        'xmlrpc' => 3,
+        'xmlrpc' => 10,
         'rest'   => 60,
         '404'    => 20,
     ];

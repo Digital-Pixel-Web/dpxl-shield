@@ -3,13 +3,12 @@
  * Plugin Name:       DPXL Shield
  * Plugin URI:        https://digitalpixel.com.br/shieldwp/
  * Description:       Firewall, malware scanner, login protection and two-factor authentication for WordPress. Free and open source.
- * Version:           1.12.0
+ * Version:           1.12.1
  * Author:            Digital Pixel
  * Author URI:        https://digitalpixel.com.br/
- * License:           GPL-2.0-or-later
+ * License:           GPLv2 or later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       dpxl-shield
- * Domain Path:       /languages
  * Requires at least: 6.4
  * Requires PHP:      7.4
  */
@@ -20,11 +19,11 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// PHP 8 string helpers, polyfilled for the 7.4 floor. Required before anything
-// else — the code below uses str_contains() and does not wait for the autoloader.
-require_once __DIR__ . '/src/Compat/php-polyfill.php';
+// str_contains() and the other PHP 8 string helpers come from WordPress itself
+// here (wp-includes/compat.php). Before WordPress loads, Extended Protection
+// gets them from symfony/polyfill-php80 through the autoloader.
 
-define('DPXL_SHIELD_VERSION', '1.12.0');
+define('DPXL_SHIELD_VERSION', '1.12.1');
 define('DPXL_SHIELD_PATH', plugin_dir_path(__FILE__));
 define('DPXL_SHIELD_URL', plugin_dir_url(__FILE__));
 define('DPXL_SHIELD_FILE', __FILE__);
@@ -33,7 +32,7 @@ define('DPXL_SHIELD_BASENAME', plugin_basename(__FILE__));
 // Ed25519 public key (base64) that the threat feed's signed manifest is verified
 // against. The matching private key never leaves the maintainer's build/signing
 // environment and is never committed. See docs-internal/dpxl-shield-threatfeed-design.md.
-define('DPXL_SHIELD_FEED_PUBKEY', '2TfF5ZV81IHzcRUfTiDH9enjACNvDdb6q2otfuymVTw=');
+define('DPXL_SHIELD_FEED_PUBKEY', '25Fz9aoM/+2oYglwXRGew06ljgBkt79CnuhISjzGTg0=');
 
 if (!file_exists(DPXL_SHIELD_PATH . 'vendor/autoload.php')) {
     // Installed from GitHub's "Download ZIP" (source code, no dependencies)
@@ -55,9 +54,8 @@ if (!file_exists(DPXL_SHIELD_PATH . 'vendor/autoload.php')) {
 
 require_once DPXL_SHIELD_PATH . 'vendor/autoload.php';
 
-// Fatal error catcher — logs to the server's PHP error log (always writable on shared hosting)
-// AND stores in a WP option so the admin panel can display it.
-// Check the log via hPanel → Advanced → Error Logs, or look for ~/logs/error_log.
+// Fatal error catcher — PHP logs the error itself; a copy goes to a WP option so
+// the admin panel can display it.
 register_shutdown_function(static function (): void {
     $error = error_get_last();
 
@@ -71,18 +69,8 @@ register_shutdown_function(static function (): void {
         return;
     }
 
-    $msg = sprintf(
-        '[DPXL Shield Fatal] type=%d message="%s" file=%s line=%d',
-        $error['type'],
-        $error['message'],
-        $error['file'],
-        $error['line']
-    );
-
-    // Always goes to server PHP error log — visible in hPanel → Error Logs.
-    error_log($msg);
-
-    // Store in WP option so the plugin dashboard can surface it (best-effort).
+    // PHP already writes the fatal error to the server log; this keeps a copy
+    // the plugin dashboard can show.
     if (function_exists('update_option')) {
         update_option('dpxl_shield_last_fatal', [
             'message' => $error['message'],
@@ -98,7 +86,7 @@ register_shutdown_function(static function (): void {
 // in a buffer rather than being sent directly to the response stream, where they
 // would corrupt the JSON body. The buffer is cleaned in RestApi::cleanRestOutputBuffer().
 if (!defined('DPXL_SHIELD_EXTENDED_ACTIVE')) {
-    $dpxlRequestUri = $_SERVER['REQUEST_URI'] ?? '';
+    $dpxlRequestUri = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash($_SERVER['REQUEST_URI'])) : '';
     if (str_contains($dpxlRequestUri, '/wp-json/') || str_contains($dpxlRequestUri, '?rest_route=')) {
         ob_start();
     }

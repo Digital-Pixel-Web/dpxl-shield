@@ -88,8 +88,8 @@ rsync -a \
 # ── 2. Production dependencies ───────────────────────────────────────────────
 # composer.lock is copied into staging on purpose: `install` then reproduces the
 # exact versions that were tested, instead of resolving fresh at build time. The
-# lock and the manifest are dropped from the zip afterwards — they are build
-# inputs, not something a WordPress site needs.
+# lock is dropped from the zip afterwards; composer.json stays, because the
+# WordPress.org review (and Plugin Check) expect it next to a vendor/ folder.
 echo "==> composer install (--no-dev)"
 composer install \
     --working-dir="$DEST" \
@@ -99,7 +99,13 @@ composer install \
     --no-interaction \
     --quiet
 
-rm -f "$DEST/composer.lock" "$DEST/composer.json"
+rm -f "$DEST/composer.lock"
+
+# When a dist archive is unavailable Composer falls back to a git clone, which
+# leaves .git, .github and other dot files per package: tens of MB of hidden
+# files that Plugin Check rejects. None is loaded at runtime, so strip them all
+# and the zip is the same whichever way Composer fetched.
+find "$DEST/vendor" -mindepth 1 -name '.*' -prune -exec rm -rf {} +
 
 # ── 3. Trim the Dompdf font bundle ───────────────────────────────────────────
 # The PDF report renders with 'DejaVu Sans', sans-serif (src/Alerts/PdfReport.php).
@@ -154,7 +160,7 @@ for required in \
     dpxl-shield-waf.php \
     uninstall.php \
     readme.txt \
-    src/Compat/php-polyfill.php \
+    vendor/symfony/polyfill-php80/bootstrap.php \
     src/Bootstrap/Loader.php \
     vendor/autoload.php \
     assets/js/admin.js \
@@ -168,7 +174,7 @@ do
 done
 
 # And the dev-only trees must NOT be there.
-for forbidden in tests tools composer.json composer.lock phpunit.xml .git; do
+for forbidden in tests tools composer.lock phpunit.xml .git; do
     if [[ -e "$DEST/$forbidden" ]]; then
         echo "  LEAKED: $forbidden" >&2
         missing=$((missing + 1))

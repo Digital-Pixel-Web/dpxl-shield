@@ -3,10 +3,7 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Core;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
+/** Writes to the PHP error log only when WP_DEBUG is on. */
 class Logger {
 
     public static function debug(string $message, array $context = []): void {
@@ -17,6 +14,10 @@ class Logger {
     }
 
     public static function error(string $message, array $context = []): void {
+        if (!defined('WP_DEBUG') || !WP_DEBUG) {
+            return;
+        }
+
         // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
         error_log('[DPXL Shield ERROR] ' . $message . (!empty($context) ? ' ' . wp_json_encode($context) : ''));
     }

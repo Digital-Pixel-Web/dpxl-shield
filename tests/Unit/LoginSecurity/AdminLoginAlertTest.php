@@ -32,6 +32,8 @@ class AdminLoginAlertTest extends TestCase {
         $this->knownIps = [];
 
         Functions\when('wp_normalize_path')->alias(fn($p) => $p);
+        Functions\when('wp_unslash')->returnArg();
+        Functions\when('sanitize_text_field')->returnArg();
         Functions\when('current_time')->justReturn('2026-10-14 10:34:03');
         Functions\when('get_user_meta')->alias(fn($id, $key, $single) => $this->knownIps);
         Functions\when('update_user_meta')->alias(function ($id, $key, $value) {

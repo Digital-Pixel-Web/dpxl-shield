@@ -48,17 +48,23 @@ final class EarlyEvents {
         ]);
     }
 
-    /** A request the early layer answered with 403. */
-    public static function queueBlock(Request $request, string $ruleId): void {
+    /**
+     * A request the early layer answered with 403. $field is the parameter
+     * that triggered the rule, when known; $severity lets the import count it
+     * towards an automatic ban (see FirewallEngine::shouldAutoBan()).
+     */
+    public static function queueBlock(Request $request, string $ruleId, string $field = '', string $severity = ''): void {
         self::append([
-            'kind'   => 'block',
-            'ip'     => $request->ip,
-            'method' => $request->method,
-            'uri'    => $request->uri,
-            'query'  => $request->queryString,
-            'ua'     => $request->userAgent,
-            'ref'    => $request->referer,
-            'rule'   => $ruleId,
+            'kind'     => 'block',
+            'ip'       => $request->ip,
+            'method'   => $request->method,
+            'uri'      => $request->uri,
+            'query'    => $request->queryString,
+            'ua'       => $request->userAgent,
+            'ref'      => $request->referer,
+            'rule'     => $ruleId,
+            'field'    => $field,
+            'severity' => $severity,
         ]);
     }
 
@@ -126,7 +132,9 @@ final class EarlyEvents {
             }
         }
 
-        $line = json_encode($event, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+        // `<` and `>` escaped: nothing in a request can then put a PHP open tag
+        // in a file that starts with one.
+        $line = json_encode($event, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 
         if ($line === false) {
             return;

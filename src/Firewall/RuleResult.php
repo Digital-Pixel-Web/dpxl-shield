@@ -24,24 +24,33 @@ class RuleResult {
     /** @var string */
     public $severity;
 
+    /**
+     * @var string Name of the request parameter that triggered the rule, when
+     * the rule knows it (e.g. "referrer"). Empty otherwise. Logged so a false
+     * positive can be traced to the form field that caused it.
+     */
+    public $field = '';
+
     public function __construct(
         string $decision,
         string $ruleId = '',
         string $reason = '',
-        string $severity = 'low'
+        string $severity = 'low',
+        string $field = ''
     ) {
         $this->decision = $decision;
         $this->ruleId   = $ruleId;
         $this->reason   = $reason;
         $this->severity = $severity;
+        $this->field    = $field;
     }
 
     public static function pass(): self {
         return new self(Decision::PASS);
     }
 
-    public static function block(string $ruleId, string $reason, string $severity = 'high'): self {
-        return new self(Decision::BLOCK, $ruleId, $reason, $severity);
+    public static function block(string $ruleId, string $reason, string $severity = 'high', string $field = ''): self {
+        return new self(Decision::BLOCK, $ruleId, $reason, $severity, $field);
     }
 
     public static function challenge(string $ruleId, string $reason): self {

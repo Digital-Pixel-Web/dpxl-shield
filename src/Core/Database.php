@@ -6,7 +6,7 @@ namespace DPXL\Shield\Core;
 class Database {
 
     private const SCHEMA_VERSION_OPTION = 'dpxl_shield_db_version';
-    private const SCHEMA_VERSION = '1.2.0';
+    private const SCHEMA_VERSION = '1.3.0';
 
     public static function createTables(): void {
         global $wpdb;
@@ -175,6 +175,7 @@ class Database {
                 referer       TEXT,
                 waf_action    ENUM('pass','block','challenge','log_only') NOT NULL DEFAULT 'pass',
                 waf_rule_id   VARCHAR(50),
+                waf_field     VARCHAR(64),
                 response_time FLOAT,
                 is_bot        TINYINT(1)      NOT NULL DEFAULT 0,
                 country       VARCHAR(2),

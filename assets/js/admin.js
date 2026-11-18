@@ -1471,7 +1471,9 @@
             ['Response',   row.status_code],
             ['User-Agent', row.user_agent],
             ['WAF Result', row.waf_action],
-        ].map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('');
+            ['WAF Rule',   row.waf_rule_id || ''],
+            ['Field',      row.waf_field || ''],
+        ].filter(([k, v]) => !((k === 'WAF Rule' || k === 'Field') && !v)).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('');
 
         const blockBtn = document.getElementById('modal-btn-block');
         if (blockBtn) blockBtn.onclick = () => {

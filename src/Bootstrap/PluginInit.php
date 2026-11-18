@@ -72,7 +72,33 @@ class PluginInit {
                 );
             } elseif ($event['kind'] === 'block') {
                 TrafficLogger::logEarlyBlock($event);
+                self::countEarlyStrike($event);
             }
+        }
+    }
+
+    /**
+     * Strikes for rule blocks made before WordPress loaded. There are no
+     * transients there, so the early layer only bans on a critical match
+     * (queued as a 'ban' event); repeated lesser blocks are counted here, the
+     * same way FirewallEngine counts them inside WordPress.
+     *
+     * @param array<string,mixed> $event
+     */
+    private static function countEarlyStrike(array $event): void {
+        $rule     = (string) ($event['rule'] ?? '');
+        $severity = (string) ($event['severity'] ?? '');
+
+        // Blocklist and rate-limit hits are not rule matches (rate limits
+        // already queue their own ban), and critical matches were banned early.
+        if ($rule === '' || $severity === '' || $severity === 'critical' || in_array($rule, ['ip-blocklist', 'rate-limit'], true)) {
+            return;
+        }
+
+        $result = \DPXL\Shield\Firewall\RuleResult::block($rule, 'WAF rule ' . $rule . ' (Extended Protection)', $severity);
+
+        if (FirewallEngine::shouldAutoBan((string) $event['ip'], $result)) {
+            \DPXL\Shield\Firewall\IpBlocklist::blockIp((string) $event['ip'], $result->reason, 'auto_waf', 3600);
         }
     }
 
@@ -105,13 +131,19 @@ class PluginInit {
         TrafficLogger::setWafResult($result);
 
         if ($result->decision === 'block') {
-            self::denyRequest();
+            self::denyRequest($result->ruleId);
         }
     }
 
-    private static function denyRequest(): void {
+    private static function denyRequest(string $ruleId = ''): void {
+        $ref = Loader::ruleReference($ruleId);
+
         if (!headers_sent()) {
             header('X-DPXL-Shield: blocked');
+
+            if ($ref !== '') {
+                header('X-DPXL-Shield-Rule: ' . $ref);
+            }
         }
 
         // XML-RPC and REST requests get a bare 403. wp_die() hands XML-RPC to a
@@ -125,7 +157,7 @@ class PluginInit {
                 header('Content-Type: text/plain; charset=utf-8');
             }
 
-            echo 'Forbidden';
+            echo esc_html($ref !== '' ? 'Forbidden (ref: ' . $ref . ')' : 'Forbidden');
             exit;
         }
 
@@ -133,8 +165,14 @@ class PluginInit {
         // every blocked request (WordPress 6.7+).
         $translate = did_action('init') > 0;
 
+        $message = esc_html($translate ? __('Your request has been blocked by DPXL Shield.', 'dpxl-shield') : 'Your request has been blocked by DPXL Shield.');
+
+        if ($ref !== '') {
+            $message .= '<br><small>ref: ' . esc_html($ref) . '</small>';
+        }
+
         wp_die(
-            esc_html($translate ? __('Your request has been blocked by DPXL Shield.', 'dpxl-shield') : 'Your request has been blocked by DPXL Shield.'),
+            $message,
             esc_html($translate ? __('403 Forbidden', 'dpxl-shield') : '403 Forbidden'),
             ['response' => 403]
         );
@@ -197,7 +235,9 @@ class PluginInit {
         // Keep the pre-WordPress config in step with the settings it mirrors.
         $mirrored = ['firewall_enabled', 'rate_limit_login', 'rate_limit_xmlrpc', 'rate_limit_rest', 'allowlisted_uris'];
         $refresh  = static function (string $option) use ($mirrored): void {
-            if (in_array(substr($option, strlen('dpxl_shield_')), $mirrored, true) && str_starts_with($option, 'dpxl_shield_')) {
+            // home/siteurl feed the site's own hosts (rfi-001 trusts links back to the site).
+            if ($option === 'home' || $option === 'siteurl'
+                || (in_array(substr($option, strlen('dpxl_shield_')), $mirrored, true) && str_starts_with($option, 'dpxl_shield_'))) {
                 EarlyConfig::writeConfig();
             }
         };

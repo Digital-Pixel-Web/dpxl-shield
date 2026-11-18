@@ -2,6 +2,14 @@
 
 Histórico completo de versões do DPXL Shield. O `readme.txt` traz só as versões recentes, como pede o diretório do WordPress.org.
 
+## 1.12.2
+
+* **Corrigido: a regra rfi-001 bloqueava formulários do Elementor para quem chegava por link com UTM.** O Elementor Pro manda a URL da página no campo `referrer` em todo envio, e a regra casava qualquer URL com `=`. O visitante de anúncio recebia 403, o lead se perdia e nada aparecia no log. Encontrado num site real onde o tráfego pago ficou quase um mês sem conseguir enviar o formulário. Agora a regra só olha valores que *começam* com a URL, ignora o domínio do próprio site (e subdomínios), trata campos que carregam URL por natureza (`referrer`, `_wp_http_referer`, `redirect_to`, `url`, `link`…) bloqueando só host IP, e no resto exige cara de código remoto: arquivo `.txt`/`.inc`/`.phtml`, `.php` sem query, FTP, `?` no fim ou byte nulo.
+* **Alterado: um bloqueio isolado não bane mais o IP por 1 hora.** O banimento automático precisa de 3 bloqueios em 10 minutos, ou de uma regra de severidade crítica (código PHP ofuscado, funções de shell). Vale dentro do WordPress e na Proteção Estendida: lá os bloqueios comuns são contados quando a fila de eventos é importada. A requisição continua sendo bloqueada sempre. Sem isso, desde a 1.12.1 um falso positivo antes do WordPress também bania o visitante.
+* **Novo: o log de tráfego guarda o campo que disparou a regra**, também nos bloqueios da Proteção Estendida, e o detalhe da requisição mostra regra e campo.
+* **Novo: o 403 mostra `ref: <regra>`** e manda o header `X-DPXL-Shield-Rule`, tanto antes quanto dentro do WordPress.
+* O `early-config.php` passa a levar os domínios do site (`home` e `siteurl`) e é regravado sozinho na atualização e quando esses endereços mudam. A fila de eventos escapa `<` e `>`.
+
 ## 1.12.1
 
 * **Alterado: os arquivos que o plugin grava em funcionamento saíram da pasta do plugin** e foram para `wp-content/uploads/dpxl-shield/` (configuração do firewall, lista de bloqueio, atualizações de regras, base de países, fila de eventos e backups de reparo). Antes, cada atualização do plugin apagava tudo isso. Exigência do diretório do WordPress.org.

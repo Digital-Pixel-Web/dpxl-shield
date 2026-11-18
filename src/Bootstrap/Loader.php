@@ -48,7 +48,11 @@ class Loader {
         $result   = $engine->evaluate($request);
 
         if ($result->decision === 'block') {
-            \DPXL\Shield\Firewall\EarlyEvents::queueBlock($request, (string) $result->ruleId);
+            // No database yet: queued for the next request that loads
+            // WordPress, which writes it to Live Traffic with the rule and the
+            // field that triggered it.
+            \DPXL\Shield\Firewall\EarlyEvents::queueBlock($request, (string) $result->ruleId, (string) $result->field, (string) $result->severity);
+
             self::sendBlockResponse($result->ruleId, $result->reason);
         }
 
@@ -123,17 +127,38 @@ class Loader {
     }
 
     private static function sendBlockResponse(string $ruleId, string $reason): void {
-        http_response_code(403);
-        header('Content-Type: text/html; charset=utf-8');
-        header('X-DPXL-Shield: blocked');
+        $ref = self::ruleReference($ruleId);
 
-        // Minimal HTML — no WordPress, no assets.
+        if (!headers_sent()) {
+            http_response_code(403);
+            header('Content-Type: text/html; charset=utf-8');
+            header('Cache-Control: no-store');
+            header('X-DPXL-Shield: blocked');
+
+            if ($ref !== '') {
+                header('X-DPXL-Shield-Rule: ' . $ref);
+            }
+        }
+
+        // Minimal HTML — no WordPress, no assets. The rule ID (not the reason,
+        // which would teach an attacker what to change) lets whoever reports
+        // the block say which rule fired.
         echo '<!DOCTYPE html><html><head><title>403 Forbidden</title></head><body>';
         echo '<h1>Access Denied</h1>';
         echo '<p>Your request has been blocked by DPXL Shield.</p>';
+
+        if ($ref !== '') {
+            echo '<p><small>ref: ' . htmlspecialchars($ref, ENT_QUOTES, 'UTF-8') . '</small></p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped with htmlspecialchars(): esc_html() does not exist before WordPress loads.
+        }
+
         echo '</body></html>';
 
         exit;
+    }
+
+    /** A rule ID safe for a header and the page: letters, digits, dot, dash, underscore. */
+    public static function ruleReference(string $ruleId): string {
+        return substr((string) preg_replace('/[^A-Za-z0-9._-]/', '', $ruleId), 0, 50);
     }
 
     public static function getStartTime(): float {

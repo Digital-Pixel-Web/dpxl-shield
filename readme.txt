@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, two-factor authentication, brute forc
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.12.1
+Stable tag: 1.12.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -183,6 +183,12 @@ Privately, through GitHub: [Report a vulnerability](https://github.com/Digital-P
 
 == Changelog ==
 
+= 1.12.2 =
+* Fixed: the remote file inclusion rule (rfi-001) blocked Elementor forms, and any form that posts the page address, for visitors who arrived through a link with UTM parameters. The rule now ignores links to the site's own domain and fields that carry a URL by design, and only blocks URLs that point to remote code.
+* Changed: a single firewall block no longer bans the visitor's IP for an hour, before or inside WordPress. The ban needs three blocks in ten minutes, or a critical match.
+* New: Live Traffic records the form field that triggered a rule, and the request details show the rule and the field.
+* New: the 403 page and the `X-DPXL-Shield-Rule` header name the rule that blocked the request.
+
 = 1.12.1 =
 * Changed: files the plugin writes at runtime moved from the plugin folder to `wp-content/uploads/dpxl-shield/`. Plugin updates no longer wipe the rule updates, the country database or the firewall config.
 * Changed: file repair downloads original core files from WordPress.org (`core.svn.wordpress.org`) instead of a GitHub mirror.
@@ -227,6 +233,9 @@ Privately, through GitHub: [Report a vulnerability](https://github.com/Digital-P
 * New: email on every administrator login.
 
 == Upgrade Notice ==
+
+= 1.12.2 =
+Fixes a firewall false positive that blocked Elementor form submissions from visitors arriving through ad links (UTM parameters). Update as soon as possible.
 
 = 1.12.1 =
 Runtime files move to wp-content/uploads/dpxl-shield, so updates no longer reset the rule updates and the country database.

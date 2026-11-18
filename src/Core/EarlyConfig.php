@@ -27,6 +27,13 @@ final class EarlyConfig {
     /** Upper bound for the blocklist snapshot, so the file stays cheap to include. */
     private const MAX_BLOCKED = 20000;
 
+    /**
+     * Bumped when the config gains a key the firewall reads, so ensure()
+     * rewrites a file left by an older version. 2 = site_hosts (rfi-001).
+     */
+    private const CONFIG_VERSION        = 2;
+    private const CONFIG_VERSION_OPTION = 'dpxl_shield_early_config_version';
+
     /** Test hook: points the files somewhere disposable. */
     private static ?string $dataDirOverride = null;
 
@@ -111,10 +118,19 @@ final class EarlyConfig {
         self::writeBlocklist();
     }
 
-    /** Writes the files only if one is missing — e.g. on the first request after an install. */
+    /**
+     * Writes the files if one is missing — e.g. on the first request after an
+     * install — or if the config predates a key the firewall now reads.
+     */
     public static function ensure(): void {
         if (!is_file(self::configPath()) || !is_file(self::blockedIpsPath())) {
             self::writeAll();
+
+            return;
+        }
+
+        if ((int) get_option(self::CONFIG_VERSION_OPTION, 0) < self::CONFIG_VERSION) {
+            self::writeConfig();
         }
     }
 
@@ -144,10 +160,38 @@ final class EarlyConfig {
                 'rest'   => (int) Options::get('rate_limit_rest', 60),
             ],
             'allowlisted_uris' => array_values(array_map('strval', (array) Options::get('allowlisted_uris', []))),
+            'site_hosts'       => self::siteHosts(),
+            'config_version'   => self::CONFIG_VERSION,
             'generated_at'     => time(),
         ];
 
-        return self::write(self::configPath(), $config);
+        $written = self::write(self::configPath(), $config);
+
+        if ($written) {
+            update_option(self::CONFIG_VERSION_OPTION, self::CONFIG_VERSION, true);
+        }
+
+        return $written;
+    }
+
+    /**
+     * Host names of the site itself (home and siteurl), for the pre-WordPress
+     * firewall, which cannot call home_url().
+     *
+     * @return string[]
+     */
+    private static function siteHosts(): array {
+        $hosts = [];
+
+        foreach ([function_exists('home_url') ? home_url() : '', function_exists('site_url') ? site_url() : ''] as $url) {
+            $host = strtolower((string) wp_parse_url((string) $url, PHP_URL_HOST));
+
+            if ($host !== '') {
+                $hosts[$host] = true;
+            }
+        }
+
+        return array_keys($hosts);
     }
 
     public static function writeBlocklist(): bool {

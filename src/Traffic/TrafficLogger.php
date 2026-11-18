@@ -22,6 +22,7 @@ class TrafficLogger {
     private static float  $startTime   = 0.0;
     private static string $wafAction   = 'pass';
     private static string $wafRuleId   = '';
+    private static string $wafField    = '';
     private static bool   $initialized = false;
     private static bool   $skipLog     = false;
 
@@ -39,6 +40,7 @@ class TrafficLogger {
     public static function setWafResult(RuleResult $result): void {
         self::$wafAction = $result->decision;
         self::$wafRuleId = $result->ruleId ?? '';
+        self::$wafField  = $result->field ?? '';
     }
 
     /** Suppress logging for the current request (e.g. cron, asset requests). */
@@ -98,11 +100,12 @@ class TrafficLogger {
                 'referer'       => $referer,
                 'waf_action'    => self::$wafAction,
                 'waf_rule_id'   => self::$wafRuleId ?: null,
+                'waf_field'     => self::$wafField !== '' ? substr(self::$wafField, 0, 64) : null,
                 'response_time' => $responseTime,
                 'is_bot'        => $isBot,
                 'country'       => $country ?: null,
             ],
-            ['%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%f', '%d', '%s']
+            ['%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%f', '%d', '%s']
         );
     }
 
@@ -135,13 +138,14 @@ class TrafficLogger {
                 'referer'       => ((string) ($event['ref'] ?? '')) ?: null,
                 'waf_action'    => 'block',
                 'waf_rule_id'   => ((string) ($event['rule'] ?? '')) ?: null,
+                'waf_field'     => substr((string) ($event['field'] ?? ''), 0, 64) ?: null,
                 'response_time' => 0,
                 'is_bot'        => (new TrafficClassifier())->isBot($userAgent, $ip) ? 1 : 0,
                 'country'       => $country ?: null,
                 // `timestamp` keeps its database default, like every other row:
                 // the import runs on the next WordPress request, seconds later.
             ],
-            ['%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%f', '%d', '%s']
+            ['%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%f', '%d', '%s']
         );
     }
 

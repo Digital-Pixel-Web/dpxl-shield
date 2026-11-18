@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Alerts;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 /**
  * Shared data collector for the periodic security report.
  *
@@ -39,7 +35,7 @@ class ReportData {
             'monthly' => '-30 days',
         ];
 
-        $since = date('Y-m-d H:i:s', strtotime($windows[$freq] ?? '-7 days'));
+        $since = gmdate('Y-m-d H:i:s', strtotime($windows[$freq] ?? '-7 days'));
 
         $logTable     = $wpdb->prefix . 'dpxl_shield_traffic_log';
         $loginTable   = $wpdb->prefix . 'dpxl_shield_login_events';

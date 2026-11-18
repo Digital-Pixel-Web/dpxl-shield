@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Bootstrap;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Firewall\FirewallEngine;
 use DPXL\Shield\Firewall\Request;
 
@@ -26,7 +22,7 @@ class Loader {
             return;
         }
 
-        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        $uri = $_SERVER['REQUEST_URI'] ?? ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- raw on purpose: the firewall decides on the request as sent, before WordPress loads.
 
         // Admin screens, the login screen and API calls carrying a login cookie
         // are not judged here: a forged cookie looks exactly like a real one
@@ -52,10 +48,10 @@ class Loader {
         $result   = $engine->evaluate($request);
 
         if ($result->decision === 'block') {
-            // No database yet: the block goes to a file the next WordPress
-            // request moves into Live Traffic. Without it a false positive here
-            // was invisible.
-            \DPXL\Shield\Firewall\EarlyBlockLog::record($dataDir, $request, $result);
+            // No database yet: queued for the next request that loads
+            // WordPress, which writes it to Live Traffic with the rule and the
+            // field that triggered it.
+            \DPXL\Shield\Firewall\EarlyEvents::queueBlock($request, (string) $result->ruleId, (string) $result->field, (string) $result->severity);
 
             self::sendBlockResponse($result->ruleId, $result->reason);
         }
@@ -88,9 +84,9 @@ class Loader {
         }
     }
 
-    /** data/ next to the plugin, where EarlyConfig writes. */
+    /** The data folder EarlyConfig writes to (uploads/dpxl-shield). */
     private static function defaultDataDir(): string {
-        return dirname(__DIR__, 2) . '/data';
+        return \DPXL\Shield\Core\EarlyConfig::dataDir();
     }
 
     private static function locateConfig(): ?string {
@@ -152,7 +148,7 @@ class Loader {
         echo '<p>Your request has been blocked by DPXL Shield.</p>';
 
         if ($ref !== '') {
-            echo '<p><small>ref: ' . htmlspecialchars($ref, ENT_QUOTES, 'UTF-8') . '</small></p>';
+            echo '<p><small>ref: ' . htmlspecialchars($ref, ENT_QUOTES, 'UTF-8') . '</small></p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped with htmlspecialchars(): esc_html() does not exist before WordPress loads.
         }
 
         echo '</body></html>';

@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Alerts;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 /**
  * Shared HTML shell for every email DPXL Shield sends.
  *
@@ -57,50 +53,48 @@ class EmailTemplate {
                 . esc_html__('DPXL Shield settings', 'dpxl-shield') . '</a>'
         );
 
-        return <<<HTML
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-          <meta name="color-scheme" content="light">
-          <title>{$safeTitle}</title>
-        </head>
-        <body style="margin:0;padding:0;background:#f0f0f1;-webkit-font-smoothing:antialiased;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f0f0f1;">
-            <tr>
-              <td align="center" style="padding:32px 16px;">
-                <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #dcdcde;border-radius:10px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-
-                  <tr>
-                    <td style="background:#1d2327;padding:18px 28px;">
-                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                        <tr>
-                          <td style="font-size:14px;font-weight:700;letter-spacing:.16em;color:#ffffff;">DPXL <span style="color:#8c9196;font-weight:400;">SHIELD</span></td>
-                          <td align="right" style="font-size:12px;color:#8c9196;">{$host}</td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-
-                  <tr><td style="height:3px;line-height:3px;font-size:0;background:{$accent};">&nbsp;</td></tr>
-
-                  <tr><td style="padding:28px;">{$content}</td></tr>
-
-                  <tr>
-                    <td style="padding:18px 28px;background:#f6f7f7;border-top:1px solid #f0f0f1;font-size:12px;line-height:1.7;color:#787c82;">
-                      {$sentBy}
-                      <br>{$manage}{$footerNote}
-                    </td>
-                  </tr>
-
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-        </html>
-        HTML;
+        return '<!DOCTYPE html>' . "\n"
+            . '<html>' . "\n"
+            . '<head>' . "\n"
+            . '  <meta charset="UTF-8">' . "\n"
+            . '  <meta name="viewport" content="width=device-width, initial-scale=1">' . "\n"
+            . '  <meta name="color-scheme" content="light">' . "\n"
+            . '  <title>' . $safeTitle . '</title>' . "\n"
+            . '</head>' . "\n"
+            . '<body style="margin:0;padding:0;background:#f0f0f1;-webkit-font-smoothing:antialiased;">' . "\n"
+            . '  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f0f0f1;">' . "\n"
+            . '    <tr>' . "\n"
+            . '      <td align="center" style="padding:32px 16px;">' . "\n"
+            . '        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #dcdcde;border-radius:10px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;">' . "\n"
+            . "\n"
+            . '          <tr>' . "\n"
+            . '            <td style="background:#1d2327;padding:18px 28px;">' . "\n"
+            . '              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">' . "\n"
+            . '                <tr>' . "\n"
+            . '                  <td style="font-size:14px;font-weight:700;letter-spacing:.16em;color:#ffffff;">DPXL <span style="color:#8c9196;font-weight:400;">SHIELD</span></td>' . "\n"
+            . '                  <td align="right" style="font-size:12px;color:#8c9196;">' . $host . '</td>' . "\n"
+            . '                </tr>' . "\n"
+            . '              </table>' . "\n"
+            . '            </td>' . "\n"
+            . '          </tr>' . "\n"
+            . "\n"
+            . '          <tr><td style="height:3px;line-height:3px;font-size:0;background:' . $accent . ';">&nbsp;</td></tr>' . "\n"
+            . "\n"
+            . '          <tr><td style="padding:28px;">' . $content . '</td></tr>' . "\n"
+            . "\n"
+            . '          <tr>' . "\n"
+            . '            <td style="padding:18px 28px;background:#f6f7f7;border-top:1px solid #f0f0f1;font-size:12px;line-height:1.7;color:#787c82;">' . "\n"
+            . '              ' . $sentBy . "\n"
+            . '              <br>' . $manage . $footerNote . "\n"
+            . '            </td>' . "\n"
+            . '          </tr>' . "\n"
+            . "\n"
+            . '        </table>' . "\n"
+            . '      </td>' . "\n"
+            . '    </tr>' . "\n"
+            . '  </table>' . "\n"
+            . '</body>' . "\n"
+            . '</html>';
     }
 
     /** Bulletproof-ish CTA button. */

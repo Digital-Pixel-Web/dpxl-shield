@@ -18,18 +18,9 @@
         </div>
 
         <?php
-        // Required attribution: DPXL Shield redistributes the GeoLite2 database
-        // through its update feed, which makes MaxMind's attribution clause apply
-        // to us. Must stay visible wherever the geo data is used.
+        // Credit required by the licence of the country database the feed
+        // delivers. Must stay visible wherever the geo data is used.
         ?>
-        <p class="dpxl-attribution">
-            <?php
-            printf(
-                /* translators: %s: MaxMind website link. */
-                esc_html__('This product includes GeoLite2 data created by MaxMind, available from %s.', 'dpxl-shield'),
-                '<a href="https://www.maxmind.com" target="_blank" rel="noopener noreferrer">https://www.maxmind.com</a>'
-            );
-            ?>
-        </p>
+        <p class="dpxl-attribution"><?php echo wp_kses_post(\DPXL\Shield\Firewall\CountryBlocker::attributionHtml()); ?></p>
     </div>
 </div>

@@ -3,19 +3,13 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Firewall;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use MaxMind\Db\Reader;
 use DPXL\Shield\Core\Logger;
 
 /**
- * Country-based blocking / allow-listing via MaxMind GeoLite2.
- *
- * Requires the GeoLite2-Country.mmdb database file in the plugin's data/
- * directory. The database is ~6 MB and must be downloaded separately
- * (MaxMind requires a free account).
+ * Country-based blocking / allow-listing from an IP-to-country database in
+ * MaxMind DB format (country.mmdb in the data folder, delivered by the threat
+ * feed — see GeoDbUpdater).
  *
  * Modes:
  *   'block'  → block every IP whose country is in the list
@@ -121,6 +115,29 @@ class CountryBlocker {
             : null;
     }
 
+    /**
+     * The credit line the database's licence asks for, as safe HTML. Which
+     * database is installed is recorded from the feed manifest (`source`):
+     * DB-IP Lite (CC BY 4.0) or, on older feeds, MaxMind GeoLite2.
+     */
+    public static function attributionHtml(): string {
+        $source = function_exists('get_option') ? (string) get_option('dpxl_shield_geo_db_source', '') : '';
+
+        if ($source === 'dbip') {
+            return sprintf(
+                /* translators: %s: DB-IP website link. */
+                esc_html__('IP geolocation by %s, licensed under CC BY 4.0.', 'dpxl-shield'),
+                '<a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">DB-IP</a>'
+            );
+        }
+
+        return sprintf(
+            /* translators: %s: MaxMind website link. */
+            esc_html__('This product includes GeoLite2 data created by MaxMind, available from %s.', 'dpxl-shield'),
+            '<a href="https://www.maxmind.com" target="_blank" rel="noopener noreferrer">https://www.maxmind.com</a>'
+        );
+    }
+
     public static function isDatabasePresent(): bool {
         return file_exists(self::mmdbPath());
     }
@@ -202,10 +219,9 @@ class CountryBlocker {
         ];
     }
 
-    private static function mmdbPath(): string {
-        return defined('DPXL_SHIELD_PATH')
-            ? DPXL_SHIELD_PATH . 'data/GeoLite2-Country.mmdb'
-            : __DIR__ . '/../../data/GeoLite2-Country.mmdb';
+    /** The IP-to-country database the threat feed delivers, in the data folder. */
+    public static function mmdbPath(): string {
+        return \DPXL\Shield\Core\EarlyConfig::dataDir() . '/country.mmdb';
     }
 
     /**

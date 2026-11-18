@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Firewall\Rules;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Firewall\Request;
 use DPXL\Shield\Firewall\RuleResult;
 
@@ -77,7 +73,7 @@ class RfiRule extends AbstractRule {
             $host = (string) $host;
 
             if (str_contains($host, '://')) {
-                $host = (string) parse_url($host, PHP_URL_HOST);
+                $host = (string) parse_url($host, PHP_URL_HOST); // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- runs before WordPress loads.
             }
 
             $host = self::normaliseHost($host);
@@ -173,8 +169,8 @@ class RfiRule extends AbstractRule {
             return 'Remote File Inclusion attempt (suffix truncation)';
         }
 
-        $path  = (string) parse_url($value, PHP_URL_PATH);
-        $query = (string) parse_url($value, PHP_URL_QUERY);
+        $path  = (string) parse_url($value, PHP_URL_PATH); // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- runs before WordPress loads.
+        $query = (string) parse_url($value, PHP_URL_QUERY); // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- runs before WordPress loads.
 
         if ($this->matchesPattern(self::CODE_EXTENSION, $path)) {
             return 'Remote File Inclusion attempt (remote code file)';
@@ -189,7 +185,7 @@ class RfiRule extends AbstractRule {
 
     /** Host part of a URL, honouring user-info ("http://a.com@evil.com/"). '' when unparseable. */
     private static function hostOf(string $url): string {
-        $host = @parse_url($url, PHP_URL_HOST);
+        $host = @parse_url($url, PHP_URL_HOST); // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- runs before WordPress loads.
 
         if (is_string($host) && $host !== '') {
             return self::normaliseHost($host);

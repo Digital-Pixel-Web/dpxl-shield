@@ -57,7 +57,7 @@ class ToolsTabsTest extends TestCase {
     private static function navTabs(): array {
         $source = (string) file_get_contents(dirname(__DIR__, 3) . '/src/Admin/Views/tools.php');
 
-        $start = strpos($source, '$toolTabs = [');
+        $start = strpos($source, '$dpxlToolTabs = [');
         $end   = $start === false ? false : strpos($source, '];', $start);
 
         return $start === false || $end === false ? [] : self::slugs(substr($source, $start, $end - $start));

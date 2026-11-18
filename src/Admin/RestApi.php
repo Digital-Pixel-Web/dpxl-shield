@@ -55,8 +55,8 @@ class RestApi {
             $stray = ob_get_contents();
             ob_clean();
 
-            if ($stray && defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[DPXL Shield] REST pre-response output suppressed: ' . substr(wp_strip_all_tags((string) $stray), 0, 500));
+            if ($stray) {
+                \DPXL\Shield\Core\Logger::debug('REST pre-response output suppressed: ' . substr(wp_strip_all_tags((string) $stray), 0, 500));
             }
         }
     }
@@ -160,9 +160,9 @@ class RestApi {
         $scanTable  = $wpdb->prefix . 'dpxl_shield_scan_results';
 
         $now      = current_time('mysql', true);
-        $day      = date('Y-m-d H:i:s', strtotime('-24 hours'));
-        $week     = date('Y-m-d H:i:s', strtotime('-7 days'));
-        $month    = date('Y-m-d H:i:s', strtotime('-30 days'));
+        $day      = gmdate('Y-m-d H:i:s', strtotime('-24 hours'));
+        $week     = gmdate('Y-m-d H:i:s', strtotime('-7 days'));
+        $month    = gmdate('Y-m-d H:i:s', strtotime('-30 days'));
 
         // Blocks per type for the three windows, in one grouped pass. The per-type
         // rows and the Total are folded from the same rows on purpose: through
@@ -217,7 +217,7 @@ class RestApi {
             ARRAY_A
         ) ?? [];
 
-        // Top blocked countries (last 7 days). Empty until the GeoLite2 database
+        // Top blocked countries (last 7 days). Empty until the country database
         // is present so TrafficLogger can geolocate — the widget shows an empty
         // state rather than spinning.
         $topCountries = $wpdb->get_results(
@@ -237,7 +237,7 @@ class RestApi {
             'recent_logins' => $recentLogins,
             'attack_chart'  => $attackChart,
             'top_countries' => $topCountries,
-            'geoip_ready'   => file_exists((defined('DPXL_SHIELD_PATH') ? DPXL_SHIELD_PATH : '') . 'data/GeoLite2-Country.mmdb'),
+            'geoip_ready'   => \DPXL\Shield\Firewall\CountryBlocker::isDatabasePresent(),
             'extended_mode' => defined('DPXL_SHIELD_EXTENDED_ACTIVE'),
             'modules'       => $this->moduleCoverage($severeIssues),
             // Kept for anything still reading the old shape. They are the
@@ -645,8 +645,10 @@ class RestApi {
         $ip      = sanitize_text_field($request->get_param('ip')     ?? '');
         $url     = sanitize_text_field($request->get_param('url')    ?? '');
 
-        $where  = [];
-        $values = [];
+        // Starts with an always-true placeholder so both queries below go
+        // through prepare() even with no filter set.
+        $where  = ['id > %d'];
+        $values = [0];
 
         // Mirrors TrafficClassifier::classify(). Only is_bot is persisted, so
         // 'suspicious' is derived from the stored user_agent (absent UA) and the
@@ -665,7 +667,7 @@ class RestApi {
         if ($ip)  { $where[] = 'ip = %s'; $values[] = $ip; }
         if ($url) { $where[] = 'uri LIKE %s'; $values[] = '%' . $wpdb->esc_like($url) . '%'; }
 
-        $wc  = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+        $wc  = 'WHERE ' . implode(' AND ', $where);
         $tbl = $wpdb->prefix . 'dpxl_shield_traffic_log';
 
         // Kept before $limit/$offset are appended: the COUNT below repeats the same
@@ -680,12 +682,10 @@ class RestApi {
             ARRAY_A
         ) ?? [];
 
-        // $wc carries the %s placeholders of the ip / uri filters. Without prepare
-        // they reached the database verbatim, the COUNT failed, get_var returned
-        // null and the total came back as 0 for every filtered request.
-        $countSql = "SELECT COUNT(*) FROM {$tbl} {$wc}";
-        $total    = (int) $wpdb->get_var(
-            $whereValues === [] ? $countSql : $wpdb->prepare($countSql, ...$whereValues)
+        // $wc carries the placeholders of the filters, so the COUNT is
+        // prepared with the same values.
+        $total = (int) $wpdb->get_var(
+            $wpdb->prepare("SELECT COUNT(*) FROM {$tbl} {$wc}", ...$whereValues)
         );
 
         return rest_ensure_response(['items' => $rows, 'total' => $total]);
@@ -1290,7 +1290,7 @@ class RestApi {
         ) ?? [];
 
         $settings = [];
-        $skip     = ['_site_check_enc_key', '_site_check_timeout_shwp'];
+        $skip     = ['integrity_key', 'integrity_store'];
 
         // Credentials are reported as set / not set, never echoed back: a
         // settings read should not be a way to copy API keys and webhook secrets.
@@ -1323,7 +1323,7 @@ class RestApi {
 
         // Internal state is written by the plugin itself, never by the form.
         $protected = [
-            '_site_check_enc_key', '_site_check_timeout_shwp',
+            'integrity_key', 'integrity_store',
             'file_checksums', 'integrity_baseline_at', 'integrity_version', 'integrity_violation',
             'known_ips', 'db_version', 'migrations_done', 'webhook_endpoints', 'webhook_status',
         ];

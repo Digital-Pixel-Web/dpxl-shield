@@ -3,22 +3,24 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Threat;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Core\Options;
+use DPXL\Shield\Firewall\CountryBlocker;
 
 /**
- * Auto-installs and keeps the MaxMind GeoLite2 Country database fresh, so
- * geolocation works on every install with no manual upload.
+ * Auto-installs and keeps the IP-to-country database fresh, so geolocation
+ * works on every install with no manual upload.
  *
- * Wordfence ships geo data automatically; so do we — through the same signed
- * feed. Digital Pixel holds one MaxMind account, publishes the gzipped .mmdb as
- * a release asset, and lists it in the signed manifest. This updater downloads
- * it, verifies the SHA-256 against that manifest (whose signature the plugin
- * already trusts), gunzips, and writes it atomically. The daily check also keeps
- * the database under MaxMind's 30-day freshness rule automatically.
+ * The database comes through the same signed feed as the rules: the gzipped
+ * .mmdb is a release asset listed in the signed manifest. This updater
+ * downloads it, verifies the SHA-256 against that manifest (whose signature
+ * the plugin already trusts), gunzips, and writes it atomically. It is data
+ * read by the MaxMind DB reader, never code.
+ *
+ * The feed carries DB-IP's "IP to Country Lite" (CC BY 4.0, free to
+ * redistribute with credit). The manifest names it in `artifacts.geo_db.source`
+ * ("dbip"), which picks the credit line shown in the admin. Older feeds carried
+ * MaxMind GeoLite2, whose licence does not allow redistributing it to other
+ * sites without a commercial licence.
  *
  * The DB is a ~9 MB binary, so — unlike the JSON feed — it is never bundled in
  * the plugin zip nor committed to git; it lives only as a release asset and on
@@ -27,7 +29,7 @@ use DPXL\Shield\Core\Options;
 class GeoDbUpdater {
 
     private const MAX_DB_BYTES = 33554432; // 32 MB (compressed download ceiling)
-    private const MIN_DB_BYTES = 100000;   // a real GeoLite2 DB is several MB
+    private const MIN_DB_BYTES = 100000;   // a real country DB is several MB
     private const MAXMIND_MARKER = "\xab\xcd\xefMaxMind.com";
 
     public const OK              = 'ok';
@@ -56,7 +58,7 @@ class GeoDbUpdater {
 
         $this->manifestUrl  = $manifestUrl ?? ($configured !== '' ? $configured : ThreatFeedUpdater::DEFAULT_MANIFEST_URL);
         $this->publicKeyB64 = $publicKeyB64 ?? FeedVerifier::defaultPublicKey();
-        $this->dbPath       = $dbPath ?? ((defined('DPXL_SHIELD_PATH') ? DPXL_SHIELD_PATH : '') . 'data/GeoLite2-Country.mmdb');
+        $this->dbPath       = $dbPath ?? CountryBlocker::mmdbPath();
     }
 
     /** Runs the update. Returns one of the status constants. */
@@ -131,6 +133,7 @@ class GeoDbUpdater {
 
         Options::set('geo_db_sha', (string) $artifact['sha256']);
         Options::set('geo_db_version', (string) ($artifact['db_version'] ?? ''));
+        Options::set('geo_db_source', (string) ($artifact['source'] ?? ''));
 
         return self::OK;
     }

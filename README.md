@@ -147,6 +147,8 @@ composer check        # verificação de compatibilidade com PHP 7.4 + testes
 tools/build-zip.sh    # gera o pacote de release em ../dpxl-shield-<versão>.zip
 ```
 
+Para lançar uma versão: atualize a versão em `dpxl-shield.php` (cabeçalho e `DPXL_SHIELD_VERSION`) e o `Stable tag` do `readme.txt`, escreva a seção no `CHANGELOG.md` e crie a tag (`git tag v1.12.1 && git push origin v1.12.1`). O GitHub Actions roda os testes, gera o zip e publica a release com o arquivo `dpxl-shield.zip`.
+
 O código fica em `src/`, organizado por módulo (`Firewall`, `Scanner`, `LoginSecurity`, `Alerts`…). Os testes usam PHPUnit e Brain Monkey e rodam sem WordPress instalado.
 
 Encontrou uma falha de segurança? Não abra uma issue pública: use o relato privado em [Security → Report a vulnerability](https://github.com/Digital-Pixel-Web/dpxl-shield/security/advisories/new) (veja [SECURITY.md](SECURITY.md)).

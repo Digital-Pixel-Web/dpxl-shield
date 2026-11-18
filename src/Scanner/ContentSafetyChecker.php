@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Scanner;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 /**
  * Scans WordPress post content for injected malicious links/iframes/scripts.
  *
@@ -22,7 +18,11 @@ class ContentSafetyChecker {
         '\\.loan$', '\\.click$', '\\.top$',
     ];
 
-    /** Widely used embed/script hosts that should not create noise. */
+    /**
+     * Widely used embed/script hosts that should not create noise. Host names
+     * the scanner compares post content against; nothing is loaded from them.
+     */
+    // phpcs:disable PluginCheck.CodeAnalysis.Offloading.OffloadedContent -- a list of host names, not assets.
     private const ALLOWED_EXTERNAL_HOST_PARTS = [
         'youtube.com', 'youtu.be', 'vimeo.com', 'player.vimeo.com',
         'google.com', 'googleapis.com', 'gstatic.com', 'googletagmanager.com', 'google-analytics.com',
@@ -30,6 +30,7 @@ class ContentSafetyChecker {
         'cloudflare.com', 'cdnjs.cloudflare.com', 'jsdelivr.net', 'unpkg.com',
         'wordpress.com', 'wp.com', 'gravatar.com',
     ];
+    // phpcs:enable
 
     /** Scan all published posts and pages. */
     public function scanAllContent(): \Generator {
@@ -188,7 +189,7 @@ class ContentSafetyChecker {
                 continue;
             }
 
-            $host = strtolower((string) (parse_url($href, PHP_URL_HOST) ?? ''));
+            $host = strtolower((string) (wp_parse_url($href, PHP_URL_HOST) ?? ''));
 
             if ($host === '') {
                 continue;
@@ -206,8 +207,8 @@ class ContentSafetyChecker {
     }
 
     private function isInternalUrl(string $url): bool {
-        $siteHost = strtolower((string) (parse_url(get_option('siteurl'), PHP_URL_HOST) ?? ''));
-        $host     = strtolower((string) (parse_url($url, PHP_URL_HOST) ?? ''));
+        $siteHost = strtolower((string) (wp_parse_url(get_option('siteurl'), PHP_URL_HOST) ?? ''));
+        $host     = strtolower((string) (wp_parse_url($url, PHP_URL_HOST) ?? ''));
 
         if ($host === '') {
             return true;
@@ -217,7 +218,7 @@ class ContentSafetyChecker {
     }
 
     private function isAllowedExternalHost(string $url): bool {
-        $host = strtolower((string) (parse_url($url, PHP_URL_HOST) ?? ''));
+        $host = strtolower((string) (wp_parse_url($url, PHP_URL_HOST) ?? ''));
 
         if ($host === '') {
             return true;

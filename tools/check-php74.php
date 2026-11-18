@@ -27,9 +27,9 @@ use PhpParser\ParserFactory;
 /**
  * PHP 8.0+ functions that parse fine on 7.4 but fatal when called.
  *
- * The three string helpers are shipped as polyfills in src/Compat/php-polyfill.php,
- * which both entry points require before anything else — so calls to them are
- * safe and are only reported when that file goes missing.
+ * The three string helpers come from symfony/polyfill-php80 (and from WordPress
+ * itself once it has loaded), so calls to them are safe and are only reported
+ * when the polyfill goes missing.
  */
 const PHP8_FUNCTIONS = [
     'array_is_list'  => '8.1',
@@ -38,14 +38,14 @@ const PHP8_FUNCTIONS = [
     'get_debug_type' => '8.0',
 ];
 
-/** Covered by src/Compat/php-polyfill.php. */
+/** Covered by symfony/polyfill-php80. */
 const POLYFILLED_FUNCTIONS = [
     'str_contains'    => '8.0',
     'str_starts_with' => '8.0',
     'str_ends_with'   => '8.0',
 ];
 
-const POLYFILL_FILE = __DIR__ . '/../src/Compat/php-polyfill.php';
+const POLYFILL_FILE = __DIR__ . '/../vendor/symfony/polyfill-php80/bootstrap.php';
 
 final class Php74Visitor extends NodeVisitorAbstract {
 

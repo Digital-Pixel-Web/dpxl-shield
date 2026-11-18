@@ -15,7 +15,7 @@ class ServerDetector {
     public const UNKNOWN   = 'unknown';
 
     public static function detect(): string {
-        $software = strtolower($_SERVER['SERVER_SOFTWARE'] ?? '');
+        $software = strtolower(isset($_SERVER['SERVER_SOFTWARE']) ? sanitize_text_field(wp_unslash($_SERVER['SERVER_SOFTWARE'])) : '');
 
         // LiteSpeed must be checked before Apache because some LiteSpeed
         // builds also include "Apache" in the SERVER_SOFTWARE string.

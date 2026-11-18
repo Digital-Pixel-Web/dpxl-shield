@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Traffic;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 /**
  * Enhanced bot detection: user-agent fingerprint + behavioural signals.
  *
@@ -46,7 +42,7 @@ class BotDetector {
         }
 
         // No Accept header (most browsers send it).
-        $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+        $accept = isset($_SERVER['HTTP_ACCEPT']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_ACCEPT'])) : '';
 
         if (empty($accept)) {
             $signals[]   = 'no_accept_header';
@@ -54,7 +50,7 @@ class BotDetector {
         }
 
         // No Accept-Language header.
-        $lang = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
+        $lang = isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_ACCEPT_LANGUAGE'])) : '';
 
         if (empty($lang)) {
             $signals[]   = 'no_accept_language';
@@ -62,7 +58,7 @@ class BotDetector {
         }
 
         // Non-standard HTTP method.
-        $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+        $method = strtoupper(isset($_SERVER['REQUEST_METHOD']) ? sanitize_key(wp_unslash($_SERVER['REQUEST_METHOD'])) : 'GET');
 
         if (!in_array($method, ['GET', 'POST', 'HEAD'], true)) {
             $signals[]   = 'unusual_method';

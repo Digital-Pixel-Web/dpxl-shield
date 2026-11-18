@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Audit;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Core\Logger;
 use DPXL\Shield\Core\Options;
 
@@ -158,23 +154,27 @@ class AuditLog {
 
         if (!empty($filters['event_type'])) {
             $where[]  = 'event_type LIKE %s';
-            $values[] = $filters['event_type'] . '%';
+            $values[] = $wpdb->esc_like((string) $filters['event_type']) . '%';
         }
 
         $whereClause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
         $limit       = (int) ($filters['limit']  ?? 50);
         $offset      = (int) ($filters['offset'] ?? 0);
 
-        $sql = "SELECT id, timestamp, event_type, severity, actor_ip, actor_user, description, context
-                FROM {$table}
-                {$whereClause}
-                ORDER BY id DESC
-                LIMIT %d OFFSET %d";
-
         $values[] = $limit;
         $values[] = $offset;
 
-        return $wpdb->get_results($wpdb->prepare($sql, ...$values), ARRAY_A) ?? [];
+        return $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT id, timestamp, event_type, severity, actor_ip, actor_user, description, context
+                 FROM {$table}
+                 {$whereClause}
+                 ORDER BY id DESC
+                 LIMIT %d OFFSET %d",
+                ...$values
+            ),
+            ARRAY_A
+        ) ?? [];
     }
 
     // ── Internal ───────────────────────────────────────────────────────────

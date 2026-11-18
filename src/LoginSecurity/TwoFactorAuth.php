@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\LoginSecurity;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Core\Options;
 use DPXL\Shield\Core\Logger;
 
@@ -87,6 +83,9 @@ class TwoFactorAuth {
         // what the login form asked for, so the 2FA step can finish it.
         $token = bin2hex(random_bytes(32));
 
+        // Runs inside wp_authenticate_user, after core's login form handling;
+        // the login form has no nonce (core's design), so these are read as-is.
+        // phpcs:disable WordPress.Security.NonceVerification
         $redirectTo = isset($_REQUEST['redirect_to']) ? wp_sanitize_redirect(wp_unslash((string) $_REQUEST['redirect_to'])) : '';
 
         set_transient(self::PENDING_TRANSIENT . $token, [
@@ -94,6 +93,7 @@ class TwoFactorAuth {
             'remember'    => !empty($_POST['rememberme']),
             'redirect_to' => $redirectTo,
         ], self::PENDING_TTL);
+        // phpcs:enable WordPress.Security.NonceVerification
 
         // Set cookie so the 2FA form can retrieve the pending user.
         setcookie(self::PENDING_COOKIE, $token, [
@@ -141,7 +141,7 @@ class TwoFactorAuth {
      * Handles both rendering the form and processing the POST submission.
      */
     public function handleTwoFactorPage(): void {
-        $token   = (string) ($_COOKIE[self::PENDING_COOKIE] ?? '');
+        $token   = isset($_COOKIE[self::PENDING_COOKIE]) ? sanitize_key(wp_unslash($_COOKIE[self::PENDING_COOKIE])) : '';
         $pending = $token !== '' ? get_transient(self::PENDING_TRANSIENT . $token) : false;
         $userId  = is_array($pending) ? (int) ($pending['user_id'] ?? 0) : (int) $pending;
 
@@ -158,7 +158,7 @@ class TwoFactorAuth {
             exit;
         }
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $this->processSubmission($user, $token, is_array($pending) ? $pending : []);
             return;
         }
@@ -170,7 +170,7 @@ class TwoFactorAuth {
     private function processSubmission(\WP_User $user, string $token, array $pending = []): void {
         check_admin_referer('dpxl_2fa_verify');
 
-        $code = sanitize_text_field($_POST['dpxl_2fa_code'] ?? '');
+        $code = isset($_POST['dpxl_2fa_code']) ? sanitize_text_field(wp_unslash($_POST['dpxl_2fa_code'])) : '';
         $code = preg_replace('/\s+/', '', $code);
 
         $valid = $this->verifyCode($user->ID, $code)
@@ -186,6 +186,9 @@ class TwoFactorAuth {
             $attempts = (int) get_transient(self::ATTEMPTS_TRANSIENT . $token) + 1;
             set_transient(self::ATTEMPTS_TRANSIENT . $token, $attempts, self::PENDING_TTL);
 
+            // Core's own hook, fired as wp_signon() would, so other plugins
+            // (and our brute-force counter) see the failed second factor.
+            // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core hook.
             do_action('wp_login_failed', $user->user_login, new \WP_Error('dpxl_2fa_invalid', __('Invalid authentication code.', 'dpxl-shield')));
 
             if ($attempts >= self::MAX_ATTEMPTS) {
@@ -207,7 +210,8 @@ class TwoFactorAuth {
         setcookie(self::PENDING_COOKIE, '', time() - 3600, COOKIEPATH, COOKIE_DOMAIN);
 
         wp_set_auth_cookie($user->ID, !empty($pending['remember']) || !empty($_POST['rememberme']));
-        do_action('wp_login', $user->user_login, $user);
+        // The login completes here instead of in wp_signon(), so core's hook is fired here too.
+        do_action('wp_login', $user->user_login, $user); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core hook.
 
         $redirect = !empty($pending['redirect_to'])
             ? (string) $pending['redirect_to']
@@ -261,7 +265,7 @@ class TwoFactorAuth {
                     printf(
                         /* translators: %d = number of remaining codes */
                         esc_html__('Backup codes remaining: %d', 'dpxl-shield'),
-                        BackupCodes::remainingCount($user->ID)
+                        absint(BackupCodes::remainingCount($user->ID))
                     );
                     ?>
                 </small>
@@ -325,9 +329,13 @@ class TwoFactorAuth {
     }
 
     public function handleProfileSave(int $userId): void {
-        if (!isset($_POST['dpxl_2fa_action'])) {
+        if (!isset($_POST['dpxl_2fa_action'])) { // phpcs:ignore WordPress.Security.NonceVerification.Missing -- checked on the next line.
             return;
         }
+
+        // Core verified this nonce before firing the profile-update hook;
+        // checked again so the action never depends on where it is called from.
+        check_admin_referer('update-user_' . $userId);
 
         $action = sanitize_key($_POST['dpxl_2fa_action']);
 

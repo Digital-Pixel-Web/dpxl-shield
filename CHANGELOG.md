@@ -2,14 +2,26 @@
 
 Histórico completo de versões do DPXL Shield. O `readme.txt` traz só as versões recentes, como pede o diretório do WordPress.org.
 
+## 1.12.2
+
+* **Corrigido: a regra rfi-001 bloqueava formulários do Elementor para quem chegava por link com UTM.** O Elementor Pro manda a URL da página no campo `referrer` em todo envio, e a regra casava qualquer URL com `=`. O visitante de anúncio recebia 403, o lead se perdia e nada aparecia no log. Encontrado num site real onde o tráfego pago ficou quase um mês sem conseguir enviar o formulário. Agora a regra só olha valores que *começam* com a URL, ignora o domínio do próprio site (e subdomínios), trata campos que carregam URL por natureza (`referrer`, `_wp_http_referer`, `redirect_to`, `url`, `link`…) bloqueando só host IP, e no resto exige cara de código remoto: arquivo `.txt`/`.inc`/`.phtml`, `.php` sem query, FTP, `?` no fim ou byte nulo.
+* **Alterado: um bloqueio isolado não bane mais o IP por 1 hora.** O banimento automático precisa de 3 bloqueios em 10 minutos, ou de uma regra de severidade crítica (código PHP ofuscado, funções de shell). Vale dentro do WordPress e na Proteção Estendida: lá os bloqueios comuns são contados quando a fila de eventos é importada. A requisição continua sendo bloqueada sempre. Sem isso, desde a 1.12.1 um falso positivo antes do WordPress também bania o visitante.
+* **Novo: o log de tráfego guarda o campo que disparou a regra**, também nos bloqueios da Proteção Estendida, e o detalhe da requisição mostra regra e campo.
+* **Novo: o 403 mostra `ref: <regra>`** e manda o header `X-DPXL-Shield-Rule`, tanto antes quanto dentro do WordPress.
+* O `early-config.php` passa a levar os domínios do site (`home` e `siteurl`) e é regravado sozinho na atualização e quando esses endereços mudam. A fila de eventos escapa `<` e `>`.
+
 ## 1.12.1
 
-* **Corrigido: a regra rfi-001 bloqueava formulários do Elementor para quem chegava por link com UTM.** O Elementor Pro manda a URL da página no campo `referrer` em todo envio, e a regra casava qualquer URL com `=`. O visitante de anúncio recebia 403, o lead se perdia e nada aparecia no log. Encontrado num site real onde o tráfego pago ficou quase um mês sem conseguir enviar o formulário. Agora a regra só olha valores que *começam* com a URL, ignora o domínio do próprio site (e subdomínios), trata campos que carregam URL por natureza (`referrer`, `_wp_http_referer`, `redirect_to`, `url`, `link`…) bloqueando só host IP, e no resto exige cara de código remoto: arquivo `.txt`/`.inc`/`.phtml`, `.php` sem query, `?` no fim ou byte nulo.
-* **Novo: bloqueios da Proteção Estendida aparecem no Tráfego ao vivo.** Antes do WordPress não existe banco, então o bloqueio vai para `data/early-blocks.php` (PHP que sai na primeira linha, pasta fechada para a web) e a próxima requisição que carrega o WordPress move as linhas para o log de tráfego.
-* **Novo: o log de tráfego guarda o campo que disparou a regra**, e o detalhe da requisição mostra regra e campo.
-* **Novo: o 403 mostra `ref: <regra>`** e manda o header `X-DPXL-Shield-Rule`, tanto antes quanto dentro do WordPress.
-* **Alterado: um bloqueio isolado não bane mais o IP por 1 hora.** O banimento automático precisa de 3 bloqueios em 10 minutos, ou de uma regra de severidade crítica (código PHP ofuscado, funções de shell). A requisição continua sendo bloqueada sempre.
-* O `early-config.php` passa a levar os domínios do site (`home` e `siteurl`) e é regravado sozinho na atualização e quando esses endereços mudam.
+* **Alterado: os arquivos que o plugin grava em funcionamento saíram da pasta do plugin** e foram para `wp-content/uploads/dpxl-shield/` (configuração do firewall, lista de bloqueio, atualizações de regras, base de países, fila de eventos e backups de reparo). Antes, cada atualização do plugin apagava tudo isso. Exigência do diretório do WordPress.org.
+* **Alterado: o reparo de arquivos do core baixa o original do próprio WordPress.org** (`core.svn.wordpress.org`) em vez de um espelho no GitHub.
+* **Alterado: a base de países passa a ser a IP to Country Lite da DB-IP** (CC BY 4.0, que permite redistribuir). A GeoLite2 da MaxMind não pode ser repassada a outros sites sem licença comercial. O crédito exibido acompanha a base instalada.
+* **Alterado: o feed assinado de regras mudou para `Digital-Pixel-Web/dpxl-shield-rules`**, junto do plugin, e passou a ser assinado com uma chave Ed25519 nova.
+* **Alterado:** as cópias da autoproteção usam nomes com o prefixo do plugin (antes `_site_check_*` e `wp-content/.shieldwp-integrity`) e são comparadas como JSON, sem `unserialize`.
+* **Alterado:** erros só vão para o log do PHP com `WP_DEBUG` ligado.
+* **Corrigido:** com a Proteção Estendida, bloqueios feitos antes do WordPress banem o IP e aparecem no Tráfego ao vivo.
+* **Corrigido:** sem APCu, o detector de anomalias conta URLs distintas, então requisições repetidas ao mesmo endpoint não são mais tratadas como varredura. O Tráfego ao vivo ignora o WP-CLI.
+* **Alterado:** limite do XML-RPC de 3 para 10 requisições por minuto.
+* **Código:** correções do que o Plugin Check aponta (escape de saída, sanitização de entrada, consultas preparadas, funções de arquivo do WordPress). `readme.txt` ganhou a seção "External services".
 
 ## 1.12.0
 

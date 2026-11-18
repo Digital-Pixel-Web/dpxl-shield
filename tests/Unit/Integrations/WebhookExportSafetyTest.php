@@ -43,7 +43,7 @@ class WebhookExportSafetyTest extends TestCase {
     public function testExistingExclusionsAreStillInPlace(): void {
         $excluded = $this->excludedOptions();
 
-        $this->assertContains('_site_check_enc_key', $excluded);
-        $this->assertContains('_site_check_timeout_shwp', $excluded);
+        $this->assertContains('integrity_key', $excluded);
+        $this->assertContains('integrity_store', $excluded);
     }
 }

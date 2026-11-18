@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Tools;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Core\Options;
 use DPXL\Shield\Firewall\IpBlocklist;
 use DPXL\Shield\Firewall\AllowlistManager;
@@ -52,8 +48,8 @@ class ImportExport {
      * for every site at once.
      */
     private const EXCLUDED_OPTS = [
-        '_site_check_enc_key',
-        '_site_check_timeout_shwp',
+        'integrity_key',
+        'integrity_store',
         'webhook_endpoints',
         'webhook_status',
         'spamhaus_dqs_key',
@@ -95,7 +91,7 @@ class ImportExport {
 
         $filename = sprintf(
             'dpxl-shield-export-%s-%s.json',
-            parse_url(get_option('siteurl'), PHP_URL_HOST) ?: 'site',
+            wp_parse_url((string) get_option('siteurl'), PHP_URL_HOST) ?: 'site',
             gmdate('Ymd-His')
         );
 

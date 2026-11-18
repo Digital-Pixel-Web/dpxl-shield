@@ -7,7 +7,7 @@ use Brain\Monkey;
 use Brain\Monkey\Functions;
 use DPXL\Shield\Bootstrap\Loader;
 use DPXL\Shield\Firewall\Decision;
-use DPXL\Shield\Firewall\EarlyBlockLog;
+use DPXL\Shield\Firewall\EarlyEvents;
 use DPXL\Shield\Firewall\FirewallEngine;
 use DPXL\Shield\Firewall\IpBlocklist;
 use DPXL\Shield\Firewall\Request;
@@ -25,8 +25,6 @@ class RfiFalsePositiveRegressionTest extends TestCase {
 
     /** @var array<string,int> */
     private array $transients = [];
-
-    private string $tmpDir = '';
 
     protected function setUp(): void {
         parent::setUp();
@@ -57,10 +55,7 @@ class RfiFalsePositiveRegressionTest extends TestCase {
         $ref->setAccessible(true);
         $ref->setValue(null, null);
 
-        if ($this->tmpDir !== '') {
-            array_map('unlink', glob($this->tmpDir . '/*') ?: []);
-            @rmdir($this->tmpDir);
-        }
+        @unlink(EarlyEvents::path());
 
         RfiRule::setSiteHosts([]);
         $_GET = $_POST = $_COOKIE = [];
@@ -176,29 +171,36 @@ class RfiFalsePositiveRegressionTest extends TestCase {
 
     // ── Pre-WordPress block log and 403 reference ───────────────────────────
 
-    public function testEarlyBlocksAreRecordedWithRuleAndField(): void {
-        $this->tmpDir = sys_get_temp_dir() . '/dpxl-early-' . bin2hex(random_bytes(4));
-        mkdir($this->tmpDir);
+    public function testEarlyBlocksAreQueuedWithRuleFieldAndSeverity(): void {
+        @unlink(EarlyEvents::path());
 
         $request = $this->post('/lp/?x=<?php system(1); ?>', ['file' => 'http://evil.com/shell.txt']);
-        $result  = RuleResult::block('rfi-001', 'Remote File Inclusion attempt', 'high', 'file');
 
-        $this->assertTrue(EarlyBlockLog::record($this->tmpDir, $request, $result));
-        $this->assertTrue(EarlyBlockLog::record($this->tmpDir, $request, $result));
+        EarlyEvents::queueBlock($request, 'rfi-001', 'file', 'high');
 
-        $path = $this->tmpDir . '/' . EarlyBlockLog::FILENAME;
-        $raw  = (string) file_get_contents($path);
+        $raw = (string) file_get_contents(EarlyEvents::path());
 
-        $this->assertStringStartsWith('<?php exit; ?>', $raw);
         $this->assertSame(1, substr_count($raw, '<?'), 'request data must never produce a PHP open tag');
 
-        $entries = EarlyBlockLog::readEntries($path);
+        $events = EarlyEvents::drain();
 
-        $this->assertCount(2, $entries);
-        $this->assertSame('rfi-001', $entries[0]['rule']);
-        $this->assertSame('file', $entries[0]['field']);
-        $this->assertSame('/lp/?x=<?php system(1); ?>', $entries[0]['uri']);
-        $this->assertSame('198.51.100.20', $entries[0]['ip']);
+        $this->assertCount(1, $events);
+        $this->assertSame('rfi-001', $events[0]['rule']);
+        $this->assertSame('file', $events[0]['field']);
+        $this->assertSame('high', $events[0]['severity']);
+        $this->assertSame('/lp/?x=<?php system(1); ?>', $events[0]['uri']);
+    }
+
+    public function testEarlyHighSeverityBlockQueuesNoBan(): void {
+        @unlink(EarlyEvents::path());
+
+        // $wpdb is null here, as before WordPress loads, so a ban would be
+        // queued. A single rule block must not queue one, as 1.12.1 did.
+        $request = $this->post('/', ['file' => 'http://evil.com/shell.txt']);
+        $result  = $this->engine()->evaluate($request);
+
+        $this->assertSame(Decision::BLOCK, $result->decision);
+        $this->assertSame([], array_values(array_filter(EarlyEvents::drain(), static fn($e) => $e['kind'] === 'ban')));
     }
 
     public function testRuleReferenceIsHeaderSafe(): void {

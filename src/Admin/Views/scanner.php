@@ -41,7 +41,7 @@
     <div class="dpxl-card" id="scan-progress-card">
         <div class="dpxl-stepper" id="stages-bar">
             <?php
-            $stages = [
+            $dpxlStages = [
                 'spam_check'    => 'Spam',
                 'block_check'   => 'Blocklist',
                 'server_state'  => 'Servidor',
@@ -52,10 +52,10 @@
                 'password_audit'=> 'Senhas',
                 'vulnerability' => 'Vulnerab.',
             ];
-            foreach ($stages as $id => $label) : ?>
+            foreach ($dpxlStages as $id => $dpxlLabel) : ?>
                 <div class="dpxl-step" id="stage-<?php echo esc_attr($id); ?>" data-state="pending">
                     <span class="dpxl-step__icon"></span>
-                    <span class="dpxl-step__label"><?php echo esc_html($label); ?></span>
+                    <span class="dpxl-step__label"><?php echo esc_html($dpxlLabel); ?></span>
                 </div>
             <?php endforeach; ?>
         </div>

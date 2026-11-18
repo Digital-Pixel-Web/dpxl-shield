@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Firewall\Rules;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 /**
  * Loads data-driven WAF rules from the active feed file.
  *
@@ -31,9 +27,7 @@ class RuleRepository {
 
     /** Absolute path to the active feed file, or null to use the default location. */
     private static function defaultPath(): string {
-        $base = defined('DPXL_SHIELD_PATH') ? DPXL_SHIELD_PATH : '';
-
-        return $base . 'data/waf-rules.active.json';
+        return \DPXL\Shield\Core\EarlyConfig::dataDir() . '/waf-rules.active.json';
     }
 
     /**

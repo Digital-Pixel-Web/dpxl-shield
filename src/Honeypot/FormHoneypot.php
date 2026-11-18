@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Honeypot;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Firewall\IpBlocklist;
 
 /**
@@ -105,7 +101,9 @@ class FormHoneypot {
     // ── Internal ───────────────────────────────────────────────────────────
 
     private function isFilled(): bool {
-        return self::isTriggered($_POST);
+        // Read-only look at whether a hidden field was filled, on forms that
+        // have no nonce of their own (login, registration, comments).
+        return self::isTriggered($_POST); // phpcs:ignore WordPress.Security.NonceVerification.Missing
     }
 
     /**
@@ -121,7 +119,7 @@ class FormHoneypot {
 
     private function blockBotIp(string $context): void {
         $ip  = $this->resolveIp();
-        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        $uri = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash($_SERVER['REQUEST_URI'])) : '';
 
         IpBlocklist::blockIp($ip, "Bot detected via {$context}", 'auto_honeypot', HOUR_IN_SECONDS);
 

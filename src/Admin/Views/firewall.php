@@ -1,16 +1,16 @@
 <?php defined('ABSPATH') || exit;
 use DPXL\Shield\Bootstrap\AutoPrepend;
 
-$tab  = sanitize_key($_GET['tab'] ?? 'firewall');
+$tab  = sanitize_key($_GET['tab'] ?? 'firewall'); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only: picks which tab or notice to show.
 $tabs = ['firewall', 'blocking'];
 $tab  = in_array($tab, $tabs, true) ? $tab : 'firewall';
 
-$autoPrepend        = new AutoPrepend();
-$extendedStatus     = $autoPrepend->getStatus();
-$downloadBackupUrl  = wp_nonce_url(admin_url('admin-post.php?action=dpxl_shield_download_htaccess_backup'), 'dpxl_shield_download_htaccess_backup');
-$enableExtendedUrl  = admin_url('admin-post.php');
-$backupDownloaded   = !empty($extendedStatus['htaccess_backup_downloaded']);
-$extendedActive     = !empty($extendedStatus['active']);
+$dpxlAutoPrepend        = new AutoPrepend();
+$dpxlExtendedStatus     = $dpxlAutoPrepend->getStatus();
+$dpxlDownloadBackupUrl  = wp_nonce_url(admin_url('admin-post.php?action=dpxl_shield_download_htaccess_backup'), 'dpxl_shield_download_htaccess_backup');
+$dpxlEnableExtendedUrl  = admin_url('admin-post.php');
+$dpxlBackupDownloaded   = !empty($dpxlExtendedStatus['htaccess_backup_downloaded']);
+$dpxlExtendedActive     = !empty($dpxlExtendedStatus['active']);
 ?>
 <div class="wrap dpxl-wrap" id="dpxl-firewall">
     <?php \DPXL\Shield\Admin\AdminMenu::renderPageTitle('Firewall do DPXL Shield'); ?>
@@ -30,15 +30,16 @@ $extendedActive     = !empty($extendedStatus['active']);
     <?php if ($tab === 'firewall') : ?>
     <div class="dpxl-tab-pane" id="tab-firewall">
         <!-- Extended Protection -->
-        <div class="dpxl-card" id="extended-protection" data-backup-downloaded="<?php echo $backupDownloaded ? '1' : '0'; ?>">
+        <div class="dpxl-card" id="extended-protection" data-backup-downloaded="<?php echo $dpxlBackupDownloaded ? '1' : '0'; ?>">
             <h2><?php \DPXL\Shield\Admin\Icons::render('shield'); ?> <?php esc_html_e('Extended Protection', 'dpxl-shield'); ?></h2>
             <p id="extended-status" class="dpxl-muted">
                 <?php
-                if ($extendedActive) {
+                if ($dpxlExtendedActive) {
                     \DPXL\Shield\Admin\Icons::render('check-circle', 'dpxl-icon--ok');
                     printf(
+                        /* translators: %s: web server software. */
                         ' ' . esc_html__('Proteção Estendida ativa — o WAF carrega antes do WordPress. Servidor: %s.', 'dpxl-shield'),
-                        esc_html((string) ($extendedStatus['server'] ?? '—'))
+                        esc_html((string) ($dpxlExtendedStatus['server'] ?? '—'))
                     );
                 } else {
                     \DPXL\Shield\Admin\Icons::render('alert-triangle', 'dpxl-icon--medium');
@@ -46,20 +47,20 @@ $extendedActive     = !empty($extendedStatus['active']);
                 }
                 ?>
             </p>
-            <?php if (!$extendedActive) : ?>
+            <?php if (!$dpxlExtendedActive) : ?>
             <p class="dpxl-muted"><?php esc_html_e('Sem ela, o firewall só entra em ação depois que o WordPress já carregou, e ataques que atingem o próprio WordPress passam antes disso. O DPXL Shield baixa uma cópia do seu .htaccess, escreve a regra auto_prepend_file e confere o resultado com uma requisição de teste. Pode começar por qualquer um dos dois botões: se o backup ainda não tiver sido baixado, ele é baixado primeiro.', 'dpxl-shield'); ?></p>
 
             <ol class="dpxl-extended-steps">
                 <li>
                     <strong><?php esc_html_e('Backup current .htaccess', 'dpxl-shield'); ?></strong>
-                    <span id="extended-backup-status" class="dpxl-step-status <?php echo $backupDownloaded ? 'is-complete' : ''; ?>">
+                    <span id="extended-backup-status" class="dpxl-step-status <?php echo $dpxlBackupDownloaded ? 'is-complete' : ''; ?>">
                         <?php
-                        echo $backupDownloaded
+                        echo $dpxlBackupDownloaded
                             ? esc_html__('Backup downloaded. Ready to apply or already applied.', 'dpxl-shield')
                             : esc_html__('Required. The automatic setup starts right after the backup download.', 'dpxl-shield');
                         ?>
                     </span>
-                    <a class="dpxl-btn" id="btn-download-htaccess" href="<?php echo esc_url($downloadBackupUrl); ?>">
+                    <a class="dpxl-btn" id="btn-download-htaccess" href="<?php echo esc_url($dpxlDownloadBackupUrl); ?>">
                         <?php esc_html_e('Download Backup & Enable', 'dpxl-shield'); ?>
                     </a>
                 </li>
@@ -70,15 +71,15 @@ $extendedActive     = !empty($extendedStatus['active']);
                         printf(
                             /* translators: %s: server label */
                             esc_html__('Detected server: %s', 'dpxl-shield'),
-                            esc_html((string) ($extendedStatus['server'] ?? 'Unknown'))
+                            esc_html((string) ($dpxlExtendedStatus['server'] ?? 'Unknown'))
                         );
                         ?>
                     </span>
-                    <form id="extended-enable-form" method="post" action="<?php echo esc_url($enableExtendedUrl); ?>" class="dpxl-inline-form">
+                    <form id="extended-enable-form" method="post" action="<?php echo esc_url($dpxlEnableExtendedUrl); ?>" class="dpxl-inline-form">
                         <input type="hidden" name="action" value="dpxl_shield_enable_extended">
                         <?php wp_nonce_field('dpxl_shield_enable_extended'); ?>
-                        <button type="submit" class="dpxl-btn dpxl-btn--primary" id="btn-enable-extended" <?php disabled($extendedActive); ?>>
-                            <?php echo $extendedActive ? esc_html__('Extended Protection Active', 'dpxl-shield') : esc_html__('Enable Extended Protection', 'dpxl-shield'); ?>
+                        <button type="submit" class="dpxl-btn dpxl-btn--primary" id="btn-enable-extended" <?php disabled($dpxlExtendedActive); ?>>
+                            <?php echo $dpxlExtendedActive ? esc_html__('Extended Protection Active', 'dpxl-shield') : esc_html__('Enable Extended Protection', 'dpxl-shield'); ?>
                         </button>
                     </form>
                 </li>
@@ -92,28 +93,28 @@ $extendedActive     = !empty($extendedStatus['active']);
             // filled the top of the screen with two completed steps, four
             // absolute paths and a manual fallback nobody needs any more. When
             // it is off, every bit of it is the point of the screen.
-            $detailsTag = $extendedActive ? 'details' : 'div';
+            $dpxlDetailsTag = $dpxlExtendedActive ? 'details' : 'div';
             ?>
-            <<?php echo $detailsTag; ?> class="dpxl-extended-details">
-            <?php if ($extendedActive) : ?>
+            <<?php echo tag_escape($dpxlDetailsTag); ?> class="dpxl-extended-details">
+            <?php if ($dpxlExtendedActive) : ?>
                 <summary><?php esc_html_e('Detalhes técnicos', 'dpxl-shield'); ?></summary>
             <?php endif; ?>
 
             <table class="dpxl-detail-table dpxl-extended-meta">
                 <tbody>
-                    <tr><td><?php esc_html_e('.htaccess path', 'dpxl-shield'); ?></td><td><code><?php echo esc_html((string) $extendedStatus['htaccess_path']); ?></code></td></tr>
-                    <tr><td><?php esc_html_e('Safe prepend loader', 'dpxl-shield'); ?></td><td><code><?php echo esc_html((string) ($extendedStatus['prepend_loader_file'] ?? '')); ?></code></td></tr>
-                    <tr><td><?php esc_html_e('Plugin WAF file', 'dpxl-shield'); ?></td><td><code><?php echo esc_html((string) $extendedStatus['waf_file']); ?></code></td></tr>
-                    <tr><td><?php esc_html_e('Writable', 'dpxl-shield'); ?></td><td id="extended-writable-status"><?php echo !empty($extendedStatus['htaccess_writable']) ? esc_html__('Sim', 'dpxl-shield') : esc_html__('Não', 'dpxl-shield'); ?></td></tr>
+                    <tr><td><?php esc_html_e('.htaccess path', 'dpxl-shield'); ?></td><td><code><?php echo esc_html((string) $dpxlExtendedStatus['htaccess_path']); ?></code></td></tr>
+                    <tr><td><?php esc_html_e('Safe prepend loader', 'dpxl-shield'); ?></td><td><code><?php echo esc_html((string) ($dpxlExtendedStatus['prepend_loader_file'] ?? '')); ?></code></td></tr>
+                    <tr><td><?php esc_html_e('Plugin WAF file', 'dpxl-shield'); ?></td><td><code><?php echo esc_html((string) $dpxlExtendedStatus['waf_file']); ?></code></td></tr>
+                    <tr><td><?php esc_html_e('Writable', 'dpxl-shield'); ?></td><td id="extended-writable-status"><?php echo !empty($dpxlExtendedStatus['htaccess_writable']) ? esc_html__('Sim', 'dpxl-shield') : esc_html__('Não', 'dpxl-shield'); ?></td></tr>
                 </tbody>
             </table>
 
             <details id="extended-manual-fallback" class="dpxl-manual-fallback">
                 <summary><?php esc_html_e('Manual configuration fallback', 'dpxl-shield'); ?></summary>
                 <p class="dpxl-muted"><?php esc_html_e('If DPXL Shield cannot update .htaccess automatically because of server permissions or hosting restrictions, add the configuration below manually and keep the downloaded .htaccess backup before changing anything. The auto_prepend_file rule should point to the safe prepend loader, not directly to the plugin folder.', 'dpxl-shield'); ?></p>
-                <pre id="extended-snippet" class="dpxl-code-block"><?php echo esc_html((string) ($extendedStatus['manual_snippet'] ?? '')); ?></pre>
+                <pre id="extended-snippet" class="dpxl-code-block"><?php echo esc_html((string) ($dpxlExtendedStatus['manual_snippet'] ?? '')); ?></pre>
             </details>
-            </<?php echo $detailsTag; ?>>
+            </<?php echo tag_escape($dpxlDetailsTag); ?>>
         </div>
 
         <!-- Status gauges -->
@@ -122,22 +123,22 @@ $extendedActive     = !empty($extendedStatus['active']);
             // A ring is for a percentage. "14 regras" and "0 IPs bloqueados"
             // are counts, and drawing them inside a full circle read as "14%
             // of something, and all of it is fine". They are plain figures now.
-            $gauges = [
+            $dpxlGauges = [
                 ['id' => 'waf',   'label' => __('WAF', 'dpxl-shield'),         'sub' => __('Web Application Firewall', 'dpxl-shield')],
                 ['id' => 'brute', 'label' => __('Força bruta', 'dpxl-shield'), 'sub' => __('Proteção de login', 'dpxl-shield')],
             ];
-            $stats = [
+            $dpxlStats = [
                 ['id' => 'rules',     'label' => __('Regras do WAF', 'dpxl-shield'),  'sub' => __('em vigor agora', 'dpxl-shield')],
                 ['id' => 'blocklist', 'label' => __('IPs bloqueados', 'dpxl-shield'), 'sub' => __('bloqueios ativos', 'dpxl-shield')],
             ];
-            foreach ($gauges as $g) : ?>
-                <div class="dpxl-gauge dpxl-gauge--sm" id="gauge-<?php echo esc_attr($g['id']); ?>">
+            foreach ($dpxlGauges as $dpxlG) : ?>
+                <div class="dpxl-gauge dpxl-gauge--sm" id="gauge-<?php echo esc_attr($dpxlG['id']); ?>">
                     <div class="dpxl-gauge__circle"><span class="dpxl-gauge__pct">—</span></div>
-                    <div class="dpxl-gauge__label"><?php echo esc_html($g['label']); ?></div>
-                    <div class="dpxl-gauge__sub"><?php echo esc_html($g['sub']); ?></div>
+                    <div class="dpxl-gauge__label"><?php echo esc_html($dpxlG['label']); ?></div>
+                    <div class="dpxl-gauge__sub"><?php echo esc_html($dpxlG['sub']); ?></div>
                 </div>
             <?php endforeach; ?>
-            <?php foreach ($stats as $s) : ?>
+            <?php foreach ($dpxlStats as $s) : ?>
                 <div class="dpxl-stat" id="stat-<?php echo esc_attr($s['id']); ?>">
                     <div class="dpxl-stat__value dpxl-stat__value--muted">—</div>
                     <div class="dpxl-stat__label"><?php echo esc_html($s['label']); ?></div>
@@ -209,16 +210,8 @@ $extendedActive     = !empty($extendedStatus['active']);
             <div id="country-list-container" class="dpxl-loading-cell"><?php esc_html_e('Loading…', 'dpxl-shield'); ?></div>
             <button class="dpxl-btn dpxl-btn--primary" id="btn-save-countries"><?php esc_html_e('Save Changes', 'dpxl-shield'); ?></button>
 
-            <?php // Required MaxMind attribution — shown where the geo data is used. ?>
-            <p class="dpxl-attribution">
-                <?php
-                printf(
-                    /* translators: %s: MaxMind website link. */
-                    esc_html__('Country data: this product includes GeoLite2 data created by MaxMind, available from %s.', 'dpxl-shield'),
-                    '<a href="https://www.maxmind.com" target="_blank" rel="noopener noreferrer">https://www.maxmind.com</a>'
-                );
-                ?>
-            </p>
+            <?php // Credit required by the country database's licence — shown where the geo data is used. ?>
+            <p class="dpxl-attribution"><?php echo wp_kses_post(\DPXL\Shield\Firewall\CountryBlocker::attributionHtml()); ?></p>
         </div>
 
         <!-- Custom pattern panel (hidden initially) -->

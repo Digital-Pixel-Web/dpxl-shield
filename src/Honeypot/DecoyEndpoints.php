@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Honeypot;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Firewall\IpBlocklist;
 
 /**
@@ -64,7 +60,7 @@ class DecoyEndpoints {
         }
 
         $ip  = $this->resolveIp();
-        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        $uri = isset($_SERVER['REQUEST_URI']) ? esc_url_raw(wp_unslash($_SERVER['REQUEST_URI'])) : '';
 
         // Block for 24 hours — decoy access is always intentional or automated.
         IpBlocklist::blockIp(
@@ -78,7 +74,7 @@ class DecoyEndpoints {
             'level'       => 'critical',
             'event_type'  => 'decoy_accessed',
             'description' => "Decoy endpoint accessed by {$ip}: {$uri}",
-            'context'     => ['ip' => $ip, 'uri' => $uri, 'method' => $_SERVER['REQUEST_METHOD'] ?? 'GET'],
+            'context'     => ['ip' => $ip, 'uri' => $uri, 'method' => isset($_SERVER['REQUEST_METHOD']) ? sanitize_key(wp_unslash($_SERVER['REQUEST_METHOD'])) : 'get'],
         ]);
 
         status_header(403);

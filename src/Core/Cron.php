@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 namespace DPXL\Shield\Core;
 
-// Direct access guard. The pre-WordPress firewall loads some of these classes
-// before ABSPATH exists, so its own marker is accepted too.
-defined('ABSPATH') || defined('DPXL_SHIELD_EXTENDED_ACTIVE') || exit;
-
 use DPXL\Shield\Scanner\ScanOrchestrator;
 use DPXL\Shield\Alerts\ActivityReport;
 use DPXL\Shield\Scanner\ReputationChecker;
@@ -149,7 +145,7 @@ class Cron {
         $status = (new ThreatFeedUpdater())->run();
         Logger::debug('Cron: threat feed update status = ' . $status);
 
-        // Same daily cadence keeps the GeoLite2 DB fresh automatically. The check
+        // Same daily cadence keeps the country DB fresh automatically. The check
         // is cheap when unchanged (only the small manifest is fetched); the ~4 MB
         // download happens only when MaxMind publishes a newer database.
         $geoStatus = (new GeoDbUpdater())->run();

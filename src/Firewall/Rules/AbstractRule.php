@@ -80,8 +80,31 @@ abstract class AbstractRule implements RuleInterface {
     }
 
     /** Builds a block result using this rule's ID. */
-    protected function block(string $reason, string $severity = 'high'): RuleResult {
-        return RuleResult::block($this->getId(), $reason, $severity);
+    protected function block(string $reason, string $severity = 'high', string $field = ''): RuleResult {
+        return RuleResult::block($this->getId(), $reason, $severity, $field);
+    }
+
+    /**
+     * Flattens parameters like flattenValues(), keeping the name of the leaf
+     * key each value came from: `form_fields[referrer]` yields "referrer".
+     *
+     * @return list<array{0:string,1:string}> [name, value] pairs
+     */
+    protected function flattenNamedValues(array $params, string $name = ''): array {
+        $pairs = [];
+
+        foreach ($params as $key => $value) {
+            if (is_array($value)) {
+                foreach ($this->flattenNamedValues($value, (string) $key) as $pair) {
+                    $pairs[] = $pair;
+                }
+            } elseif (is_scalar($value)) {
+                // A numeric key (list item) carries no meaning; keep the parent's name.
+                $pairs[] = [is_int($key) && $name !== '' ? $name : (string) $key, (string) $value];
+            }
+        }
+
+        return $pairs;
     }
 
     protected function logOnly(string $reason): RuleResult {

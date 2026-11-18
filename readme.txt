@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, two-factor authentication, brute forc
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.12.0
+Stable tag: 1.12.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -139,6 +139,12 @@ Privately, through GitHub: [Report a vulnerability](https://github.com/Digital-P
 
 == Changelog ==
 
+= 1.12.1 =
+* Fixed: the remote file inclusion rule (rfi-001) blocked Elementor forms, and any form that posts the page address, for visitors who arrived through a link with UTM parameters. The rule now ignores links to the site's own domain and fields that carry a URL by design, and only blocks URLs that point to remote code.
+* New: requests blocked by Extended Protection before WordPress loads now appear in Live Traffic, with the rule and the form field that triggered it.
+* New: the 403 page and the `X-DPXL-Shield-Rule` header name the rule that blocked the request.
+* Changed: a single firewall block no longer bans the visitor's IP for an hour. The ban needs three blocks in ten minutes, or a critical match.
+
 = 1.12.0 =
 * Security: forwarded IP headers are only trusted from known proxies (Cloudflare, local network, or `DPXL_SHIELD_TRUSTED_PROXIES`). Before, a visitor could choose their own IP to avoid lockouts or get someone else's IP blocked.
 * Security: the firewall can no longer be skipped by adding an admin path to the query string, through the anonymous `admin-ajax.php` / `admin-post.php` endpoints, or with a forged login cookie. Logged-in sessions are validated.
@@ -171,6 +177,9 @@ Privately, through GitHub: [Report a vulnerability](https://github.com/Digital-P
 * New: email on every administrator login.
 
 == Upgrade Notice ==
+
+= 1.12.1 =
+Fixes a firewall false positive that blocked Elementor form submissions from visitors arriving through ad links (UTM parameters). Update as soon as possible.
 
 = 1.12.0 =
 Important security update: fixes firewall bypasses and IP spoofing, and makes Extended Protection run its rules. Update as soon as possible.

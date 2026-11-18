@@ -40,6 +40,10 @@ class PluginInit {
         // here if a plugin update wiped data/ (two stat calls otherwise).
         \DPXL\Shield\Core\EarlyConfig::ensure();
 
+        // Blocks the pre-WordPress firewall recorded since the last request
+        // that loaded WordPress, moved into Live Traffic (one stat call when none).
+        \DPXL\Shield\Firewall\EarlyBlockLog::import(EarlyConfig::dataDir());
+
         $firewallEnabled = (bool) Options::get('firewall_enabled', true);
 
         // The in-WordPress layer always runs when the firewall is on. When the
@@ -86,11 +90,17 @@ class PluginInit {
         TrafficLogger::setWafResult($result);
 
         if ($result->decision === 'block') {
-            self::denyRequest();
+            self::denyRequest($result->ruleId);
         }
     }
 
-    private static function denyRequest(): void {
+    private static function denyRequest(string $ruleId = ''): void {
+        $ref = Loader::ruleReference($ruleId);
+
+        if ($ref !== '' && !headers_sent()) {
+            header('X-DPXL-Shield-Rule: ' . $ref);
+        }
+
         // XML-RPC and REST requests get a bare 403. wp_die() hands XML-RPC to a
         // handler that needs the XML-RPC server, which does not exist yet at
         // plugins_loaded, so the block went out as an empty HTTP 200.
@@ -102,7 +112,7 @@ class PluginInit {
                 header('Content-Type: text/plain; charset=utf-8');
             }
 
-            echo 'Forbidden';
+            echo $ref !== '' ? 'Forbidden (ref: ' . $ref . ')' : 'Forbidden';
             exit;
         }
 
@@ -110,8 +120,14 @@ class PluginInit {
         // every blocked request (WordPress 6.7+).
         $translate = did_action('init') > 0;
 
+        $message = esc_html($translate ? __('Your request has been blocked by DPXL Shield.', 'dpxl-shield') : 'Your request has been blocked by DPXL Shield.');
+
+        if ($ref !== '') {
+            $message .= '<br><small>ref: ' . esc_html($ref) . '</small>';
+        }
+
         wp_die(
-            esc_html($translate ? __('Your request has been blocked by DPXL Shield.', 'dpxl-shield') : 'Your request has been blocked by DPXL Shield.'),
+            $message,
             esc_html($translate ? __('403 Forbidden', 'dpxl-shield') : '403 Forbidden'),
             ['response' => 403]
         );
@@ -174,7 +190,9 @@ class PluginInit {
         // Keep the pre-WordPress config in step with the settings it mirrors.
         $mirrored = ['firewall_enabled', 'rate_limit_login', 'rate_limit_xmlrpc', 'rate_limit_rest', 'allowlisted_uris'];
         $refresh  = static function (string $option) use ($mirrored): void {
-            if (in_array(substr($option, strlen('dpxl_shield_')), $mirrored, true) && str_starts_with($option, 'dpxl_shield_')) {
+            // home/siteurl feed the site's own hosts (rfi-001 trusts links back to the site).
+            if ($option === 'home' || $option === 'siteurl'
+                || (in_array(substr($option, strlen('dpxl_shield_')), $mirrored, true) && str_starts_with($option, 'dpxl_shield_'))) {
                 EarlyConfig::writeConfig();
             }
         };

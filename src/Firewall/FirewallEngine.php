@@ -23,6 +23,10 @@ use DPXL\Shield\Firewall\Rules\RuleEngine;
  */
 class FirewallEngine {
 
+    /** Rule blocks from one IP within STRIKE_WINDOW that earn a ban. */
+    public const STRIKE_LIMIT  = 3;
+    public const STRIKE_WINDOW = 600;
+
     private RuleEngine $ruleEngine;
 
     /** @var string[] Trusted IPs that bypass all checks */
@@ -108,12 +112,49 @@ class FirewallEngine {
             //    by the cookie check).
             $isAdmin = function_exists('current_user_can') && current_user_can('manage_options');
 
-            if (!$isAdmin) {
+            if (!$isAdmin && self::shouldAutoBan($request->ip, $result)) {
                 IpBlocklist::blockIp($request->ip, $result->reason, 'auto_waf', 3600);
             }
         }
 
         return $result;
+    }
+
+    /**
+     * Whether a rule block should also ban the IP for an hour.
+     *
+     * One block used to mean a ban. A single false positive — a form posting
+     * the page URL as `referrer` — then locked a real visitor out of the whole
+     * site for an hour, on top of losing what they submitted. The request is
+     * still blocked every time; the ban now needs either a critical match
+     * (obfuscated PHP, shell functions: never a form field by accident) or
+     * repeated blocks, which is what a scanner produces.
+     */
+    public static function shouldAutoBan(string $ip, RuleResult $result): bool {
+        if ($result->severity === 'critical') {
+            return true;
+        }
+
+        // Strikes live in a transient: the ban itself needs the database
+        // anyway (IpBlocklist::blockIp() is a no-op before WordPress loads).
+        if (!function_exists('get_transient') || !function_exists('set_transient')) {
+            return false;
+        }
+
+        $key     = 'dpxl_shield_waf_strikes_' . md5($ip);
+        $strikes = (int) get_transient($key) + 1;
+
+        if ($strikes >= self::STRIKE_LIMIT) {
+            if (function_exists('delete_transient')) {
+                delete_transient($key);
+            }
+
+            return true;
+        }
+
+        set_transient($key, $strikes, self::STRIKE_WINDOW);
+
+        return false;
     }
 
     /**
@@ -185,13 +226,27 @@ class FirewallEngine {
     }
 
     private function loadConfig(): void {
-        if (!file_exists($this->configFile)) {
-            return;
-        }
-
-        $config = @include $this->configFile;
+        $config = file_exists($this->configFile) ? @include $this->configFile : null;
 
         if (!is_array($config)) {
+            $config = [];
+        }
+
+        // The site's own domains, so rfi-001 never mistakes a link back to the
+        // site (a form's `referrer`, a redirect) for remote file inclusion.
+        $siteHosts = !empty($config['site_hosts']) && is_array($config['site_hosts']) ? $config['site_hosts'] : [];
+
+        if (function_exists('home_url')) {
+            $siteHosts[] = (string) home_url();
+        }
+
+        if (function_exists('site_url')) {
+            $siteHosts[] = (string) site_url();
+        }
+
+        \DPXL\Shield\Firewall\Rules\RfiRule::setSiteHosts($siteHosts);
+
+        if ($config === []) {
             return;
         }
 

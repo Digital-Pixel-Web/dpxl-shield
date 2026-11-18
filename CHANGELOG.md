@@ -2,6 +2,15 @@
 
 Histórico completo de versões do DPXL Shield. O `readme.txt` traz só as versões recentes, como pede o diretório do WordPress.org.
 
+## 1.12.1
+
+* **Corrigido: a regra rfi-001 bloqueava formulários do Elementor para quem chegava por link com UTM.** O Elementor Pro manda a URL da página no campo `referrer` em todo envio, e a regra casava qualquer URL com `=`. O visitante de anúncio recebia 403, o lead se perdia e nada aparecia no log. Encontrado num site real onde o tráfego pago ficou quase um mês sem conseguir enviar o formulário. Agora a regra só olha valores que *começam* com a URL, ignora o domínio do próprio site (e subdomínios), trata campos que carregam URL por natureza (`referrer`, `_wp_http_referer`, `redirect_to`, `url`, `link`…) bloqueando só host IP, e no resto exige cara de código remoto: arquivo `.txt`/`.inc`/`.phtml`, `.php` sem query, `?` no fim ou byte nulo.
+* **Novo: bloqueios da Proteção Estendida aparecem no Tráfego ao vivo.** Antes do WordPress não existe banco, então o bloqueio vai para `data/early-blocks.php` (PHP que sai na primeira linha, pasta fechada para a web) e a próxima requisição que carrega o WordPress move as linhas para o log de tráfego.
+* **Novo: o log de tráfego guarda o campo que disparou a regra**, e o detalhe da requisição mostra regra e campo.
+* **Novo: o 403 mostra `ref: <regra>`** e manda o header `X-DPXL-Shield-Rule`, tanto antes quanto dentro do WordPress.
+* **Alterado: um bloqueio isolado não bane mais o IP por 1 hora.** O banimento automático precisa de 3 bloqueios em 10 minutos, ou de uma regra de severidade crítica (código PHP ofuscado, funções de shell). A requisição continua sendo bloqueada sempre.
+* O `early-config.php` passa a levar os domínios do site (`home` e `siteurl`) e é regravado sozinho na atualização e quando esses endereços mudam.
+
 ## 1.12.0
 
 * **Segurança: IP do visitante não pode mais ser falsificado.** Cabeçalhos como `X-Forwarded-For` e `CF-Connecting-IP` só são aceitos de proxies confiáveis (Cloudflare, rede local ou a constante `DPXL_SHIELD_TRUSTED_PROXIES`). Antes, qualquer visitante escolhia o próprio IP para escapar de bloqueios ou fazer o IP de outra pessoa ser bloqueado.

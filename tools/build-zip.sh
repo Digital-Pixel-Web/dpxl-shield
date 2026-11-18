@@ -81,6 +81,7 @@ rsync -a \
     --exclude '/data/*.mmdb' \
     --exclude '/data/blocked-ips.php' \
     --exclude '/data/early-config.php' \
+    --exclude '/data/early-blocks*.php' \
     --exclude '*.zip' \
     --exclude '.DS_Store' \
     "$PLUGIN_DIR/" "$DEST/"
